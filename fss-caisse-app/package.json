@@ -1,0 +1,32 @@
+{
+  "name": "fss-caisse",
+  "version": "1.0.0",
+  "description": "FSS-CAISSE - Gestion Restobar",
+  "main": "main.js",
+  "author": "FSS",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.fss.caisse",
+    "productName": "FSS-CAISSE",
+    "files": [
+      "main.js",
+      "app/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}
