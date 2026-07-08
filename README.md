@@ -1,58 +1,105 @@
-# FSS-CAISSE — Application de bureau (.exe)
+# FSS-CAISSE — Application réseau (installateur unique)
 
-Ce dossier contient tout ce qu'il faut pour transformer `app/index.html`
-en une application Windows (.exe) grâce à **Electron** + **GitHub Actions**.
+Un seul et même fichier `.exe` à installer sur **tous** les ordinateurs.
+Au premier lancement, l'application demande simplement :
 
-## 🚀 Étapes à suivre
+> 🖥️ Ordinateur Serveur — ou — 💻 Poste Client
 
-### 1. Créer le repo sur GitHub
-1. Va sur https://github.com/new
-2. Crée un nouveau repo (ex: `fss-caisse`), **vide**, sans README.
+## 🖥️ Sur l'ordinateur qui doit être le SERVEUR (1 seul)
 
-### 2. Envoyer ce dossier sur GitHub
-Ouvre un terminal dans ce dossier et tape :
+1. Installe le `.exe` (voir plus bas comment l'obtenir)
+2. Au premier lancement, choisis **"Ordinateur Serveur"**
+3. Une fenêtre affiche l'adresse IP à utiliser sur les autres postes,
+   par exemple : `192.168.1.24:3000`
+4. L'application s'ouvre — c'est prêt, laisse-la ouverte
 
-```bash
-git init
-git add .
-git commit -m "Premier envoi de FSS-CAISSE"
-git branch -M main
-git remote add origin https://github.com/TON-UTILISATEUR/fss-caisse.git
-git push -u origin main
-```
+⚠️ Cet ordinateur doit rester **allumé** avec l'application ouverte pendant
+les heures d'utilisation (les autres postes en dépendent).
 
-(remplace `TON-UTILISATEUR` par ton nom d'utilisateur GitHub)
+## 💻 Sur TOUS LES AUTRES ordinateurs (Postes Client)
 
-### 3. Laisser GitHub compiler le .exe
-Dès que tu pousses le code (`git push`), GitHub Actions se lance
-automatiquement et compile le `.exe` pour toi (inutile d'installer
-Electron sur ton PC).
+1. Installe le même `.exe`
+2. Au premier lancement, choisis **"Poste Client"**
+3. Entre l'adresse IP notée à l'étape précédente (ex: `192.168.1.24`), port `3000`
+4. Clique **Se connecter** → c'est prêt, tout est synchronisé en temps réel
 
-Tu peux suivre la progression dans l'onglet **Actions** de ton repo GitHub.
+Les lancements suivants se reconnectent automatiquement, sans rien redemander.
 
-### 4. Télécharger le .exe
-1. Va dans l'onglet **Actions** du repo.
-2. Clique sur le dernier run terminé (coche verte ✅).
-3. En bas de la page, dans **Artifacts**, télécharge
-   **FSS-CAISSE-windows** → tu obtiens un .zip contenant le `.exe`.
+Pour changer de rôle ou d'adresse plus tard : menu **FSS-CAISSE** en haut de
+l'application.
 
-## 🔁 Mettre à jour l'application
-Si tu modifies `app/index.html`, il suffit de refaire :
-```bash
-git add .
-git commit -m "Mise à jour"
-git push
-```
-Un nouveau `.exe` sera généré automatiquement.
+## 📦 Comment obtenir le fichier `.exe`
 
-## 📁 Structure du dossier
+Ce projet compile automatiquement le `.exe` via **GitHub Actions** :
+
+1. Pousse ce dossier complet sur un repo GitHub (`git push`)
+2. Onglet **Actions** du repo → attends la coche verte ✅
+3. Télécharge l'artifact **FSS-CAISSE-windows** → dedans se trouve
+   `FSS-CAISSE Setup 1.0.0.exe`
+4. Ce même fichier s'installe sur **tous** les postes (serveur ou client,
+   le choix se fait à l'intérieur de l'app)
+
+## 🔐 Connexion des utilisateurs
+
+À chaque ouverture de l'application, un écran de connexion est demandé.
+
+**Comptes fournis par défaut :**
+- **BITOME** / mot de passe `3701` → compte super-utilisateur, **ne peut jamais être supprimé**
+- **admin** / mot de passe `admin` → à la première connexion, un nouveau mot de passe doit obligatoirement être défini
+
+Une fois connecté, clique sur le badge "👤 Nom" en haut à droite pour :
+- changer son propre mot de passe
+- gérer les utilisateurs (ajouter, définir leurs droits d'accès, réinitialiser un mot de passe, supprimer)
+- changer le logo de l'établissement (visible en grand sur l'écran de connexion, et sur les tickets)
+- se déconnecter
+
+**Droits d'accès par compte :** BITOME et admin voient tout, sans restriction.
+Pour tout autre compte créé, tu choisis au moment de la création les sections
+auxquelles il aura accès (Caisse, Stock, Clients, Rapports...). Modifiable à
+tout moment via le bouton "🛡️ Droits" dans la liste des utilisateurs.
+
+Les comptes utilisateurs sont partagés et synchronisés entre tous les postes,
+comme le reste des données.
+
+## 🔄 Fonctionnement
+
+Le poste "Serveur" fait tourner un petit serveur local qui garde toutes les
+données. Chaque poste "Client" s'y connecte et reçoit en direct toute vente,
+changement de stock, client ajouté, etc.
+
+## 📁 Où sont les données ?
+
+Sur l'ordinateur serveur uniquement, dans le dossier de données de
+l'application (créé et géré automatiquement, aucune manipulation nécessaire).
+
+## ❓ Problèmes fréquents
+
+**"Connexion au serveur impossible" sur un poste client**
+→ Vérifie que l'ordinateur serveur est allumé avec l'application ouverte,
+que ce poste est sur le même réseau WiFi/câble, et que l'adresse IP est bonne.
+
+**L'adresse IP du serveur a changé**
+→ Sur chaque poste client : menu **FSS-CAISSE → Changer l'adresse du serveur**.
+
+**Je me suis trompé de rôle (Serveur/Client) à l'installation**
+→ Menu **FSS-CAISSE → Changer de rôle (Serveur / Client)**.
+
+## 📁 Structure du projet
+
 ```
 fss-caisse-app/
+├── main.js               ← logique principale (choix Serveur/Client, connexion)
+├── preload.js
+├── embedded-server.js     ← serveur intégré (utilisé si rôle = Serveur)
+├── choice.html            ← écran de choix au 1er lancement
+├── client.html            ← écran de saisie de l'IP (mode Client)
 ├── app/
-│   └── index.html        ← ton application (FSS-CAISSE)
-├── main.js                ← lance la fenêtre Electron
-├── package.json           ← configuration de build
-├── .github/workflows/
-│   └── build.yml          ← script qui compile le .exe sur GitHub
+│   ├── index.html         ← l'interface de caisse
+│   ├── auth.js             ← écran de connexion + gestion des utilisateurs
+│   └── network.js         ← synchronisation temps réel
+├── server-data/
+│   └── data.default.json  ← données de démarrage
+├── package.json
+├── .github/workflows/build.yml  ← compile automatiquement le .exe
 └── README.md
 ```

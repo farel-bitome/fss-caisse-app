@@ -1,13 +1,17 @@
 {
   "name": "fss-caisse",
   "version": "1.0.0",
-  "description": "FSS-CAISSE - Gestion Restobar",
+  "description": "FSS-CAISSE - Gestion Restobar (Serveur ou Client)",
   "main": "main.js",
   "author": "FSS",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-     "dist": "electron-builder --win --publish=never"
+    "dist": "electron-builder --win --publish=never"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
   },
   "devDependencies": {
     "electron": "^30.0.0",
@@ -16,17 +20,27 @@
   "build": {
     "appId": "com.fss.caisse",
     "productName": "FSS-CAISSE",
+    "asar": false,
     "files": [
       "main.js",
-      "app/**/*"
+      "preload.js",
+      "embedded-server.js",
+      "choice.html",
+      "client.html",
+      "app/**/*",
+      "server-data/**/*",
+      "node_modules/**/*"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     }
   }
 }

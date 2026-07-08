@@ -184,14 +184,10 @@ td{padding:8px 11px;vertical-align:middle}
     <div id="prodTb">
       <input class="si" style="flex:1" placeholder="🔍 Rechercher un article..." oninput="filterProd(this.value)">
       <select class="ms" id="selTable" onchange="onTableChange()">
-        <option value="0">— Table —</option><option value="1">Table 1</option><option value="2">Table 2</option>
-        <option value="3">Table 3</option><option value="4">Table 4</option><option value="5">Table 5</option>
-        <option value="6">Table 6</option><option value="7">Table 7</option><option value="8">Table 8</option>
-        <option value="9">Terrasse 1</option><option value="10">Terrasse 2</option>
-        <option value="11">Comptoir</option><option value="12">Emporter</option>
+        <option value="0">— Table —</option>
       </select>
       <select class="ms" id="selSrv"><option value="">— Serveur —</option><option>Serveur 1</option><option>Serveur 2</option><option>Serveur 3</option></select>
-      <button class="btn btn-o sm" onclick="ouvrirAjoutTable()">＋ Table</button>
+      <button class="btn btn-o sm" onclick="openTableModal()">＋ Table</button>
     </div>
     <div id="attenteBar" style="display:none;background:#111;border-bottom:1px solid #333;padding:6px 10px">
       <div style="font-size:11px;color:#FFCC00;font-weight:700;margin-bottom:4px">⏸ Commandes en attente</div>
@@ -423,7 +419,7 @@ td{padding:8px 11px;vertical-align:middle}
           <div class="cc"><div class="ct">Top 5 articles</div><div id="topList"></div></div>
         </div>
         <div class="cc"><div class="ct">Dernières transactions</div>
-          <table><thead><tr><th>N° Ticket</th><th>Date</th><th>Table</th><th>Serveur</th><th>Articles</th><th>Montant</th><th>Paiement</th></tr></thead><tbody id="bTrans"></tbody></table>
+          <table><thead><tr><th>N° Ticket</th><th>Date</th><th>Table</th><th>Serveur</th><th>Articles</th><th>Montant</th><th>Paiement</th><th>Actions</th></tr></thead><tbody id="bTrans"></tbody></table>
         </div>
       </div>
     </div>
@@ -494,24 +490,40 @@ td{padding:8px 11px;vertical-align:middle}
       <button class="it" onclick="goSub('params','tables',this)">🪑 Tables</button>
       <button class="it" onclick="goSub('params','opts',this)">⚙️ Options</button>
       <button class="it" onclick="goSub('params','sauv',this)">💾 Sauvegarde</button>
-      <button class="it" onclick="goSub('params','srv',this)">🌐 Serveur</button>
       <button class="it" onclick="goSub('params','dev',this)">🖨️ Périphériques</button>
     </div>
     <div class="sub on" id="sub-params-gen">
       <div class="slay">
         <div class="ssect"><div class="ssti">Informations Établissement</div>
           <div class="sg">
-            <div class="fg"><label class="fl">Nom</label><input class="fi" value="FSS-CAISSE"></div>
-            <div class="fg"><label class="fl">Téléphone</label><input class="fi" value="+241 06 000 000"></div>
+            <div class="fg"><label class="fl">Nom</label><input class="fi" id="etabNom" value="FSS-CAISSE"></div>
+            <div class="fg"><label class="fl">Téléphone</label><input class="fi" id="etabTel" value="+241 06 000 000"></div>
             <div class="fg"><label class="fl">Email</label><input class="fi" value="contact@fss-caisse.ga"></div>
             <div class="fg"><label class="fl">Site web</label><input class="fi" placeholder="www..."></div>
-            <div class="fg" style="grid-column:1/-1"><label class="fl">Adresse</label><input class="fi" value="Libreville, Gabon"></div>
-            <div class="fg"><label class="fl">RCCM</label><input class="fi" placeholder="N° RCCM"></div>
-            <div class="fg"><label class="fl">NIF</label><input class="fi" placeholder="N° NIF"></div>
+            <div class="fg" style="grid-column:1/-1"><label class="fl">Adresse</label><input class="fi" id="etabAdr" value="Libreville, Gabon"></div>
+            <div class="fg"><label class="fl">RCCM</label><input class="fi" id="etabRCCM" placeholder="N° RCCM"></div>
+            <div class="fg"><label class="fl">NIF</label><input class="fi" id="etabNIF" placeholder="N° NIF"></div>
             <div class="fg"><label class="fl">Devise</label><input class="fi" value="FCFA"></div>
+            <div class="fg" style="grid-column:1/-1"><label class="fl">Message de fin de ticket</label><input class="fi" id="etabMsgFin" placeholder="Merci pour votre visite !" value="Merci pour votre visite !"></div>
           </div>
         </div>
-        <div style="display:flex;gap:10px"><button class="btn btn-r" onclick="toast('Paramètres enregistrés','s')">💾 Enregistrer</button><button class="btn btn-o">Réinitialiser</button></div>
+        <div class="ssect"><div class="ssti">Logo de l'établissement</div>
+          <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+            <div id="etabLogoPreviewWrap" style="width:110px;height:110px;border:1px dashed #333;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#0e0e0e;overflow:hidden">
+              <img id="etabLogoPreview" style="max-width:100%;max-height:100%;object-fit:contain;display:none">
+              <span id="etabLogoPlaceholder" style="font-size:11px;color:#555">Aucun logo</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:11px;color:#666;max-width:280px">Le logo apparaît sur l'écran de connexion et sur les tickets de caisse.</div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-r sm" onclick="document.getElementById('etabLogoInput').click()">🖼️ Importer un logo</button>
+                <button class="btn btn-o sm" onclick="removeEtabLogo()">🗑️ Retirer</button>
+              </div>
+              <input type="file" id="etabLogoInput" accept="image/*" style="display:none">
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px"><button class="btn btn-r" onclick="saveEtabInfo()">💾 Enregistrer</button><button class="btn btn-o">Réinitialiser</button></div>
       </div>
     </div>
     <div class="sub" id="sub-params-tva">
@@ -550,7 +562,7 @@ td{padding:8px 11px;vertical-align:middle}
       </table></div>
     </div>
     <div class="sub" id="sub-params-tables">
-      <div class="stb"><span class="stit">Tables &amp; Zones</span></div>
+      <div class="stb"><span class="stit">Tables &amp; Zones</span><button class="btn btn-r sm" onclick="openTableModal()">➕ Ajouter une table</button></div>
       <div class="tw"><table id="tTables"><thead><tr><th>N°</th><th>Nom</th><th>Zone</th><th>Capacité</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="bTables"></tbody></table></div>
     </div>
     <div class="sub" id="sub-params-opts">
@@ -574,40 +586,6 @@ td{padding:8px 11px;vertical-align:middle}
             <tr><td>Hier 08:00</td><td>2.2 MB</td><td><span class="badge bo">Manuel</span></td><td><button class="ibt">Restaurer</button></td></tr>
           </tbody>
         </table></div>
-      </div>
-    </div>
-    <div class="sub" id="sub-params-srv">
-      <div class="slay">
-        <div class="ssect"><div class="ssti">🌐 Serveur Local (LAN)</div>
-          <div style="font-size:12px;color:#888;margin-bottom:14px">Partagez cette adresse IP avec les autres téléphones pour passer des commandes à cette caisse.</div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-            <span id="srvDot" style="width:12px;height:12px;border-radius:50%;background:#555;flex-shrink:0;display:inline-block"></span>
-            <span id="srvStatusTxt" style="font-size:13px;color:#888">Serveur arrêté</span>
-          </div>
-          <div id="srvInfoBox" style="display:none;background:#0a1a0a;border:1px solid #225522;border-radius:10px;padding:16px;margin-bottom:16px;text-align:center">
-            <div style="font-size:11px;color:#888;margin-bottom:6px">Adresse IP de cette caisse</div>
-            <div id="srvIP" style="font-size:28px;font-weight:bold;color:#44FF88;letter-spacing:2px;margin-bottom:8px">—</div>
-            <div style="font-size:12px;color:#666">Port : <strong style="color:#aaa">8765</strong></div>
-            <div style="font-size:11px;color:#666;margin-top:4px">Ouvrir sur les autres téléphones : <strong style="color:#4488FF" id="srvURL">—</strong></div>
-          </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn btn-r" id="btnSrvStart" onclick="startServeur()">▶️ Démarrer</button>
-            <button class="btn btn-o" id="btnSrvStop" onclick="stopServeur()" style="display:none">⏹️ Arrêter</button>
-            <button class="btn" style="background:#111;border:1px solid #333" onclick="refreshIP()">🔄 Actualiser IP</button>
-          </div>
-        </div>
-        <div class="ssect"><div class="ssti">📋 Commandes en attente</div>
-          <div id="srvCmdWrap"><div style="color:#555;font-size:12px;text-align:center;padding:20px">Aucune commande</div></div>
-        </div>
-        <div class="ssect"><div class="ssti">ℹ️ Comment ça marche</div>
-          <div style="font-size:12px;color:#777;line-height:1.9">
-            1. Appuyez sur <strong style="color:#aaa">Démarrer</strong><br>
-            2. Notez l'adresse IP affichée<br>
-            3. Sur les autres téléphones, ouvrez le navigateur et tapez cette adresse<br>
-            4. Les commandes arrivent automatiquement ici<br>
-            <span style="color:#555">⚠️ Tous les appareils doivent être sur le même WiFi</span>
-          </div>
-        </div>
       </div>
     </div>
     <div class="sub" id="sub-params-dev">
@@ -766,11 +744,22 @@ td{padding:8px 11px;vertical-align:middle}
   </div>
   <div class="mf" style="gap:8px">
     <button class="btn btn-o" onclick="closeM('ovRecu')">✕ Fermer</button>
-    <button class="btn" style="background:#1144CC;color:#fff" onclick="imprimerRecu('80mm')">🖨️ 80mm</button>
-    <button class="btn btn-r" onclick="imprimerRecu('A4')">📄 A4</button>
+    <button class="btn btn-r" style="flex:1" onclick="imprimerRecu('80mm')">🖨️ Imprimer (80mm)</button>
   </div>
 </div></div>
 <div id="toasts"></div>
+<div class="ov" id="ovTable"><div class="md"><div class="mh"><span class="mt" id="tableMT">Nouvelle table</span><button class="mc" onclick="closeM('ovTable')">✕</button></div>
+  <div class="mb">
+    <div class="sg">
+      <div class="fg"><label class="fl">N° *</label><input class="fi" type="number" id="tN" placeholder="1"></div>
+      <div class="fg"><label class="fl">Nom *</label><input class="fi" id="tNom" placeholder="Table 5"></div>
+      <div class="fg"><label class="fl">Zone</label><select class="fi" id="tZone"><option>Salle</option><option>Terrasse</option><option>Bar</option><option>VIP</option><option>—</option></select></div>
+      <div class="fg"><label class="fl">Capacité</label><input class="fi" type="number" id="tCap" placeholder="4"></div>
+      <div class="fg"><label class="fl">Statut</label><select class="fi" id="tSt"><option>Libre</option><option>Occupée</option><option>Réservée</option></select></div>
+    </div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovTable')">Annuler</button><button class="btn btn-r" onclick="saveTable()">Enregistrer</button></div>
+</div></div>
 
 <script>
 var arts=[
@@ -998,19 +987,7 @@ function updateTableOptions(){
     }
   }
 }
-// ---- AJOUTER TABLE ----
-function ouvrirAjoutTable(){
-  var nom=prompt('Nom de la nouvelle table (ex: Table 9, Bar 1...) :');
-  if(!nom||!nom.trim())return;
-  nom=nom.trim();
-  var sel=g('selTable');
-  for(var i=0;i<sel.options.length;i++){if(sel.options[i].text===nom){toast('Table déjà existante','e');return;}}
-  var opt=document.createElement('option');
-  opt.value='t'+Date.now();opt.text=nom;
-  sel.appendChild(opt);sel.value=opt.value;
-  onTableChange();
-  toast('Table "'+nom+'" ajoutée','s');
-}
+// (ajout de table géré via le formulaire modal openTableModal / saveTable)
 // ---- COMMANDES EN ATTENTE ----
 var cmdAttente=[];var attenteSeq=1;
 function mettreEnAttente(){
@@ -1024,7 +1001,7 @@ function mettreEnAttente(){
   cmdAttente.push({id:num,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),total:total,heure:new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'})});
   libererTable();clearTk(true);
   toast('Commande '+num+' en attente ⏸','s');
-  renderAttenteBar();renderSrvCmds();updateTableOptions();
+  renderAttenteBar();updateTableOptions();
 }
 function reprendreAttente(id){
   var idx=cmdAttente.findIndex(function(c){return c.id===id;});
@@ -1036,13 +1013,13 @@ function reprendreAttente(id){
   var selS=g('selSrv');
   for(var j=0;j<selS.options.length;j++){if(selS.options[j].text===c.srv){selS.value=selS.options[j].value;break;}}
   cmdAttente.splice(idx,1);
-  renderTkt();updTotal();renderAttenteBar();renderSrvCmds();updateTableOptions();
+  renderTkt();updTotal();renderAttenteBar();updateTableOptions();
   toast('Commande '+c.id+' reprise ▶','s');
 }
 function supprimerAttente(id){
   if(!confirm('Supprimer ?'))return;
   cmdAttente=cmdAttente.filter(function(c){return c.id!==id;});
-  renderAttenteBar();renderSrvCmds();updateTableOptions();toast('Supprimé','i');
+  renderAttenteBar();updateTableOptions();toast('Supprimé','i');
 }
 function renderAttenteBar(){
   var bar=g('attenteBar'),list=g('attenteList');if(!bar)return;
@@ -1064,54 +1041,6 @@ function renderAttenteBar(){
       '<span style="color:#fff;font-weight:700">'+fmt(c.total)+' F</span> ';
     div.appendChild(info);div.appendChild(btnR);div.appendChild(btnS);
     list.appendChild(div);
-  });
-}
-// ---- SERVEUR LAN ----
-var srvActif=false;var srvPollInterval=null;var srvLocalIP='';
-function initServeur(){}
-function refreshIP(){
-  try{
-    var pc=new RTCPeerConnection({iceServers:[]});pc.createDataChannel('');
-    pc.createOffer().then(function(o){pc.setLocalDescription(o);});
-    pc.onicecandidate=function(e){
-      if(!e||!e.candidate)return;
-      var m=e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
-      if(m&&!m[1].startsWith('127.')){srvLocalIP=m[1];
-        if(g('srvIP'))g('srvIP').textContent=srvLocalIP;
-        if(g('srvURL'))g('srvURL').textContent='http://'+srvLocalIP+':8765';
-        pc.close();}};
-  }catch(ex){if(g('srvIP'))g('srvIP').textContent='Non disponible';}
-}
-function startServeur(){
-  srvActif=true;g('srvDot').style.background='#44FF88';
-  g('srvStatusTxt').textContent='Serveur actif';g('srvStatusTxt').style.color='#44FF88';
-  g('srvInfoBox').style.display='block';g('btnSrvStart').style.display='none';g('btnSrvStop').style.display='';
-  refreshIP();srvPollInterval=setInterval(function(){renderSrvCmds();},3000);toast('Serveur démarré','s');
-}
-function stopServeur(){
-  srvActif=false;clearInterval(srvPollInterval);
-  g('srvDot').style.background='#555';g('srvStatusTxt').textContent='Serveur arrêté';g('srvStatusTxt').style.color='#888';
-  g('srvInfoBox').style.display='none';g('btnSrvStart').style.display='';g('btnSrvStop').style.display='none';
-  toast('Serveur arrêté','i');
-}
-function renderSrvCmds(){
-  var wrap=g('srvCmdWrap');if(!wrap)return;
-  if(!cmdAttente.length){wrap.innerHTML='<div style="color:#555;font-size:12px;text-align:center;padding:20px">Aucune commande</div>';return;}
-  wrap.innerHTML='';
-  cmdAttente.forEach(function(c){
-    var div=document.createElement('div');
-    div.style.cssText='border:1px solid #333;border-radius:8px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center';
-    var info=document.createElement('div');
-    info.innerHTML='<div style="font-weight:bold;color:#FF4444">'+c.id+'</div>'+
-      '<div style="font-size:11px;color:#888">'+c.tableNom+' · '+c.heure+' · '+c.items.length+' art.</div>'+
-      '<div style="font-size:11px;color:#FFCC00">'+fmt(c.total)+' FCFA</div>';
-    var acts=document.createElement('div');acts.style.cssText='display:flex;flex-direction:column;gap:6px';
-    var bT=document.createElement('button');bT.className='btn btn-r sm';bT.textContent='✅ Traiter';
-    bT.onclick=(function(id){return function(){reprendreAttente(id);};})(c.id);
-    var bD=document.createElement('button');bD.className='btn sm';bD.style.cssText='background:#2a1010;color:#FF4444';bD.textContent='🗑️';
-    bD.onclick=(function(id){return function(){supprimerAttente(id);};})(c.id);
-    acts.appendChild(bT);acts.appendChild(bD);div.appendChild(info);div.appendChild(acts);
-    wrap.appendChild(div);
   });
 }
 // ---- PÉRIPHÉRIQUES ----
@@ -1153,8 +1082,26 @@ function testScanner(){
   });
 }
 function clearTk(silent){tkt=[];g('remF').value='';g('remP').value='';renderTkt();updTotal();if(!silent)toast('Ticket annulé','i');}
-var tblN={0:'—',1:'Table 1',2:'Table 2',3:'Table 3',4:'Table 4',5:'Table 5',6:'Table 6',7:'Table 7',8:'Table 8',9:'Terrasse 1',10:'Terrasse 2',11:'Comptoir',12:'Emporter'};
-function updBadge(){g('tblBadge').textContent=tblN[g('selTable').value]||'—';}
+function tblN(v){
+  if(v==='0'||!v)return '—';
+  var t=tables.find(function(x){return String(x.n)===String(v);});
+  if(t)return t.nom;
+  var opt=g('selTable')?g('selTable').querySelector('option[value="'+v+'"]'):null;
+  return opt?opt.text.replace(/ 🔴$/,''):'—';
+}
+function renderTableSelect(){
+  var sel=g('selTable');if(!sel)return;
+  var prev=sel.value;
+  sel.innerHTML='<option value="0">— Table —</option>';
+  tables.slice().sort(function(a,b){return a.n-b.n;}).forEach(function(t){
+    var opt=document.createElement('option');
+    opt.value=t.n;opt.text=t.nom;
+    sel.appendChild(opt);
+  });
+  if(sel.querySelector('option[value="'+prev+'"]'))sel.value=prev;
+  updateTableOptions();
+}
+function updBadge(){g('tblBadge').textContent=tblN(g('selTable').value);}
 
 // PAIEMENT
 function openPay(mode){
@@ -1193,7 +1140,7 @@ function valPay(){
   var dd=('0'+now.getDate()).slice(-2),mm=('0'+(now.getMonth()+1)).slice(-2);
   var hh=('0'+now.getHours()).slice(-2),mi=('0'+now.getMinutes()).slice(-2);
   var ht=tvaActif?Math.round(tot/(1+tvaRate)):tot,nb=tkt.reduce(function(s,i){return s+i.qty;},0);
-  txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tblN[g('selTable').value]||'—',srv:g('selSrv').value,arts:nb,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':'Carte',stat:'Validé'});
+  txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tblN(g('selTable').value),srv:g('selSrv').value,arts:nb,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':'Carte',stat:'Validé'});
   nextTk++;g('tkNum').textContent='TK-#'+('000'+nextTk).slice(-4);
   closeM('ovPay');clearTk(true);libererTable();renderProds('');renderStk();renderTkList();renderRap();initCloture();
   afficherRecu(txs[0]);
@@ -1206,56 +1153,66 @@ function afficherRecu(tk){
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
   var adr=g('etabAdr')?g('etabAdr').value:'';
   var tel=g('etabTel')?g('etabTel').value:'';
+  var rccm=g('etabRCCM')?g('etabRCCM').value:'';
+  var nif=g('etabNIF')?g('etabNIF').value:'';
+  var msgFin=(g('etabMsgFin')&&g('etabMsgFin').value.trim())?g('etabMsgFin').value.trim():'Merci pour votre visite !';
   var now=new Date().toLocaleString('fr-FR');
   var lignes='';
   // Retrouver les articles du ticket via tkt sauvegardé dans txs
   var totalLignes=tk.ttc;
   lignes+='<div style="border-top:1px dashed #000;margin:6px 0"></div>';
-  lignes+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
-  lignes+='<tr><td colspan="3" style="font-size:10px;color:#555;padding-bottom:2px">Articles</td></tr>';
+  lignes+='<table style="width:100%;border-collapse:collapse;font-size:12px;font-weight:700">';
+  lignes+='<tr><td colspan="3" style="font-size:11px;color:#333;padding-bottom:2px;font-weight:700">Articles</td></tr>';
   // On ne peut pas retrouver les articles depuis txs (non stockés), on affiche le résumé
   lignes+='<tr><td colspan="2">'+tk.arts+' article(s)</td><td style="text-align:right">'+tk.ttc.toLocaleString('fr-FR')+' F</td></tr>';
   lignes+='</table>';
   lignes+='<div style="border-top:1px dashed #000;margin:6px 0"></div>';
   if(tvaActif){
-    lignes+='<div style="display:flex;justify-content:space-between;font-size:11px"><span>Sous-total HT</span><span>'+tk.ht.toLocaleString('fr-FR')+' F</span></div>';
-    lignes+='<div style="display:flex;justify-content:space-between;font-size:11px"><span>TVA '+Math.round(tvaRate*100)+'%</span><span>'+tk.tva.toLocaleString('fr-FR')+' F</span></div>';
+    lignes+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Sous-total HT</span><span>'+tk.ht.toLocaleString('fr-FR')+' F</span></div>';
+    lignes+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>TVA '+Math.round(tvaRate*100)+'%</span><span>'+tk.tva.toLocaleString('fr-FR')+' F</span></div>';
   }
-  lignes+='<div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;margin-top:4px"><span>TOTAL TTC</span><span>'+tk.ttc.toLocaleString('fr-FR')+' F</span></div>';
-  lignes+='<div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-top:2px"><span>Paiement</span><span>'+tk.pay+'</span></div>';
+  lignes+='<div style="display:flex;justify-content:space-between;font-weight:900;font-size:15px;margin-top:4px"><span>TOTAL TTC</span><span>'+tk.ttc.toLocaleString('fr-FR')+' F</span></div>';
+  lignes+='<div style="display:flex;justify-content:space-between;font-size:12px;color:#333;margin-top:2px;font-weight:700"><span>Paiement</span><span>'+tk.pay+'</span></div>';
   lignes+='<div style="border-top:1px dashed #000;margin:6px 0"></div>';
-  lignes+='<div style="text-align:center;font-size:11px;color:#555">Merci pour votre visite !</div>';
+  lignes+='<div style="text-align:center;font-size:12px;color:#333;font-weight:700">'+msgFin+'</div>';
 
-  var html='<div style="text-align:center;margin-bottom:8px">';
-  if(logoData){html+='<img src="'+logoData+'" style="height:50px;object-fit:contain;margin-bottom:6px"><br>';}
-  html+='<strong style="font-size:15px">'+etab+'</strong><br>';
-  if(adr)html+='<span style="font-size:10px;color:#555">'+adr+'</span><br>';
-  if(tel)html+='<span style="font-size:10px;color:#555">Tél: '+tel+'</span><br>';
+  var html='<div style="text-align:center;margin-bottom:8px;font-weight:700">';
+  if(logoData){html+='<img src="'+logoData+'" style="height:90px;object-fit:contain;margin-bottom:8px"><br>';}
+  html+='<strong style="font-size:17px">'+etab+'</strong><br>';
+  if(adr)html+='<span style="font-size:11px;color:#333">'+adr+'</span><br>';
+  if(tel)html+='<span style="font-size:11px;color:#333">Tél: '+tel+'</span><br>';
+  if(rccm)html+='<span style="font-size:11px;color:#333">RCCM: '+rccm+'</span><br>';
+  if(nif)html+='<span style="font-size:11px;color:#333">NIF: '+nif+'</span><br>';
   html+='</div>';
   html+='<div style="border-top:2px solid #000;margin:6px 0"></div>';
-  html+='<div style="display:flex;justify-content:space-between;font-size:11px"><span>N° Ticket</span><strong>'+tk.id+'</strong></div>';
-  html+='<div style="display:flex;justify-content:space-between;font-size:11px"><span>Date</span><span>'+now+'</span></div>';
-  html+='<div style="display:flex;justify-content:space-between;font-size:11px"><span>Table</span><span>'+tk.tbl+'</span></div>';
-  if(tk.srv&&tk.srv!=='—')html+='<div style="display:flex;justify-content:space-between;font-size:11px"><span>Serveur</span><span>'+tk.srv+'</span></div>';
+  html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>N° Ticket</span><strong>'+tk.id+'</strong></div>';
+  html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Date</span><span>'+now+'</span></div>';
+  html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Table</span><span>'+tk.tbl+'</span></div>';
+  if(tk.srv&&tk.srv!=='—')html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Serveur</span><span>'+tk.srv+'</span></div>';
   html+=lignes;
   g('recuContent').innerHTML=html;
+  g('recuContent').style.fontWeight='700';
   g('ovRecu').classList.add('on');
 }
-function imprimerRecu(format){
+function imprimerRecu(){
   var tk=dernierTicket;if(!tk)return;
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
   var adr=g('etabAdr')?g('etabAdr').value:'';
   var tel=g('etabTel')?g('etabTel').value:'';
+  var rccm=g('etabRCCM')?g('etabRCCM').value:'';
+  var nif=g('etabNIF')?g('etabNIF').value:'';
+  var msgFin=(g('etabMsgFin')&&g('etabMsgFin').value.trim())?g('etabMsgFin').value.trim():'Merci pour votre visite !';
   var now=new Date().toLocaleString('fr-FR');
-  var is80=format==='80mm';
-  var w=window.open('','_blank',is80?'width=320,height=600':'');
-  var css=is80?
-    '*{margin:0;padding:0}body{font-family:"Courier New",monospace;font-size:11px;width:80mm;padding:4mm}.sep{border-top:1px dashed #000;margin:4px 0}.r{text-align:right}.c{text-align:center}.b{font-weight:bold}':
-    '*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:12px;padding:20mm;max-width:210mm}.sep{border-top:1px solid #ccc;margin:8px 0}.r{text-align:right}.c{text-align:center}.b{font-weight:bold;font-size:15px}';
+  var w=window.open('','_blank','width=320,height=600');
+  var css='*{margin:0;padding:0}body{font-family:"Courier New",monospace;font-size:12px;font-weight:700;width:80mm;padding:4mm}.sep{border-top:1px dashed #000;margin:4px 0}.r{text-align:right}.c{text-align:center}.b{font-weight:900}';
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
-  html+='<div class="c"><strong style="font-size:'+(is80?'14':'20')+'px">'+etab+'</strong><br>';
-  if(adr)html+='<span style="font-size:10px">'+adr+'</span><br>';
-  if(tel)html+='<span style="font-size:10px">Tél: '+tel+'</span><br>';
+  html+='<div class="c">';
+  if(logoData)html+='<img src="'+logoData+'" style="height:70px;object-fit:contain;margin-bottom:6px"><br>';
+  html+='<strong style="font-size:16px">'+etab+'</strong><br>';
+  if(adr)html+='<span style="font-size:11px">'+adr+'</span><br>';
+  if(tel)html+='<span style="font-size:11px">Tél: '+tel+'</span><br>';
+  if(rccm)html+='<span style="font-size:11px">RCCM: '+rccm+'</span><br>';
+  if(nif)html+='<span style="font-size:11px">NIF: '+nif+'</span><br>';
   html+='</div><div class="sep"></div>';
   html+='<div style="display:flex;justify-content:space-between"><span>N°</span><strong>'+tk.id+'</strong></div>';
   html+='<div style="display:flex;justify-content:space-between"><span>Date</span><span>'+now+'</span></div>';
@@ -1269,13 +1226,14 @@ function imprimerRecu(format){
     html+='<div style="display:flex;justify-content:space-between"><span>TVA '+Math.round(tvaRate*100)+'%</span><span>'+tk.tva.toLocaleString('fr-FR')+' F</span></div>';
   }
   html+='<div class="sep"></div>';
-  html+='<div class="b" style="display:flex;justify-content:space-between"><span>TOTAL TTC</span><span>'+tk.ttc.toLocaleString('fr-FR')+' FCFA</span></div>';
-  html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:#555"><span>Paiement</span><span>'+tk.pay+'</span></div>';
-  html+='<div class="sep"></div><div class="c" style="font-size:11px">Merci pour votre visite !</div>';
+  html+='<div class="b" style="display:flex;justify-content:space-between;font-size:14px"><span>TOTAL TTC</span><span>'+tk.ttc.toLocaleString('fr-FR')+' FCFA</span></div>';
+  html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:#333"><span>Paiement</span><span>'+tk.pay+'</span></div>';
+  html+='<div class="sep"></div><div class="c" style="font-size:11px">'+msgFin+'</div>';
   html+='</body></html>';
   w.document.write(html);w.document.close();
   setTimeout(function(){w.print();},400);
 }
+
 
 // ARTICLES
 function renderArt(){
@@ -1465,7 +1423,7 @@ function saveCmd(){
 }
 
 // BONS & VENTES
-function renderTkList(){var b=g('bTk');if(!b)return;b.innerHTML='';txs.forEach(function(t){var tr=document.createElement('tr');tr.innerHTML='<td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.srv||'—')+'</td><td>'+t.arts+'</td><td>'+fmt(t.ht)+'</td><td>'+fmt(t.tva)+'</td><td><strong>'+fmt(t.ttc)+'</strong></td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td><td><span class="badge bg">'+t.stat+'</span></td><td><div style="display:flex;gap:4px"><button class="ibt">👁️</button><button class="ibt">🖨️</button></div></td>';b.appendChild(tr);});}
+function renderTkList(){var b=g('bTk');if(!b)return;b.innerHTML='';var canR=(typeof hasReimprPermission==='function')&&hasReimprPermission();txs.forEach(function(t){var tr=document.createElement('tr');var statBadge=t.stat==='Annulé'?'<span class="badge br">Annulé</span>':'<span class="badge bg">'+t.stat+'</span>';var acts=canR?('<div style="display:flex;gap:4px"><button class="ibt" title="Réimprimer" onclick="reimprimerTicket(\''+t.id+'\')">🖨️</button><button class="ibt" title="Annuler" onclick="annulerTicket(\''+t.id+'\')">🗑️</button></div>'):'<span style="color:#444;font-size:11px">—</span>';tr.innerHTML='<td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.srv||'—')+'</td><td>'+t.arts+'</td><td>'+fmt(t.ht)+'</td><td>'+fmt(t.tva)+'</td><td><strong>'+fmt(t.ttc)+'</strong></td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td><td>'+statBadge+'</td><td>'+acts+'</td>';b.appendChild(tr);});}
 function renderDV(){var b=g('bDV');if(!b)return;b.innerHTML='';arts.forEach(function(a){var q=Math.floor(Math.random()*12)+3,ca=q*a.pv,ht=Math.round(ca/1.18),mg=a.pa?Math.round((a.pv-a.pa)*q):0;var tr=document.createElement('tr');tr.innerHTML='<td>'+a.emo+' '+a.nom+'</td><td><span class="badge bo">'+a.cat+'</span></td><td>'+q+'</td><td>'+fmt(a.pv)+'</td><td>'+fmt(ht)+'</td><td>'+fmt(ca-ht)+'</td><td><strong>'+fmt(ca)+'</strong></td><td style="color:#4488FF">'+fmt(mg)+'</td>';b.appendChild(tr);});}
 function renderLV(){var b=g('bLV');if(!b)return;b.innerHTML='';txs.forEach(function(t){var tr=document.createElement('tr');tr.innerHTML='<td>'+t.date+'</td><td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>—</td><td>'+fmt(t.ht)+'</td><td>0 FCFA</td><td>'+fmt(t.tva)+'</td><td><strong>'+fmt(t.ttc)+'</strong></td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td>';b.appendChild(tr);});}
 function renderReg(){var b=g('bReg');if(!b)return;b.innerHTML='';txs.forEach(function(t){var tr=document.createElement('tr');tr.innerHTML='<td>'+t.date+'</td><td><strong>'+t.id+'</strong></td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td><td><strong>'+fmt(t.ttc)+'</strong></td><td>'+(t.pay==='Espèces'?fmt(Math.ceil(t.ttc/1000)*1000-t.ttc):'—')+'</td><td>admin</td>';b.appendChild(tr);});}
@@ -1485,8 +1443,25 @@ function renderRap(){
   });
   var bc=g('barCh');if(bc){bc.innerHTML='';d.bars.forEach(function(v,i){var col=document.createElement('div');col.className='bcol';col.innerHTML='<div class="bbar" style="height:'+Math.round(v/d.max*100)+'%"></div><div class="blbl">'+d.lbls[i]+'</div>';bc.appendChild(col);});}
   var tl=g('topList');if(tl){tl.innerHTML='';[].concat(arts).sort(function(a,b){return b.pv-a.pv;}).slice(0,5).forEach(function(a,i){var div=document.createElement('div');div.style.cssText='display:flex;align-items:center;gap:7px;margin-bottom:7px';div.innerHTML='<span style="font-size:10px;color:#555;width:16px">'+(i+1)+'</span><span style="flex:1;font-size:11px">'+a.emo+' '+a.nom+'</span><div style="width:50px;height:5px;background:#333;border-radius:3px"><div style="height:5px;background:#CC0000;border-radius:3px;width:'+Math.round((5-i)/5*100)+'%"></div></div><span style="font-size:11px;font-weight:700;color:#CC0000;min-width:55px;text-align:right">'+fmt(a.pv)+'</span>';tl.appendChild(div);});}
-  var bt=g('bTrans');if(bt){bt.innerHTML='';txs.slice(0,6).forEach(function(t){var tr=document.createElement('tr');tr.innerHTML='<td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.srv||'—')+'</td><td>'+t.arts+'</td><td><strong>'+fmt(t.ttc)+'</strong></td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td>';bt.appendChild(tr);});}
+  var bt=g('bTrans');if(bt){bt.innerHTML='';var canR=(typeof hasReimprPermission==='function')&&hasReimprPermission();txs.slice(0,6).forEach(function(t){var tr=document.createElement('tr');var statTag=t.stat==='Annulé'?' <span class="badge br">Annulé</span>':'';var acts=canR?('<div style="display:flex;gap:4px"><button class="ibt" title="Réimprimer" onclick="reimprimerTicket(\''+t.id+'\')">🖨️</button><button class="ibt" title="Annuler" onclick="annulerTicket(\''+t.id+'\')">🗑️</button></div>'):'<span style="color:#444;font-size:11px">—</span>';tr.innerHTML='<td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.srv||'—')+'</td><td>'+t.arts+'</td><td><strong>'+fmt(t.ttc)+'</strong>'+statTag+'</td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td><td>'+acts+'</td>';bt.appendChild(tr);});}
   renderLC();renderLR();
+}
+function reimprimerTicket(id){
+  if(!(typeof hasReimprPermission==='function'&&hasReimprPermission())){toast('Accès non autorisé pour ce compte','e');return;}
+  var t=txs.find(function(x){return x.id===id;});
+  if(!t){toast('Ticket introuvable','e');return;}
+  afficherRecu(t);
+}
+function annulerTicket(id){
+  if(!(typeof hasReimprPermission==='function'&&hasReimprPermission())){toast('Accès non autorisé pour ce compte','e');return;}
+  var t=txs.find(function(x){return x.id===id;});
+  if(!t){toast('Ticket introuvable','e');return;}
+  if(t.stat==='Annulé'){toast('Ce ticket est déjà annulé','i');return;}
+  if(!confirm('Annuler le ticket '+t.id+' ('+fmt(t.ttc)+') ?'))return;
+  t.stat='Annulé';
+  renderRap();renderTkList();
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('Ticket '+t.id+' annulé','s');
 }
 function renderLC(){var b=g('bLC');if(!b)return;b.innerHTML='';var s=50000;[{d:'08:00',l:'Fonds ouverture',enc:50000}].concat(txs.map(function(t){return{d:t.date,l:'Vente — '+t.id,enc:t.ttc};})).forEach(function(l){s+=l.enc;var tr=document.createElement('tr');tr.innerHTML='<td>'+l.d+'</td><td>'+l.l+'</td><td><span class="badge bg">Encaissement</span></td><td>'+fmt(l.enc)+'</td><td>—</td><td><strong>'+fmt(s)+'</strong></td>';b.appendChild(tr);});}
 function renderLR(){var b=g('bLR');if(!b)return;b.innerHTML='';var cu=0;txs.forEach(function(t){cu+=t.ttc;var tr=document.createElement('tr');tr.innerHTML='<td>'+t.date+'</td><td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>'+fmt(t.ht)+'</td><td>'+fmt(t.tva)+'</td><td><strong>'+fmt(t.ttc)+'</strong></td><td>'+fmt(cu)+'</td>';b.appendChild(tr);});}
@@ -1519,7 +1494,67 @@ function printA4(){var ttc=txs.reduce(function(s,t){return s+t.ttc;},0),tp=prls.
 
 // PARAMÈTRES
 function initTVACat(){var el=g('tvaCatG');if(!el)return;el.innerHTML='';var cats=[],seen={};arts.forEach(function(a){if(!seen[a.cat]){seen[a.cat]=1;cats.push(a.cat);}});cats.forEach(function(c){var div=document.createElement('div');div.className='fg';div.innerHTML='<label class="fl">'+c+'</label><input class="fi" type="number" value="18">';el.appendChild(div);});}
-function initTables(){var b=g('bTables');if(!b)return;b.innerHTML='';[{n:1,nom:'Table 1',zone:'Salle',cap:4,st:'Libre'},{n:2,nom:'Table 2',zone:'Salle',cap:4,st:'Occupée'},{n:3,nom:'Table 3',zone:'Salle',cap:6,st:'Libre'},{n:4,nom:'Table 4',zone:'Salle',cap:2,st:'Réservée'},{n:9,nom:'Terrasse 1',zone:'Terrasse',cap:6,st:'Libre'},{n:10,nom:'Terrasse 2',zone:'Terrasse',cap:6,st:'Libre'},{n:11,nom:'Comptoir',zone:'Bar',cap:8,st:'Libre'},{n:12,nom:'Emporter',zone:'—',cap:0,st:'Libre'}].forEach(function(t){var sc=t.st==='Libre'?'bg':t.st==='Occupée'?'br':'bo';var tr=document.createElement('tr');tr.innerHTML='<td>'+t.n+'</td><td>'+t.nom+'</td><td><span class="badge bo">'+t.zone+'</span></td><td>'+(t.cap||'—')+'</td><td><span class="badge '+sc+'">'+t.st+'</span></td><td><button class="ibt">✏️</button></td>';b.appendChild(tr);});}
+var tables=[
+  {n:1,nom:'Table 1',zone:'Salle',cap:4,st:'Libre'},
+  {n:2,nom:'Table 2',zone:'Salle',cap:4,st:'Occupée'},
+  {n:3,nom:'Table 3',zone:'Salle',cap:6,st:'Libre'},
+  {n:4,nom:'Table 4',zone:'Salle',cap:2,st:'Réservée'},
+  {n:9,nom:'Terrasse 1',zone:'Terrasse',cap:6,st:'Libre'},
+  {n:10,nom:'Terrasse 2',zone:'Terrasse',cap:6,st:'Libre'},
+  {n:11,nom:'Comptoir',zone:'Bar',cap:8,st:'Libre'},
+  {n:12,nom:'Emporter',zone:'—',cap:0,st:'Libre'}
+];
+var editTableN=null;
+function initTables(){
+  var b=g('bTables');if(!b)return;b.innerHTML='';
+  tables.slice().sort(function(a,c){return a.n-c.n;}).forEach(function(t){
+    var sc=t.st==='Libre'?'bg':t.st==='Occupée'?'br':'bo';
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+t.n+'</td><td>'+t.nom+'</td><td><span class="badge bo">'+t.zone+'</span></td><td>'+(t.cap||'—')+'</td><td><span class="badge '+sc+'">'+t.st+'</span></td><td><button class="ibt" onclick="openTableModal('+t.n+')">✏️</button><button class="ibt" onclick="delTable('+t.n+')">🗑️</button></td>';
+    b.appendChild(tr);
+  });
+  renderTableSelect();
+}
+function openTableModal(n){
+  editTableN=n||null;
+  if(n){
+    var t=tables.find(function(x){return x.n===n;});
+    if(!t)return;
+    g('tableMT').textContent='Modifier la table';
+    g('tN').value=t.n;g('tN').disabled=true;
+    g('tNom').value=t.nom;g('tZone').value=t.zone;g('tCap').value=t.cap;g('tSt').value=t.st;
+  }else{
+    g('tableMT').textContent='Nouvelle table';
+    var nextN=(tables.length?Math.max.apply(null,tables.map(function(t){return t.n;})):0)+1;
+    g('tN').value=nextN;g('tN').disabled=false;
+    g('tNom').value='';g('tZone').value='Salle';g('tCap').value=4;g('tSt').value='Libre';
+  }
+  g('ovTable').classList.add('on');
+}
+function saveTable(){
+  var n=parseInt(g('tN').value)||0,nom=g('tNom').value.trim();
+  if(!n||!nom){toast('N° et nom requis','e');return;}
+  if(!editTableN&&tables.some(function(t){return t.n===n;})){toast('Ce n° de table existe déjà','e');return;}
+  var obj={n:n,nom:nom,zone:g('tZone').value,cap:parseInt(g('tCap').value)||0,st:g('tSt').value};
+  var wasNew=!editTableN;
+  if(editTableN){
+    var idx=tables.findIndex(function(t){return t.n===editTableN;});
+    if(idx>=0)tables[idx]=obj;
+  }else{
+    tables.push(obj);
+  }
+  closeM('ovTable');initTables();updateTableOptions();
+  if(wasNew&&g('selTable')){g('selTable').value=n;onTableChange();}
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('Table enregistrée','s');
+}
+function delTable(n){
+  if(!confirm('Supprimer cette table ?'))return;
+  tables=tables.filter(function(t){return t.n!==n;});
+  initTables();updateTableOptions();
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('Table supprimée','i');
+}
 var toggles={print:false,ttc:true,son:true,alerte:true,confirm:true,remise:true,multi:true,cloture:false};
 function initOpts(){var w=g('optsWrap');if(!w)return;w.innerHTML='';[['print','Impression automatique','Imprimer dès validation'],['ttc','Prix affichés TTC','TVA incluse'],['son','Son de caisse','Bip sonore'],['alerte','Alerte stock faible','Notification seuil min'],['confirm','Confirmation suppression','Sécurité ticket'],['remise','Autoriser remises','Champ remise visible'],['multi','Multi-serveurs','Serveur par ticket'],['cloture','Clôture obligatoire','Forcer avant ouverture']].forEach(function(o){var d=document.createElement('div');d.className='togr';d.innerHTML='<div><div style="font-size:12px;color:#fff">'+o[1]+'</div><div style="font-size:10px;color:#555;margin-top:2px">'+o[2]+'</div></div><div class="tg'+(toggles[o[0]]?' on':'')+'" onclick="this.classList.toggle(\'on\')"></div>';w.appendChild(d);});}
 
@@ -1539,6 +1574,11 @@ document.addEventListener('DOMContentLoaded',function(){
   document.querySelectorAll('input[type=date]').forEach(function(e){if(!e.value)e.value=td;});
 });
 </script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="login-watermark.js"></script>
+<script src="auth.js"></script>
+<script src="etab.js"></script>
+<script src="network.js"></script>
 </div>
 </body>
 </html>
