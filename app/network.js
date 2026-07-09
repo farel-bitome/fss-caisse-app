@@ -10,12 +10,13 @@
   window.logoData = window.logoData || null;
   window.etabInfo = window.etabInfo || { nom: 'FSS-CAISSE', tel: '', adr: '', rccm: '', nif: '', msgFin: 'Merci pour votre visite !' };
   window.tables = window.tables || [];
+  window.servers = window.servers || [];
 
   function fullState() {
     return {
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
-      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables
+      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers
     };
   }
 
@@ -47,6 +48,8 @@
     etabInfo = s.etab || { nom: 'FSS-CAISSE', tel: '', adr: '', rccm: '', nif: '', msgFin: 'Merci pour votre visite !' };
     if (s.tables && s.tables.length) tables = s.tables;
     window.tables = tables;
+    if (s.servers && s.servers.length) servers = s.servers;
+    window.servers = servers;
     refreshAllViews();
     applyEtabToInputs();
     applying = false;
@@ -66,6 +69,7 @@
     safe(function () { renderCmd(); });
     safe(function () { renderTkList(); });
     safe(function () { initTables(); });
+    safe(function () { initServers(); });
     safe(function () { if (window.refreshEtabLogoPreview) refreshEtabLogoPreview(); });
     safe(function () { renderDV(); });
     safe(function () { renderLV(); });

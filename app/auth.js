@@ -122,6 +122,7 @@
 
   // ---------- Changement de mot de passe ----------
   function showChangePassword(u, forced) {
+    if (u.super) { safeToast('Ce compte est protégé et ne peut jamais être modifié', 'e'); return; }
     var ov = document.createElement('div');
     ov.id = 'chgPwdOverlay';
     ov.style.display = 'flex';
@@ -195,7 +196,7 @@
     var menu = document.createElement('div');
     menu.id = 'userMenu';
     menu.innerHTML =
-      '<div class="mi" id="miChangePwd">🔑 Changer mon mot de passe</div>' +
+      (!currentUser.super ? '<div class="mi" id="miChangePwd">🔑 Changer mon mot de passe</div>' : '') +
       (canManage ? '<div class="mi" id="miManageUsers">👥 Gérer les utilisateurs</div>' : '') +
       (canManage ? '<div class="mi" id="miChangeLogo">🖼️ Changer le logo</div>' : '') +
       '<div class="mi" id="miLogout">🚪 Déconnexion</div>';
@@ -207,10 +208,12 @@
     });
     document.addEventListener('click', function () { menu.style.display = 'none'; });
 
-    document.getElementById('miChangePwd').addEventListener('click', function () {
-      menu.style.display = 'none';
-      showChangePassword(currentUser, false);
-    });
+    if (!currentUser.super) {
+      document.getElementById('miChangePwd').addEventListener('click', function () {
+        menu.style.display = 'none';
+        showChangePassword(currentUser, false);
+      });
+    }
     if (canManage) {
       document.getElementById('miManageUsers').addEventListener('click', function () {
         menu.style.display = 'none';
@@ -284,9 +287,10 @@
       var canDelete = !u.super;
       var tag = u.super ? '<span class="badge-super">SUPER</span>' : (u.full ? '<span class="badge-full">COMPLET</span>' : '');
       var permsBtn = (!u.super && !u.full) ? '<button class="sm" data-action="perms" data-id="' + u.id + '">🛡️ Droits</button>' : '';
+      var resetBtn = !u.super ? '<button class="sm" data-action="reset" data-id="' + u.id + '">🔑</button>' : '<span style="color:#555;font-size:11px">Protégé</span>';
       tr.innerHTML =
         '<td>' + u.nom + tag + '</td>' +
-        '<td>' + permsBtn + '<button class="sm" data-action="reset" data-id="' + u.id + '">🔑</button></td>' +
+        '<td>' + permsBtn + resetBtn + '</td>' +
         '<td>' + (canDelete ? '<button class="sm" data-action="del" data-id="' + u.id + '">🗑️</button>' : '') + '</td>';
       body.appendChild(tr);
     });
@@ -345,6 +349,7 @@
   function resetUserPassword(id) {
     var u = (window.users || []).find(function (x) { return x.id === id; });
     if (!u) return;
+    if (u.super) { safeToast('Ce compte est protégé et ne peut pas être modifié', 'e'); return; }
     showChangePassword(u, false);
   }
 
@@ -374,6 +379,7 @@
   function openPermsEditor(id) {
     var u = (window.users || []).find(function (x) { return x.id === id; });
     if (!u) return;
+    if (u.super || u.full) { safeToast('Ce compte a déjà accès à tout et ne peut pas être modifié', 'e'); return; }
     editingUserId = id;
     document.getElementById('permsUserName').textContent = u.nom;
     document.querySelectorAll('.permsChk').forEach(function (c) {

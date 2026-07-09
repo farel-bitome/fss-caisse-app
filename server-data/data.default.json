@@ -440,5 +440,6 @@
       "cap": 0,
       "st": "Libre"
     }
-  ]
+  ],
+  "servers": ["Serveur 1", "Serveur 2", "Serveur 3"]
 }
