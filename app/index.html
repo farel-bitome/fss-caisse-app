@@ -1021,10 +1021,22 @@ function renderProds(search){
   });
 }
 function filterProd(v){renderProds(v);}
+function fixAzertyDigits(str){
+  // Certaines douchettes code-barres envoient les touches en QWERTY : sur un clavier
+  // AZERTY français, cela tape les symboles de la rangée du haut au lieu des chiffres.
+  // On corrige automatiquement : &é"'(-è_çà -> 1234567890
+  var map={'&':'1','é':'2','"':'3','\'':'4','(':'5','-':'6','è':'7','_':'8','ç':'9','à':'0'};
+  var symCount=0,digitCount=0;
+  for(var i=0;i<str.length;i++){if(map[str[i]])symCount++;else if(/[0-9]/.test(str[i]))digitCount++;}
+  if(symCount===0||symCount<digitCount)return str; // pas besoin de correction
+  var out='';
+  for(var j=0;j<str.length;j++){out+=map[str[j]]!==undefined?map[str[j]]:str[j];}
+  return out;
+}
 function rechArtKey(e){
   // Scanner code-barres : la douchette tape les chiffres puis envoie "Entrée"
   if(e.key!=='Enter')return;
-  var v=e.target.value.trim();
+  var v=fixAzertyDigits(e.target.value.trim());
   if(!v)return;
   var a=arts.find(function(x){return x.actif&&x.cb&&x.cb===v;});
   if(a){
@@ -1409,7 +1421,8 @@ function valPay(){
   var itemsSnapshot=tkt.map(function(it){return {nom:it.nom,qty:it.qty,pv:it.pv};});
   var recu=payMode==='esp'?recAmt:tot;
   var rendu=payMode==='esp'?Math.max(0,recAmt-tot):0;
-  txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tblN(g('selTable').value),srv:g('selSrv').value,arts:nb,items:itemsSnapshot,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':'Carte',recu:recu,rendu:rendu,stat:'Validé'});
+  var caissier=(window.currentUser&&window.currentUser.nom)?window.currentUser.nom:'—';
+  txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tblN(g('selTable').value),srv:g('selSrv').value,caissier:caissier,arts:nb,items:itemsSnapshot,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':'Carte',recu:recu,rendu:rendu,stat:'Validé'});
   nextTk++;g('tkNum').textContent='TK-#'+('000'+nextTk).slice(-4);
   closeM('ovPay');clearTk(true);libererTable();renderProds('');renderStk();renderTkList();renderRap();initCloture();
   afficherRecu(txs[0]);
@@ -1466,6 +1479,7 @@ function afficherRecu(tk){
   html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Date</span><span>'+now+'</span></div>';
   html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Table</span><span>'+tk.tbl+'</span></div>';
   if(tk.srv&&tk.srv!=='—')html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Serveur</span><span>'+tk.srv+'</span></div>';
+  if(tk.caissier&&tk.caissier!=='—')html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Caissier</span><span>'+tk.caissier+'</span></div>';
   html+=lignes;
   g('recuContent').innerHTML=html;
   g('recuContent').style.fontWeight='700';
@@ -1511,6 +1525,7 @@ function imprimerRecu(){
   html+=ligne('Heure',heureStr);
   html+=ligne('Table',tk.tbl);
   if(tk.srv&&tk.srv!=='—')html+=ligne('Serveur',tk.srv);
+  if(tk.caissier&&tk.caissier!=='—')html+=ligne('Caissier','<strong>'+tk.caissier+'</strong>');
   html+='<div class="sep"></div>';
   if(tk.items&&tk.items.length){
     tk.items.forEach(function(it){
@@ -1570,7 +1585,7 @@ function openArtModal(id){
 function calcMg(){var pv=parseInt(g('aPV').value)||0,pa=parseInt(g('aPA').value)||0,m=pv-pa,pct=pv?Math.round(m/pv*100):0;g('aMg').textContent=fmt(m)+' ('+pct+'%)';g('aMg').style.color=pct>30?'#4488FF':pct>15?'#CC0000':'#FF4444';}
 function saveArt(){
   var nom=g('aNom').value.trim();if(!nom){toast('Nom requis','e');return;}
-  var obj={nom:nom,cat:g('aCat').value,un:g('aUn').value,pv:parseInt(g('aPV').value)||0,pa:parseInt(g('aPA').value)||0,stk:parseInt(g('aStk').value)||0,smin:parseInt(g('aSMin').value)||5,emo:g('aEmo').value||'🍽️',tva:parseInt(g('aTVA').value)||18,cb:g('aCB').value,ref:g('aRef').value||('ART-'+Date.now()),actif:true};
+  var obj={nom:nom,cat:g('aCat').value,un:g('aUn').value,pv:parseInt(g('aPV').value)||0,pa:parseInt(g('aPA').value)||0,stk:parseInt(g('aStk').value)||0,smin:parseInt(g('aSMin').value)||5,emo:g('aEmo').value||'🍽️',tva:parseInt(g('aTVA').value)||18,cb:fixAzertyDigits(g('aCB').value.trim()),ref:g('aRef').value||('ART-'+Date.now()),actif:true};
   if(editArtId){var i=arts.findIndex(function(a){return a.id===editArtId;});arts[i]=Object.assign(arts[i],obj);}
   else{arts.push(Object.assign({id:Date.now()},obj));}
   closeM('ovArt');renderArt();buildCats();renderProds('');renderStk();toast(editArtId?'Modifié':'Ajouté','s');
@@ -1592,7 +1607,7 @@ function renderEti(){
 function renderStk(){
   var al=g('stkAlert'),b=g('bStk');if(!b)return;
   var alrts=arts.filter(function(a){return a.stk<=a.smin&&a.actif;});
-  al.innerHTML=alrts.length?'<div class="salt">⚠️ <strong>'+alrts.length+' critique(s):</strong> '+alrts.map(function(a){return a.nom;}).join(', ')+'</div>':'';
+  al.innerHTML=(alrts.length&&toggles.alerte)?'<div class="salt">⚠️ <strong>'+alrts.length+' critique(s):</strong> '+alrts.map(function(a){return a.nom;}).join(', ')+'</div>':'';
   b.innerHTML='';
   arts.forEach(function(a){
     var st=a.stk<=0?'Rupture':a.stk<=a.smin?'Critique':'Normal';
@@ -1618,7 +1633,7 @@ function openStkModal(typ,id){
 function scanStkKey(e){
   if(e.key!=='Enter')return;
   e.preventDefault();
-  var v=e.target.value.trim();
+  var v=fixAzertyDigits(e.target.value.trim());
   if(!v)return;
   var a=arts.find(function(x){return x.cb&&x.cb===v;});
   if(a){
@@ -1932,7 +1947,7 @@ function delServer(nom){
   toast('Serveur supprimé','i');
 }
 var toggles={print:false,ttc:true,son:true,alerte:true,confirm:true,remise:true,multi:true,cloture:false};
-function initOpts(){var w=g('optsWrap');if(!w)return;w.innerHTML='';[['print','Impression automatique','Imprimer dès validation'],['ttc','Prix affichés TTC','TVA incluse'],['son','Son de caisse','Bip sonore'],['alerte','Alerte stock faible','Notification seuil min'],['confirm','Confirmation suppression','Sécurité ticket'],['remise','Autoriser remises','Champ remise visible'],['multi','Multi-serveurs','Serveur par ticket'],['cloture','Clôture obligatoire','Forcer avant ouverture']].forEach(function(o){var d=document.createElement('div');d.className='togr';d.innerHTML='<div><div style="font-size:12px;color:#fff">'+o[1]+'</div><div style="font-size:10px;color:#555;margin-top:2px">'+o[2]+'</div></div><div class="tg'+(toggles[o[0]]?' on':'')+'" onclick="this.classList.toggle(\'on\')"></div>';w.appendChild(d);});}
+function initOpts(){var w=g('optsWrap');if(!w)return;w.innerHTML='';[['print','Impression automatique','Imprimer dès validation'],['ttc','Prix affichés TTC','TVA incluse'],['son','Son de caisse','Bip sonore'],['alerte','Alerte stock faible','Notification seuil min'],['confirm','Confirmation suppression','Sécurité ticket'],['remise','Autoriser remises','Champ remise visible'],['multi','Multi-serveurs','Serveur par ticket'],['cloture','Clôture obligatoire','Forcer avant ouverture']].forEach(function(o){var d=document.createElement('div');d.className='togr';var tg=document.createElement('div');tg.className='tg'+(toggles[o[0]]?' on':'');tg.onclick=function(){toggles[o[0]]=!toggles[o[0]];tg.classList.toggle('on');if(o[0]==='alerte')renderStk();};d.innerHTML='<div><div style="font-size:12px;color:#fff">'+o[1]+'</div><div style="font-size:10px;color:#555;margin-top:2px">'+o[2]+'</div></div>';d.appendChild(tg);w.appendChild(d);});}
 
 // UTILS
 function filtT(id,v){document.querySelectorAll('#'+id+' tbody tr').forEach(function(r){r.style.display=r.textContent.toLowerCase().indexOf(v.toLowerCase())>=0?'':'none';});}
