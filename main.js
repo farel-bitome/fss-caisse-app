@@ -44,7 +44,7 @@ function createWindow() {
     height: 900,
     minWidth: 1000,
     minHeight: 650,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     icon: path.join(__dirname, 'app', 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -150,6 +150,22 @@ ipcMain.handle('save-server', (event, ip, port) => {
 ipcMain.handle('get-current-server', () => {
   const cfg = loadConfig();
   return cfg.serverUrl || '';
+});
+
+ipcMain.handle('print-silent', (event, html) => {
+  return new Promise((resolve) => {
+    const printWin = new BrowserWindow({
+      show: false,
+      webPreferences: { nodeIntegration: false, contextIsolation: true }
+    });
+    printWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    printWin.webContents.on('did-finish-load', () => {
+      printWin.webContents.print({ silent: true, printBackground: true, margins: { marginType: 'none' } }, (success, errorType) => {
+        if (!printWin.isDestroyed()) printWin.close();
+        resolve({ success: success, error: success ? null : errorType });
+      });
+    });
+  });
 });
 
 app.whenReady().then(createWindow);
