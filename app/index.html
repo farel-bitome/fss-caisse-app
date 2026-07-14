@@ -1160,6 +1160,40 @@ function updateTableOptions(){
 // (ajout de table géré via le formulaire modal openTableModal / saveTable)
 // ---- COMMANDES EN ATTENTE ----
 var cmdAttente=[];var attenteSeq=1;
+function imprimerTicketAttente(order){
+  var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
+  var w=window.open('','_blank','width=380,height=600');
+  var css='@page{size:80mm auto;margin:0}'+
+    '*{margin:0;padding:0;box-sizing:border-box}'+
+    'html,body{width:80mm}'+
+    'body{font-family:"Courier New",monospace;font-size:13px;font-weight:900;padding:3mm 4mm}'+
+    'table{width:100%;border-collapse:collapse;margin:2px 0}'+
+    'td{padding:2px 0;vertical-align:top}'+
+    'td.l{text-align:left}'+
+    'td.r{text-align:right;padding-left:10px}'+
+    '.sep{border-top:1px dashed #000;margin:6px 0}'+
+    '.c{text-align:center}';
+  function ligne(label,val){
+    return '<table><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';
+  }
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
+  html+='<div class="c" style="font-size:16px">'+etab+'</div>';
+  html+='<div class="c" style="font-size:15px;margin:4px 0">⏸ COMMANDE EN ATTENTE</div>';
+  html+='<div class="sep"></div>';
+  html+=ligne('N°','<strong>'+order.id+'</strong>');
+  html+=ligne('Table',order.tableNom||'—');
+  html+=ligne('Serveur',order.srv||'—');
+  html+=ligne('Heure',order.heure||'');
+  html+='<div class="sep"></div>';
+  (order.items||[]).forEach(function(it){
+    html+=ligne((it.qty||it.qt||1)+'x '+it.nom,'');
+  });
+  html+='<div class="sep"></div>';
+  html+='<div class="c" style="font-size:11px">Impression automatique — poste serveur</div>';
+  html+='</body></html>';
+  w.document.write(html);w.document.close();
+  setTimeout(function(){w.print();},400);
+}
 function mettreEnAttente(){
   if(!tkt.length){toast('Ticket vide','e');return;}
   var sel=g('selTable');

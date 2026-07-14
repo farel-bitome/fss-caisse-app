@@ -103,7 +103,7 @@
   function tryLogin() {
     if (!dataReady) return;
     var nom = document.getElementById('authNom').value.trim();
-    var mdp = document.getElementById('authMdp').value;
+    var mdp = document.getElementById('authMdp').value.trim();
     var err = document.getElementById('authErr');
     var u = (window.users || []).find(function (x) {
       return x.nom.toLowerCase() === nom.toLowerCase() && x.mdp === mdp;

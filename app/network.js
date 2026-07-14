@@ -5,6 +5,8 @@
   var socket = (typeof io === 'function') ? io() : null;
   var API = '/api/state';
   var applying = false;
+  var prevAttenteIds = null;
+  window.FSS_IS_SERVER = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '');
   window.users = window.users || [];
   window.nextUserId = window.nextUserId || 1;
   window.logoData = window.logoData || null;
@@ -40,6 +42,13 @@
     mouv = s.mouv || [];
     prls = s.prls || [];
     cmdAttente = s.cmdAttente || [];
+    if (window.FSS_IS_SERVER && prevAttenteIds !== null) {
+      var nouvelles = cmdAttente.filter(function (c) { return prevAttenteIds.indexOf(c.id) === -1; });
+      nouvelles.forEach(function (order) {
+        safe(function () { if (window.imprimerTicketAttente) window.imprimerTicketAttente(order); });
+      });
+    }
+    prevAttenteIds = cmdAttente.map(function (c) { return c.id; });
     nextTk = s.nextTk || 1;
     attenteSeq = s.attenteSeq || 1;
     users = s.users || [];
