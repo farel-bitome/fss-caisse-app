@@ -6,6 +6,7 @@
   var API = '/api/state';
   var applying = false;
   var prevAttenteIds = null;
+  var prevTxIds = null;
   window.FSS_IS_SERVER = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '');
   window.users = window.users || [];
   window.nextUserId = window.nextUserId || 1;
@@ -39,6 +40,13 @@
     fours = s.fours || [];
     cmds = s.cmds || [];
     txs = s.txs || [];
+    if (window.FSS_IS_SERVER && prevTxIds !== null) {
+      var nouvellesTx = txs.filter(function (t) { return prevTxIds.indexOf(t.id) === -1; });
+      nouvellesTx.forEach(function (tx) {
+        safe(function () { if (window.imprimerTicketCommande) window.imprimerTicketCommande(tx); });
+      });
+    }
+    prevTxIds = txs.map(function (t) { return t.id; });
     mouv = s.mouv || [];
     prls = s.prls || [];
     cmdAttente = s.cmdAttente || [];
