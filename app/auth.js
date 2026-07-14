@@ -372,6 +372,8 @@
     document.body.appendChild(ov);
     document.getElementById('permsCloseBtn').addEventListener('click', function () {
       ov.style.display = 'none';
+      var mgmt = document.getElementById('userMgmtOverlay');
+      if (mgmt) mgmt.style.display = 'flex';
     });
   }
 
@@ -386,6 +388,8 @@
       c.checked = (u.perms || []).indexOf(c.value) !== -1;
     });
     document.getElementById('permsOverlay').style.display = 'flex';
+    var mgmt = document.getElementById('userMgmtOverlay');
+    if (mgmt) mgmt.style.display = 'none';
   }
 
   function bindPermsSaveBtn() {
@@ -400,6 +404,8 @@
         u.perms = perms;
         if (window.fssSyncPush) window.fssSyncPush();
         document.getElementById('permsOverlay').style.display = 'none';
+        var mgmt = document.getElementById('userMgmtOverlay');
+        if (mgmt) mgmt.style.display = 'flex';
         safeToast('Droits mis à jour', 's');
       });
     }
