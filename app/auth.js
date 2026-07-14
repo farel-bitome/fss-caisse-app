@@ -158,11 +158,24 @@
   function hasAccess(u, moduleKey) {
     if (!u) return false;
     if (u.super || u.full) return true;
+    if (u.waiterOnly) return moduleKey === 'caisse';
     return (u.perms || []).indexOf(moduleKey) !== -1;
   }
 
   window.hasReimprPermission = function () {
     return hasAccess(currentUser, 'reimpression');
+  };
+
+  window.isWaiterOnly = function () {
+    return !!(currentUser && currentUser.waiterOnly);
+  };
+
+  window.waiterCanSeeAttente = function () {
+    return !currentUser || !currentUser.waiterOnly || !!currentUser.waiterCanSeeAttente;
+  };
+
+  window.waiterCanDeleteAttente = function () {
+    return !currentUser || !currentUser.waiterOnly || !!currentUser.waiterCanDeleteAttente;
   };
 
   function applyPermissions() {
@@ -263,7 +276,18 @@
       '<div style="font-size:12px;color:#ccc;margin-bottom:8px">➕ Nouvel utilisateur</div>' +
       '<input id="umgtNom" placeholder="Identifiant">' +
       '<input id="umgtMdp" type="password" placeholder="Mot de passe">' +
-      '<div style="font-size:11px;color:#888;margin-bottom:6px">Accès autorisés :</div>' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#eee;margin:10px 0;padding:8px;background:#0e0e0e;border-radius:6px;border:1px solid #333;cursor:pointer">' +
+      '<input type="checkbox" id="umgtWaiterChk"> 🙋 Compte Serveur/Serveuse — prise de commande uniquement (pas d\'accès à l\'encaissement)' +
+      '</label>' +
+      '<div id="umgtWaiterOpts" style="display:none;margin:0 0 10px 8px">' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#ccc;margin-bottom:6px;cursor:pointer">' +
+      '<input type="checkbox" id="umgtWaiterSeeChk"> Peut voir les commandes en attente' +
+      '</label>' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#ccc;cursor:pointer">' +
+      '<input type="checkbox" id="umgtWaiterDelChk"> Peut supprimer les commandes en attente' +
+      '</label>' +
+      '</div>' +
+      '<div style="font-size:11px;color:#888;margin-bottom:6px" id="umgtPermsLabel">Accès autorisés :</div>' +
       permsHtml +
       '<button class="main" id="umgtAddBtn">➕ Ajouter l\'utilisateur</button>' +
       '<div class="authErr" id="umgtErr"></div>' +
@@ -276,6 +300,12 @@
     document.getElementById('umgtCloseBtn').addEventListener('click', function () {
       ov.style.display = 'none';
     });
+    document.getElementById('umgtWaiterChk').addEventListener('change', function (e) {
+      var isWaiter = e.target.checked;
+      document.getElementById('umgtPermsGrid').style.display = isWaiter ? 'none' : '';
+      document.getElementById('umgtPermsLabel').style.display = isWaiter ? 'none' : '';
+      document.getElementById('umgtWaiterOpts').style.display = isWaiter ? '' : 'none';
+    });
   }
 
   function renderUserMgmt() {
@@ -285,8 +315,8 @@
     (window.users || []).forEach(function (u) {
       var tr = document.createElement('tr');
       var canDelete = !u.super;
-      var tag = u.super ? '<span class="badge-super">SUPER</span>' : (u.full ? '<span class="badge-full">COMPLET</span>' : '');
-      var permsBtn = (!u.super && !u.full) ? '<button class="sm" data-action="perms" data-id="' + u.id + '">🛡️ Droits</button>' : '';
+      var tag = u.super ? '<span class="badge-super">SUPER</span>' : (u.full ? '<span class="badge-full">COMPLET</span>' : (u.waiterOnly ? '<span class="badge-full" style="background:#996600">SERVEUR</span>' : ''));
+      var permsBtn = (!u.super && !u.full && !u.waiterOnly) ? '<button class="sm" data-action="perms" data-id="' + u.id + '">🛡️ Droits</button>' : '';
       var resetBtn = !u.super ? '<button class="sm" data-action="reset" data-id="' + u.id + '">🔑</button>' : '<span style="color:#555;font-size:11px">Protégé</span>';
       tr.innerHTML =
         '<td>' + u.nom + tag + '</td>' +
@@ -321,13 +351,28 @@
     if (!nom || !mdp) { err.textContent = 'Identifiant et mot de passe requis'; return; }
     var exists = (window.users || []).some(function (u) { return u.nom.toLowerCase() === nom.toLowerCase(); });
     if (exists) { err.textContent = 'Cet identifiant existe déjà'; return; }
+    var isWaiter = document.getElementById('umgtWaiterChk').checked;
     var perms = [];
-    document.querySelectorAll('.umgtPermChk').forEach(function (c) { if (c.checked) perms.push(c.value); });
-    users.push({ id: nextUserId, nom: nom, mdp: mdp, super: false, full: false, perms: perms, doitChangerMdp: false });
+    if (!isWaiter) {
+      document.querySelectorAll('.umgtPermChk').forEach(function (c) { if (c.checked) perms.push(c.value); });
+    }
+    var waiterCanSee = isWaiter && document.getElementById('umgtWaiterSeeChk').checked;
+    var waiterCanDel = isWaiter && document.getElementById('umgtWaiterDelChk').checked;
+    users.push({
+      id: nextUserId, nom: nom, mdp: mdp, super: false, full: false,
+      waiterOnly: isWaiter, waiterCanSeeAttente: waiterCanSee, waiterCanDeleteAttente: waiterCanDel,
+      perms: perms, doitChangerMdp: false
+    });
     nextUserId++;
     err.textContent = '';
     document.getElementById('umgtNom').value = '';
     document.getElementById('umgtMdp').value = '';
+    document.getElementById('umgtWaiterChk').checked = false;
+    document.getElementById('umgtWaiterSeeChk').checked = false;
+    document.getElementById('umgtWaiterDelChk').checked = false;
+    document.getElementById('umgtWaiterOpts').style.display = 'none';
+    document.getElementById('umgtPermsGrid').style.display = '';
+    document.getElementById('umgtPermsLabel').style.display = '';
     document.querySelectorAll('.umgtPermChk').forEach(function (c) { c.checked = false; });
     if (window.fssSyncPush) window.fssSyncPush();
     renderUserMgmt();
@@ -420,6 +465,7 @@
     applyPermissions();
     try { renderRap(); } catch (e) {}
     try { renderTkList(); } catch (e) {}
+    try { if (window.applyWaiterUI) window.applyWaiterUI(); } catch (e) {}
   }
 
   injectCSS();
