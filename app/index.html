@@ -791,16 +791,23 @@ td{padding:8px 11px;vertical-align:middle}
     <div class="fg"><label class="fl">Prix achat (FCFA)</label><input class="fi" type="number" id="aPA" placeholder="0" oninput="calcMg()"></div>
     <div class="fg"><label class="fl">Stock initial</label><input class="fi" type="number" id="aStk" placeholder="0"></div>
     <div class="fg"><label class="fl">Stock minimum</label><input class="fi" type="number" id="aSMin" placeholder="5"></div>
+    <div class="fg" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#eee;cursor:pointer;padding:8px;background:#0e0e0e;border-radius:6px;border:1px solid #333"><input type="checkbox" id="aAlerte" checked> ⚠️ Activer l'alerte de stock faible pour cet article</label></div>
     <div class="fg"><label class="fl">Émoji</label><input class="fi" id="aEmo" placeholder="🍺" maxlength="2"></div>
     <div class="fg"><label class="fl">TVA (%)</label><input class="fi" type="number" id="aTVA" value="18"></div>
-    <div class="fg"><label class="fl">Code-barres</label><input class="fi" id="aCB" placeholder="EAN13..."></div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Code-barres</label>
+      <div style="display:flex;gap:6px">
+        <input class="fi" id="aCB" placeholder="EAN13..." style="flex:1" oninput="this.value=fixAzertyDigits(this.value)">
+        <button type="button" class="btn btn-o sm" onclick="genererCodeBarre()">🎲 Générer</button>
+        <button type="button" class="btn btn-o sm" onclick="imprimerCodeBarreArticle()">🖨️ Imprimer</button>
+      </div>
+    </div>
     <div class="fg"><label class="fl">Marge brute</label><div class="fi" id="aMg" style="background:#111">0 FCFA (0%)</div></div>
   </div></div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovArt')">Annuler</button><button class="btn btn-r" onclick="saveArt()">Enregistrer</button></div>
 </div></div>
 <div class="ov" id="ovStk"><div class="md"><div class="mh"><span class="mt" id="stkMT">Entrée de Stock</span><button class="mc" onclick="closeM('ovStk')">✕</button></div>
   <div class="mb">
-    <div class="fg"><label class="fl">Scanner un code-barres (optionnel)</label><input class="fi" id="sScan" placeholder="Scanner ou saisir le code-barres..." onkeydown="scanStkKey(event)" autocomplete="off"></div>
+    <div class="fg"><label class="fl">Scanner un code-barres (optionnel)</label><input class="fi" id="sScan" placeholder="Scanner ou saisir le code-barres..." onkeydown="scanStkKey(event)" oninput="this.value=fixAzertyDigits(this.value)" autocomplete="off"></div>
     <div class="fg"><label class="fl">Article *</label><select class="fi" id="sArt"></select></div>
     <div class="sg">
       <div class="fg"><label class="fl">Type</label><select class="fi" id="sTyp"><option value="in">Entrée</option><option value="out">Sortie</option><option value="adj">Ajustement</option></select></div>
@@ -1024,11 +1031,8 @@ function filterProd(v){renderProds(v);}
 function fixAzertyDigits(str){
   // Certaines douchettes code-barres envoient les touches en QWERTY : sur un clavier
   // AZERTY français, cela tape les symboles de la rangée du haut au lieu des chiffres.
-  // On corrige automatiquement : &é"'(-è_çà -> 1234567890
+  // On corrige systématiquement chaque caractère concerné : &é"'(-è_çà -> 1234567890
   var map={'&':'1','é':'2','"':'3','\'':'4','(':'5','-':'6','è':'7','_':'8','ç':'9','à':'0'};
-  var symCount=0,digitCount=0;
-  for(var i=0;i<str.length;i++){if(map[str[i]])symCount++;else if(/[0-9]/.test(str[i]))digitCount++;}
-  if(symCount===0||symCount<digitCount)return str; // pas besoin de correction
   var out='';
   for(var j=0;j<str.length;j++){out+=map[str[j]]!==undefined?map[str[j]]:str[j];}
   return out;
@@ -1578,14 +1582,90 @@ function renderArt(){
 }
 function openArtModal(id){
   editArtId=id||null;g('artMT').textContent=id?'Modifier article':'Nouvel article';
-  if(id){var a=arts.find(function(x){return x.id===id;});g('aRef').value=a.ref;g('aNom').value=a.nom;g('aCat').value=a.cat;g('aUn').value=a.un;g('aPV').value=a.pv;g('aPA').value=a.pa;g('aStk').value=a.stk;g('aSMin').value=a.smin;g('aEmo').value=a.emo;g('aTVA').value=a.tva;g('aCB').value=a.cb||'';}
-  else{['aRef','aNom','aPV','aPA','aStk','aSMin','aCB'].forEach(function(i){g(i).value='';});g('aEmo').value='🍽️';g('aTVA').value='18';}
+  if(id){var a=arts.find(function(x){return x.id===id;});g('aRef').value=a.ref;g('aNom').value=a.nom;g('aCat').value=a.cat;g('aUn').value=a.un;g('aPV').value=a.pv;g('aPA').value=a.pa;g('aStk').value=a.stk;g('aSMin').value=a.smin;g('aEmo').value=a.emo;g('aTVA').value=a.tva;g('aCB').value=a.cb||'';g('aAlerte').checked=a.alerte!==false;}
+  else{['aRef','aNom','aPV','aPA','aStk','aSMin','aCB'].forEach(function(i){g(i).value='';});g('aEmo').value='🍽️';g('aTVA').value='18';g('aAlerte').checked=true;}
   calcMg();g('ovArt').classList.add('on');
 }
 function calcMg(){var pv=parseInt(g('aPV').value)||0,pa=parseInt(g('aPA').value)||0,m=pv-pa,pct=pv?Math.round(m/pv*100):0;g('aMg').textContent=fmt(m)+' ('+pct+'%)';g('aMg').style.color=pct>30?'#4488FF':pct>15?'#CC0000':'#FF4444';}
+// ---- CODE-BARRES : génération EAN-13 + rendu SVG + impression (sans dépendance externe) ----
+var EAN_L=['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'];
+var EAN_G=['0100111','0110011','0011011','0100001','0011101','0111001','0000101','0010001','0001001','0010111'];
+var EAN_R=['1110010','1100110','1101100','1000010','1011100','1001110','1010000','1000100','1001000','1110100'];
+var EAN_PARITY=['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG','LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL'];
+function ean13Checksum(d12){
+  var sum=0;
+  for(var i=0;i<12;i++){sum+=parseInt(d12[i])*(i%2===0?1:3);}
+  return String((10-(sum%10))%10);
+}
+function genererCodeBarre(){
+  // Préfixe interne 20 (plage réservée usage interne) + 9 chiffres + checksum = 13 chiffres
+  var base='20';
+  for(var i=0;i<9;i++)base+=Math.floor(Math.random()*10);
+  var code=base+ean13Checksum(base);
+  // Vérifie qu'il n'existe pas déjà (évite les doublons entre articles)
+  var tries=0;
+  while(arts.some(function(a){return a.cb===code;})&&tries<20){
+    base='20';for(var j=0;j<9;j++)base+=Math.floor(Math.random()*10);
+    code=base+ean13Checksum(base);tries++;
+  }
+  g('aCB').value=code;
+  toast('Code-barres généré','s');
+}
+function ean13ToBars(code){
+  code=(code+'').replace(/\D/g,'');
+  if(code.length!==13)return null;
+  var parity=EAN_PARITY[parseInt(code[0])];
+  var bits='101'; // garde de gauche
+  for(var i=0;i<6;i++){
+    var d=parseInt(code[1+i]);
+    bits+=(parity[i]==='L'?EAN_L[d]:EAN_G[d]);
+  }
+  bits+='01010'; // garde centrale
+  for(var j=0;j<6;j++){
+    bits+=EAN_R[parseInt(code[7+j])];
+  }
+  bits+='101'; // garde de droite
+  return bits;
+}
+function ean13Svg(code,w,h){
+  w=w||260;h=h||70;
+  var bits=ean13ToBars(code);
+  if(!bits)return '<div style="color:#c00;font-size:11px">Code-barres invalide (doit faire 13 chiffres)</div>';
+  var barW=w/bits.length;
+  var svg='<svg viewBox="0 0 '+w+' '+(h+16)+'" width="'+w+'" height="'+(h+16)+'" xmlns="http://www.w3.org/2000/svg" style="background:#fff">';
+  for(var i=0;i<bits.length;i++){
+    if(bits[i]==='1'){svg+='<rect x="'+(i*barW).toFixed(2)+'" y="0" width="'+(barW+0.3).toFixed(2)+'" height="'+h+'" fill="#000"/>';}
+  }
+  svg+='<text x="'+(w/2)+'" y="'+(h+13)+'" text-anchor="middle" font-family="monospace" font-size="12" fill="#000">'+code+'</text>';
+  svg+='</svg>';
+  return svg;
+}
+function imprimerCodeBarreArticle(){
+  var code=fixAzertyDigits(g('aCB').value.trim());
+  if(!code){toast('Générez ou saisissez un code-barres d\'abord','e');return;}
+  if(code.length!==13){toast('Le code-barres doit faire 13 chiffres (EAN-13)','e');return;}
+  var nom=g('aNom').value.trim()||'Article';
+  var pv=parseInt(g('aPV').value)||0;
+  var svg=ean13Svg(code,220,60);
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+
+    '@page{size:50mm 30mm;margin:0}'+
+    '*{margin:0;padding:0;box-sizing:border-box}'+
+    'body{width:50mm;font-family:Arial,sans-serif;text-align:center;padding:2mm}'+
+    '.nom{font-size:9px;font-weight:700;margin-bottom:1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+
+    '.px{font-size:10px;font-weight:700;margin-top:1mm}'+
+    'svg{width:100%;height:auto}'+
+    '</style></head><body>'+
+    '<div class="nom">'+nom+'</div>'+
+    svg+
+    (pv?'<div class="px">'+pv.toLocaleString('fr-FR')+' FCFA</div>':'')+
+    '</body></html>';
+  var w=window.open('','_blank','width=300,height=300');
+  w.document.write(html);w.document.close();
+  setTimeout(function(){w.print();},400);
+}
 function saveArt(){
   var nom=g('aNom').value.trim();if(!nom){toast('Nom requis','e');return;}
-  var obj={nom:nom,cat:g('aCat').value,un:g('aUn').value,pv:parseInt(g('aPV').value)||0,pa:parseInt(g('aPA').value)||0,stk:parseInt(g('aStk').value)||0,smin:parseInt(g('aSMin').value)||5,emo:g('aEmo').value||'🍽️',tva:parseInt(g('aTVA').value)||18,cb:fixAzertyDigits(g('aCB').value.trim()),ref:g('aRef').value||('ART-'+Date.now()),actif:true};
+  var obj={nom:nom,cat:g('aCat').value,un:g('aUn').value,pv:parseInt(g('aPV').value)||0,pa:parseInt(g('aPA').value)||0,stk:parseInt(g('aStk').value)||0,smin:parseInt(g('aSMin').value)||5,emo:g('aEmo').value||'🍽️',tva:parseInt(g('aTVA').value)||18,cb:fixAzertyDigits(g('aCB').value.trim()),alerte:g('aAlerte').checked,ref:g('aRef').value||('ART-'+Date.now()),actif:true};
   if(editArtId){var i=arts.findIndex(function(a){return a.id===editArtId;});arts[i]=Object.assign(arts[i],obj);}
   else{arts.push(Object.assign({id:Date.now()},obj));}
   closeM('ovArt');renderArt();buildCats();renderProds('');renderStk();toast(editArtId?'Modifié':'Ajouté','s');
@@ -1606,7 +1686,7 @@ function renderEti(){
 // STOCK
 function renderStk(){
   var al=g('stkAlert'),b=g('bStk');if(!b)return;
-  var alrts=arts.filter(function(a){return a.stk<=a.smin&&a.actif;});
+  var alrts=arts.filter(function(a){return a.stk<=a.smin&&a.actif&&a.alerte!==false;});
   al.innerHTML=(alrts.length&&toggles.alerte)?'<div class="salt">⚠️ <strong>'+alrts.length+' critique(s):</strong> '+alrts.map(function(a){return a.nom;}).join(', ')+'</div>':'';
   b.innerHTML='';
   arts.forEach(function(a){
