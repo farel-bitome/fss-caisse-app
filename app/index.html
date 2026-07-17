@@ -937,6 +937,9 @@ td{padding:8px 11px;vertical-align:middle}
     <div style="font-size:12px;color:#ccc;margin-bottom:14px;line-height:1.5">Avant de commencer à vendre aujourd'hui, indiquez la caisse utilisée et le montant en espèces déjà présent dans le tiroir (fonds de départ) :</div>
     <div class="fg" id="fondsCaisseSelWrap"><label class="fl">Caisse</label><select class="fi" id="fondsCaisseSel"></select></div>
     <div class="fg"><label class="fl">Montant (FCFA)</label><input class="fi" type="number" id="fondsMnt" placeholder="Ex: 50000" autocomplete="off" onkeydown="if(event.key==='Enter')confirmFondsOuverture()"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#eee;cursor:pointer;padding:8px;background:#0e0e0e;border-radius:6px;border:1px solid #333;margin-bottom:12px">
+      <input type="checkbox" id="fondsVideChk" onchange="toggleFondsVide()"> 🚫 Caisse vide — rien dans le tiroir
+    </label>
     <div class="authErr" id="fondsErr"></div>
   </div>
   <div class="mf"><button class="btn btn-r" style="flex:1" onclick="confirmFondsOuverture()">✓ Valider et commencer</button></div>
@@ -952,7 +955,7 @@ td{padding:8px 11px;vertical-align:middle}
 </div></div>
 
 <script>
-window.FSS_VERSION='1.5.0';
+window.FSS_VERSION='1.5.2';
 var arts=[
   {id:1,ref:'ART-001',nom:'Castel Bière',cat:'Bières',un:'Bouteille',pv:1500,pa:900,stk:48,smin:10,emo:'🍺',tva:18,actif:true},
   {id:2,ref:'ART-002',nom:'Régab',cat:'Bières',un:'Bouteille',pv:1500,pa:900,stk:36,smin:10,emo:'🍺',tva:18,actif:true},
@@ -1223,12 +1226,20 @@ function openFondsModal(caisseImposee){
     });
   }
   g('fondsMnt').value='';g('fondsErr').textContent='';
+  g('fondsVideChk').checked=false;g('fondsMnt').disabled=false;
   g('ovFonds').classList.add('on');
   setTimeout(function(){(caisseImposee?g('fondsMnt'):sel).focus();},50);
+}
+function toggleFondsVide(){
+  var vide=g('fondsVideChk').checked;
+  g('fondsMnt').disabled=vide;
+  if(vide)g('fondsMnt').value='0';
 }
 function onCaisseChange(){
   var cx=g('selCaisse')?g('selCaisse').value:'';
   if(!cx)return;
+  var u=window.currentUser;
+  if(u&&(u.super||u.full))return; // les admins n'ont jamais besoin d'indiquer un fonds d'ouverture
   var f=fondsOuverture[cx];
   if(!f||f.date!==todayStr())openFondsModal(cx);
 }
@@ -1483,9 +1494,9 @@ function applyWaiterUI(){
   }else if(g('selCaisse')){
     g('selCaisse').disabled=false;
   }
-  // Demande le fonds de caisse d'ouverture dès la connexion pour les comptes caissier/caissière
-  // (pas pour les Serveur/Serveuse, qui n'encaissent pas)
-  if(u&&!isW&&hasAccessGlobal('caisse')){
+  // Demande le fonds de caisse d'ouverture dès la connexion, uniquement pour le rôle
+  // "Caissier/Caissière" — jamais pour les admins (super/full) ni les autres rôles.
+  if(u&&!isW&&!u.super&&!u.full&&u.role==='Caissier/Caissière'){
     if(u.caisseAssignee){
       var f=fondsOuverture[u.caisseAssignee];
       if(!f||f.date!==todayStr()){setTimeout(function(){openFondsModal(u.caisseAssignee);},300);}
