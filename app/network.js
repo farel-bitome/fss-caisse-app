@@ -16,12 +16,13 @@
   window.servers = window.servers || [];
   window.caisses = window.caisses || [];
   window.categories = window.categories || [];
+  window.fondsOuverture = window.fondsOuverture || {};
 
   function fullState() {
     return {
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
-      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories
+      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture
     };
   }
 
@@ -73,6 +74,8 @@
     window.caisses = caisses;
     if (s.categories && s.categories.length) categories = s.categories;
     window.categories = categories;
+    if (s.fondsOuverture) fondsOuverture = s.fondsOuverture;
+    window.fondsOuverture = fondsOuverture;
     refreshAllViews();
     applyEtabToInputs();
     applying = false;

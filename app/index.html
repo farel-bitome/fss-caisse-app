@@ -298,7 +298,7 @@ td{padding:8px 11px;vertical-align:middle}
         <option value="0">— Table —</option>
       </select>
       <select class="ms" id="selSrv"><option value="">— Serveur —</option></select>
-      <select class="ms" id="selCaisse"><option value="">— Caisse —</option></select>
+      <select class="ms" id="selCaisse" onchange="onCaisseChange()"><option value="">— Caisse —</option></select>
       <button class="btn btn-o sm" onclick="openTableModal()">＋ Table</button>
     </div>
     <div id="attenteBar" style="display:none;background:#111;border-bottom:1px solid #333;padding:6px 10px">
@@ -561,7 +561,7 @@ td{padding:8px 11px;vertical-align:middle}
     </div>
     <div class="cgrid">
       <div class="ccard"><div class="ccti">☀️ Récapitulatif Journée</div>
-        <div class="cln"><span>Fonds ouverture</span><span>50 000 FCFA</span></div>
+        <div class="cln"><span>Fonds ouverture</span><span id="clFondsOuv">0 FCFA</span></div>
         <div class="cln"><span>Total encaissements</span><span id="cl2" style="color:#4488FF">0 FCFA</span></div>
         <div class="cln"><span>Dont espèces</span><span id="cl3">0 FCFA</span></div>
         <div class="cln"><span>Dont carte</span><span id="cl4">0 FCFA</span></div>
@@ -921,17 +921,38 @@ td{padding:8px 11px;vertical-align:middle}
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovCat')">Annuler</button><button class="btn btn-r" onclick="saveCat()">Enregistrer</button></div>
 </div></div>
 
+<div class="ov" id="ovClotureBilan"><div class="md lg"><div class="mh"><span class="mt">🔒 Bilan de clôture — <span id="bilanDate"></span></span><button class="mc" onclick="closeM('ovClotureBilan')">✕</button></div>
+  <div class="mb">
+    <div class="tw"><table><thead><tr><th>Caisse</th><th>Tickets</th><th>Chiffre d'affaires</th></tr></thead><tbody id="bilanBody"></tbody></table></div>
+    <div style="border-top:2px solid #CC0000;margin-top:14px;padding-top:14px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:16px;font-weight:900;color:#fff">TOTAL GLOBAL</span>
+      <span style="font-size:24px;font-weight:900;color:#CC0000" id="bilanTotal">0 FCFA</span>
+    </div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovClotureBilan')">Fermer</button><button class="btn btn-r" onclick="print80()">🖨️ Imprimer 80mm</button><button class="btn btn-r" onclick="printA4()">📄 Imprimer A4</button></div>
+</div></div>
+
+<div class="ov" id="ovFonds"><div class="md"><div class="mh"><span class="mt">💰 Fonds de caisse d'ouverture</span></div>
+  <div class="mb">
+    <div style="font-size:12px;color:#ccc;margin-bottom:14px;line-height:1.5">Avant de commencer à vendre aujourd'hui, indiquez la caisse utilisée et le montant en espèces déjà présent dans le tiroir (fonds de départ) :</div>
+    <div class="fg" id="fondsCaisseSelWrap"><label class="fl">Caisse</label><select class="fi" id="fondsCaisseSel"></select></div>
+    <div class="fg"><label class="fl">Montant (FCFA)</label><input class="fi" type="number" id="fondsMnt" placeholder="Ex: 50000" autocomplete="off" onkeydown="if(event.key==='Enter')confirmFondsOuverture()"></div>
+    <div class="authErr" id="fondsErr"></div>
+  </div>
+  <div class="mf"><button class="btn btn-r" style="flex:1" onclick="confirmFondsOuverture()">✓ Valider et commencer</button></div>
+</div></div>
+
 <div class="ov" id="ovStockZero"><div class="md"><div class="mh"><span class="mt">⚠️ Confirmation requise</span><button class="mc" onclick="closeM('ovStockZero')">✕</button></div>
   <div class="mb">
-    <div style="font-size:12px;color:#FF6666;margin-bottom:14px;line-height:1.5">Cette action va remettre le <strong>stock de tous les articles à 0</strong>. C'est irréversible.<br><br>Pour confirmer, saisissez votre mot de passe administrateur :</div>
-    <div class="fg"><label class="fl">Mot de passe admin</label><input class="fi" type="password" id="stockZeroPwd" placeholder="••••••" autocomplete="off" onkeydown="if(event.key==='Enter')confirmStockZero()"></div>
+    <div style="font-size:12px;color:#FF6666;margin-bottom:14px;line-height:1.5" id="stockZeroMsg">Cette action est irréversible.<br><br>Pour confirmer, saisissez votre mot de passe administrateur :</div>
+    <div class="fg"><label class="fl">Mot de passe admin</label><input class="fi" type="password" id="stockZeroPwd" placeholder="••••••" autocomplete="off" onkeydown="if(event.key==='Enter')confirmAdminAction()"></div>
     <div class="authErr" id="stockZeroErr"></div>
   </div>
-  <div class="mf"><button class="btn btn-o" onclick="closeM('ovStockZero')">Annuler</button><button class="btn btn-r" onclick="confirmStockZero()">🗑️ Confirmer la remise à zéro</button></div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovStockZero')">Annuler</button><button class="btn btn-r" id="stockZeroBtn" onclick="confirmAdminAction()">🗑️ Confirmer</button></div>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.2.4';
+window.FSS_VERSION='1.5.0';
 var arts=[
   {id:1,ref:'ART-001',nom:'Castel Bière',cat:'Bières',un:'Bouteille',pv:1500,pa:900,stk:48,smin:10,emo:'🍺',tva:18,actif:true},
   {id:2,ref:'ART-002',nom:'Régab',cat:'Bières',un:'Bouteille',pv:1500,pa:900,stk:36,smin:10,emo:'🍺',tva:18,actif:true},
@@ -1188,6 +1209,53 @@ function libererTable(){
   updateTableOptions();
 }
 // Griser les tables déjà en attente dans le select
+var fondsOuverture={}; // { "Caisse 1": {date:"2026-07-17", montant:50000}, ... }
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function openFondsModal(caisseImposee){
+  var selWrap=g('fondsCaisseSelWrap'),sel=g('fondsCaisseSel');
+  if(caisseImposee){
+    sel.innerHTML='<option value="'+caisseImposee+'">'+caisseImposee+'</option>';
+    sel.value=caisseImposee;sel.disabled=true;
+  }else{
+    sel.disabled=false;sel.innerHTML='<option value="">— Choisir —</option>';
+    caisses.slice().sort().forEach(function(c){
+      var opt=document.createElement('option');opt.value=c;opt.text=c;sel.appendChild(opt);
+    });
+  }
+  g('fondsMnt').value='';g('fondsErr').textContent='';
+  g('ovFonds').classList.add('on');
+  setTimeout(function(){(caisseImposee?g('fondsMnt'):sel).focus();},50);
+}
+function onCaisseChange(){
+  var cx=g('selCaisse')?g('selCaisse').value:'';
+  if(!cx)return;
+  var f=fondsOuverture[cx];
+  if(!f||f.date!==todayStr())openFondsModal(cx);
+}
+function confirmFondsOuverture(){
+  var cx=g('fondsCaisseSel')?g('fondsCaisseSel').value:'';
+  var mnt=parseInt((g('fondsMnt').value||'').replace(/[^\d]/g,''))||0;
+  if(!cx){g('fondsErr').textContent='Veuillez choisir une caisse';return;}
+  fondsOuverture[cx]={date:todayStr(),montant:mnt};
+  g('ovFonds').classList.remove('on');
+  if(g('selCaisse')){g('selCaisse').value=cx;}
+  initCloture();calcCpt();
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('Fonds d\'ouverture de '+cx+' : '+fmt(mnt),'s');
+}
+function getFondsOuverture(caisseFiltre){
+  var today=todayStr();
+  if(caisseFiltre){
+    var f=fondsOuverture[caisseFiltre];
+    return (f&&f.date===today)?f.montant:0;
+  }
+  var total=0;
+  Object.keys(fondsOuverture).forEach(function(c){
+    var f=fondsOuverture[c];
+    if(f&&f.date===today)total+=f.montant;
+  });
+  return total;
+}
 function updateTableOptions(){
   var sel=g('selTable');if(!sel)return;
   var tablesOccupees=cmdAttente.map(function(c){return c.tableVal;});
@@ -1415,6 +1483,25 @@ function applyWaiterUI(){
   }else if(g('selCaisse')){
     g('selCaisse').disabled=false;
   }
+  // Demande le fonds de caisse d'ouverture dès la connexion pour les comptes caissier/caissière
+  // (pas pour les Serveur/Serveuse, qui n'encaissent pas)
+  if(u&&!isW&&hasAccessGlobal('caisse')){
+    if(u.caisseAssignee){
+      var f=fondsOuverture[u.caisseAssignee];
+      if(!f||f.date!==todayStr()){setTimeout(function(){openFondsModal(u.caisseAssignee);},300);}
+    }else if(caisses&&caisses.length){
+      // Vérifie si TOUTES les caisses ont déjà leur fonds du jour ; sinon on propose la saisie
+      var manque=caisses.some(function(c){var f=fondsOuverture[c];return !f||f.date!==todayStr();});
+      if(manque)setTimeout(function(){openFondsModal(null);},300);
+    }
+  }
+}
+function hasAccessGlobal(key){
+  var u=window.currentUser;
+  if(!u)return false;
+  if(u.super||u.full)return true;
+  if(u.waiterOnly)return key==='caisse';
+  return (u.perms||[]).indexOf(key)!==-1;
 }
 window.applyWaiterUI=applyWaiterUI;
 // PAIEMENT
@@ -1921,7 +2008,18 @@ function annulerTicket(id){
   if(window.fssSyncPush)window.fssSyncPush();
   toast('Ticket '+t.id+' annulé','s');
 }
-function renderLC(){var b=g('bLC');if(!b)return;b.innerHTML='';var s=50000;[{d:'08:00',l:'Fonds ouverture',enc:50000}].concat(txs.map(function(t){return{d:t.date,l:'Vente — '+t.id,enc:t.ttc};})).forEach(function(l){s+=l.enc;var tr=document.createElement('tr');tr.innerHTML='<td>'+l.d+'</td><td>'+l.l+'</td><td><span class="badge bg">Encaissement</span></td><td>'+fmt(l.enc)+'</td><td>—</td><td><strong>'+fmt(s)+'</strong></td>';b.appendChild(tr);});}
+function renderLC(){
+  var b=g('bLC');if(!b)return;b.innerHTML='';
+  var fonds=getFondsOuverture(null);
+  var s=fonds;
+  var lignes=[{d:'08:00',l:'Fonds ouverture',enc:fonds}].concat(txs.map(function(t){return{d:t.date,l:'Vente — '+t.id,enc:t.ttc};}));
+  lignes.forEach(function(l,i){
+    if(i>0)s+=l.enc;
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+l.d+'</td><td>'+l.l+'</td><td><span class="badge bg">Encaissement</span></td><td>'+fmt(l.enc)+'</td><td>—</td><td><strong>'+fmt(s)+'</strong></td>';
+    b.appendChild(tr);
+  });
+}
 function renderLR(){var b=g('bLR');if(!b)return;b.innerHTML='';var cu=0;txs.forEach(function(t){cu+=t.ttc;var tr=document.createElement('tr');tr.innerHTML='<td>'+t.date+'</td><td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>'+fmt(t.ht)+'</td><td>'+fmt(t.tva)+'</td><td><strong>'+fmt(t.ttc)+'</strong></td><td>'+fmt(cu)+'</td>';b.appendChild(tr);});}
 
 // CLOTURE
@@ -1942,35 +2040,78 @@ function txsCloture(){
 }
 function initCloture(){
   renderCloCaisseSelect();
+  var f=g('cloCaisse')?g('cloCaisse').value:'';
+  var fonds=getFondsOuverture(f);
   var tl=txsCloture();
   var esp=tl.filter(function(t){return t.pay==='Espèces';}).reduce(function(s,t){return s+t.ttc;},0);
   var cart=tl.filter(function(t){return t.pay==='Carte';}).reduce(function(s,t){return s+t.ttc;},0);
   var ttc=tl.reduce(function(s,t){return s+t.ttc;},0),ht=tl.reduce(function(s,t){return s+t.ht;},0),tva=tl.reduce(function(s,t){return s+t.tva;},0),nb=tl.reduce(function(s,t){return s+t.arts;},0);
   var tp=prls.reduce(function(s,p){return s+p.mnt;},0);
-  g('cl2').textContent=fmt(ttc);g('cl3').textContent=fmt(esp);g('cl4').textContent=fmt(cart);g('cl5').textContent=fmt(tp);g('cl6').textContent=fmt(50000+ttc-tp);
+  if(g('clFondsOuv'))g('clFondsOuv').textContent=fmt(fonds);
+  g('cl2').textContent=fmt(ttc);g('cl3').textContent=fmt(esp);g('cl4').textContent=fmt(cart);g('cl5').textContent=fmt(tp);g('cl6').textContent=fmt(fonds+ttc-tp);
   g('cn1').textContent=tl.length;g('cn2').textContent=nb;g('cn3').textContent=tl.length?fmt(Math.round(ttc/tl.length)):fmt(0);g('cn4').textContent=fmt(ht);g('cn5').textContent=fmt(tva);g('cn6').textContent=fmt(ttc);
   if(g('clDate'))g('clDate').textContent=new Date().toLocaleDateString('fr-FR');
   renderPrls();calcCpt();
 }
 function addPrel(){
-  var mnt=parseInt(g('prelMnt').value)||0,motif=g('prelMotif').value.trim()||'Prélèvement';
+  var rawMnt=(g('prelMnt').value||'').replace(/[^\d]/g,'');
+  var mnt=parseInt(rawMnt)||0,motif=g('prelMotif').value.trim()||'Prélèvement';
   if(!mnt){toast('Montant requis','e');return;}
-  var ca=txs.reduce(function(s,t){return s+t.ttc;},0);
+  var ca=txsCloture().reduce(function(s,t){return s+t.ttc;},0);
   var dejaPrel=prls.reduce(function(s,p){return s+p.mnt;},0);
   var solde=ca-dejaPrel;
   if(solde<=0){toast('❌ Caisse à zéro — prélèvement impossible','e');return;}
-  if(mnt>solde){toast('❌ Montant supérieur au solde disponible ('+fmt(solde)+' FCFA)','e');return;}prls.push({mnt:mnt,motif:motif,heure:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})});g('prelMnt').value='';g('prelMotif').value='';renderPrls();initCloture();toast(fmt(mnt)+' prélevé','s');}
+  if(mnt>solde){toast('❌ Montant supérieur au solde disponible ('+fmt(solde)+' FCFA)','e');return;}
+  prls.push({mnt:mnt,motif:motif,heure:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})});
+  g('prelMnt').value='';g('prelMotif').value='';
+  renderPrls();initCloture();
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast(fmt(mnt)+' prélevé','s');
+}
 function renderPrls(){var w=g('prelList');if(!w)return;var tot=prls.reduce(function(s,p){return s+p.mnt;},0);if(!prls.length){w.innerHTML='<span style="color:#444">Aucun prélèvement</span>';}else{w.innerHTML='';prls.forEach(function(p){var d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #222;font-size:12px';d.innerHTML='<span>'+p.heure+' — '+p.motif+'</span><span style="color:#FF4444;font-weight:700">'+fmt(p.mnt)+'</span>';w.appendChild(d);});}g('clPrel').textContent=fmt(tot);}
-function doCloture(){if(!confirm('Confirmer la clôture ?'))return;toast('Journée clôturée et archivée','s');}
+function doCloture(){
+  if(!prls.length){toast('Veuillez effectuer au moins un prélèvement avant de clôturer la caisse','e');return;}
+  if(!confirm('Confirmer la clôture ?'))return;
+  afficherBilanCloture();
+  toast('Journée clôturée et archivée','s');
+}
+function afficherBilanCloture(){
+  var b=g('bilanBody');if(!b)return;
+  b.innerHTML='';
+  var totalGlobal=0,totalTickets=0;
+  var listeCaisses=caisses.slice().sort();
+  var sansCaisse=txs.filter(function(t){return !t.caisse;});
+  listeCaisses.forEach(function(c){
+    var tl=txs.filter(function(t){return t.caisse===c;});
+    var ca=tl.reduce(function(s,t){return s+t.ttc;},0);
+    totalGlobal+=ca;totalTickets+=tl.length;
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><strong>'+c+'</strong></td><td>'+tl.length+'</td><td style="text-align:right;font-weight:700;color:#4488FF">'+fmt(ca)+'</td>';
+    b.appendChild(tr);
+  });
+  if(sansCaisse.length){
+    var ca2=sansCaisse.reduce(function(s,t){return s+t.ttc;},0);
+    totalGlobal+=ca2;totalTickets+=sansCaisse.length;
+    var tr2=document.createElement('tr');
+    tr2.innerHTML='<td style="color:#888">Sans caisse renseignée</td><td>'+sansCaisse.length+'</td><td style="text-align:right;font-weight:700;color:#888">'+fmt(ca2)+'</td>';
+    b.appendChild(tr2);
+  }
+  g('bilanTotal').textContent=fmt(totalGlobal);
+  if(g('bilanDate'))g('bilanDate').textContent=new Date().toLocaleDateString('fr-FR');
+  g('ovClotureBilan').classList.add('on');
+}
 function razCaisse(){
   var f=g('cloCaisse')?g('cloCaisse').value:'';
-  var msg=f?'Remettre uniquement la caisse "'+f+'" à zéro ?':'Remettre TOUTES les caisses à zéro ?';
-  if(!confirm(msg))return;
-  if(f){txs=txs.filter(function(t){return t.caisse!==f;});}
-  else{txs=[];prls=[];}
-  renderPrls();initCloture();renderTkList();renderRap();toast('Caisse remise à zéro','s');
+  var msg=(f?'Remettre uniquement la caisse "<strong>'+f+'</strong>" à zéro ?':'Remettre <strong>TOUTES les caisses</strong> à zéro ?')+' C\'est irréversible.<br><br>Saisissez votre mot de passe administrateur pour confirmer :';
+  openAdminPwdConfirm(msg,'🔄 Confirmer la RAZ',function(){
+    if(f){txs=txs.filter(function(t){return t.caisse!==f;});}
+    else{txs=[];prls=[];}
+    renderPrls();initCloture();renderTkList();renderRap();
+    if(window.fssSyncPush)window.fssSyncPush();
+    toast('Caisse remise à zéro','s');
+  });
 }
-function calcCpt(){var tot=(parseInt(g('b10').value)||0)*10000+(parseInt(g('b5').value)||0)*5000+(parseInt(g('b2').value)||0)*2000+(parseInt(g('b1').value)||0)*1000+(parseInt(g('p500').value)||0)*500+(parseInt(g('p250').value)||0)*250;var j=txsCloture().reduce(function(s,t){return s+t.ttc;},0)+50000-prls.reduce(function(s,p){return s+p.mnt;},0);var ec=tot-j;g('cptTot').textContent=fmt(tot);g('cptEcart').textContent=(ec>=0?'+':'')+fmt(ec);g('cptEcart').style.color=ec===0?'#4488FF':ec<0?'#FF4444':'#CC0000';}
+function calcCpt(){var tot=(parseInt(g('b10').value)||0)*10000+(parseInt(g('b5').value)||0)*5000+(parseInt(g('b2').value)||0)*2000+(parseInt(g('b1').value)||0)*1000+(parseInt(g('p500').value)||0)*500+(parseInt(g('p250').value)||0)*250;var f=g('cloCaisse')?g('cloCaisse').value:'';var fonds=getFondsOuverture(f);var j=txsCloture().reduce(function(s,t){return s+t.ttc;},0)+fonds-prls.reduce(function(s,p){return s+p.mnt;},0);var ec=tot-j;g('cptTot').textContent=fmt(tot);g('cptEcart').textContent=(ec>=0?'+':'')+fmt(ec);g('cptEcart').style.color=ec===0?'#4488FF':ec<0?'#FF4444':'#CC0000';}
 function print80(){var tl=txsCloture(),cxLbl=(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses',ttc=tl.reduce(function(s,t){return s+t.ttc;},0),tp=prls.reduce(function(s,p){return s+p.mnt;},0),w=window.open('','_blank','width=320,height=700'),now=new Date().toLocaleString('fr-FR');w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0}body{font-family:Courier New,monospace;font-size:11px;width:80mm;padding:4mm}h2{text-align:center;font-size:14px}.sep{border-top:1px dashed #000;margin:4px 0}table{width:100%;border-collapse:collapse}td{padding:2px}.r{text-align:right}.tot{font-weight:bold;font-size:13px}.center{text-align:center}</style></head><body><h2>FSS-CAISSE</h2><div class="center" style="font-size:10px">CLÔTURE — '+cxLbl+'</div><div class="center" style="font-size:10px">'+now+'</div><div class="sep"></div><table>');tl.forEach(function(t){w.document.write('<tr><td>'+t.id+'</td><td>'+t.date+'</td><td class="r">'+t.ttc.toLocaleString('fr-FR')+' F</td></tr>');});w.document.write('</table><div class="sep"></div><table class="tot"><tr><td>CA TTC</td><td class="r">'+ttc.toLocaleString('fr-FR')+' F</td></tr>');if(tp)w.document.write('<tr><td>Prélèvements</td><td class="r" style="color:red">-'+tp.toLocaleString('fr-FR')+' F</td></tr>');w.document.write('<tr><td>SOLDE</td><td class="r">'+(ttc-tp).toLocaleString('fr-FR')+' F</td></tr></table><div class="sep"></div><div class="center" style="font-size:10px;margin-top:4px">Merci</div></body></html>');w.document.close();w.onafterprint=function(){w.close();};setTimeout(function(){w.print();},400);setTimeout(function(){if(!w.closed)w.close();},15000);}
 function printA4(){var tl=txsCloture(),cxLbl=(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses',ttc=tl.reduce(function(s,t){return s+t.ttc;},0),tp=prls.reduce(function(s,p){return s+p.mnt;},0),w=window.open('','_blank'),now=new Date().toLocaleString('fr-FR');w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;padding:20mm}h1{font-size:22px;color:#CC0000}h2{font-size:14px;margin:14px 0 6px}table{width:100%;border-collapse:collapse;margin-bottom:12px}th{background:#CC0000;color:#fff;padding:7px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#f9f9f9}.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.kc{border:1px solid #ddd;border-radius:6px;padding:10px 14px}.kl{font-size:10px;color:#666;text-transform:uppercase}.kv{font-size:20px;font-weight:700;color:#CC0000}.sep{border-top:2px solid #CC0000;margin:14px 0}.footer{text-align:center;font-size:10px;color:#666;margin-top:20px}</style></head><body>');w.document.write('<h1>FSS-CAISSE</h1><div style="font-size:12px;color:#666">RAPPORT DE CLÔTURE — '+cxLbl+' — '+now+'</div><div class="sep"></div><div class="kpi"><div class="kc"><div class="kl">Tickets</div><div class="kv" style="color:#1144CC">'+tl.length+'</div></div><div class="kc"><div class="kl">CA TTC</div><div class="kv">'+ttc.toLocaleString('fr-FR')+' F</div></div><div class="kc"><div class="kl">TVA</div><div class="kv">'+Math.round(ttc*0.18/1.18).toLocaleString('fr-FR')+' F</div></div><div class="kc"><div class="kl">Solde</div><div class="kv" style="color:#1144CC">'+(ttc-tp).toLocaleString('fr-FR')+' F</div></div></div><h2>Transactions</h2><table><thead><tr><th>N° Ticket</th><th>Date</th><th>Table</th><th>Caisse</th><th>HT</th><th>TVA</th><th>TTC</th><th>Paiement</th></tr></thead><tbody>');tl.forEach(function(t){w.document.write('<tr><td>'+t.id+'</td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.caisse||'—')+'</td><td>'+t.ht.toLocaleString('fr-FR')+'</td><td>'+t.tva.toLocaleString('fr-FR')+'</td><td><strong>'+t.ttc.toLocaleString('fr-FR')+'</strong></td><td>'+t.pay+'</td></tr>');});w.document.write('</tbody></table><div class="footer">FSS-CAISSE — '+now+'</div></body></html>');w.document.close();w.onafterprint=function(){w.close();};setTimeout(function(){w.print();},400);setTimeout(function(){if(!w.closed)w.close();},15000);}
 
@@ -2128,24 +2269,34 @@ function renderCatSelect(){
   });
   if(sel.querySelector('option[value="'+CSS.escape(prev)+'"]'))sel.value=prev;
 }
-function initStockArticlesZero(){
+var pendingAdminAction=null;
+function openAdminPwdConfirm(msg,btnLabel,action){
   var u=window.currentUser;
   if(!u||!(u.super||u.full)){toast('Action réservée aux administrateurs','e');return;}
+  pendingAdminAction=action;
+  g('stockZeroMsg').innerHTML=msg;
+  g('stockZeroBtn').textContent=btnLabel||'Confirmer';
   g('stockZeroPwd').value='';g('stockZeroErr').textContent='';
   g('ovStockZero').classList.add('on');
   setTimeout(function(){g('stockZeroPwd').focus();},50);
 }
-function confirmStockZero(){
+function confirmAdminAction(){
   var u=window.currentUser;
   if(!u||!(u.super||u.full)){toast('Action réservée aux administrateurs','e');return;}
   var pwd=g('stockZeroPwd').value;
   if(!pwd){g('stockZeroErr').textContent='Mot de passe requis';return;}
   if(pwd!==u.mdp){g('stockZeroErr').textContent='Mot de passe incorrect';return;}
-  arts.forEach(function(a){a.stk=0;});
-  renderArt();renderStk();renderProds('');
-  if(window.fssSyncPush)window.fssSyncPush();
   closeM('ovStockZero');
-  toast('Stock de tous les articles remis à 0','s');
+  var action=pendingAdminAction;pendingAdminAction=null;
+  if(action)action();
+}
+function initStockArticlesZero(){
+  openAdminPwdConfirm('Cette action va remettre le <strong>stock de tous les articles à 0</strong>. C\'est irréversible.<br><br>Pour confirmer, saisissez votre mot de passe administrateur :','🗑️ Remettre à 0',function(){
+    arts.forEach(function(a){a.stk=0;});
+    renderArt();renderStk();renderProds('');
+    if(window.fssSyncPush)window.fssSyncPush();
+    toast('Stock de tous les articles remis à 0','s');
+  });
 }
 function applyPerfSectionVisibility(){
   var el=g('ssectPerformances');if(!el)return;

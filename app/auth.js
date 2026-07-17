@@ -293,7 +293,7 @@
       '</label>' +
       '</div>' +
       '<div class="fg" style="margin:10px 0"><label class="fl" style="font-size:11px;color:#888;display:block;margin-bottom:6px">Rôle</label><select id="umgtRoleSel" style="width:100%;padding:9px;border-radius:6px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:13px"><option value="">— Non défini —</option><option value="Administrateur">Administrateur</option><option value="Gérant">Gérant</option><option value="Manager">Manager</option><option value="Caissier/Caissière">Caissier / Caissière</option><option value="Comptable">Comptable</option></select></div>' +
-      '<div class="fg" style="margin:10px 0"><label class="fl" style="font-size:11px;color:#888;display:block;margin-bottom:6px">Caisse assignée (optionnel)</label><select id="umgtCaisseSel" style="width:100%;padding:9px;border-radius:6px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:13px"><option value="">— Aucune (libre) —</option></select></div>' +
+      '<div class="fg" style="margin:10px 0"><label class="fl" id="umgtCaisseLbl" style="font-size:11px;color:#888;display:block;margin-bottom:6px">Caisse assignée (optionnel)</label><select id="umgtCaisseSel" style="width:100%;padding:9px;border-radius:6px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:13px"><option value="">— Aucune (libre) —</option></select></div>' +
       '<div style="font-size:11px;color:#888;margin-bottom:6px" id="umgtPermsLabel">Accès autorisés :</div>' +
       permsHtml +
       '<button class="main" id="umgtAddBtn">➕ Ajouter l\'utilisateur</button>' +
@@ -312,6 +312,14 @@
       document.getElementById('umgtPermsGrid').style.display = isWaiter ? 'none' : '';
       document.getElementById('umgtPermsLabel').style.display = isWaiter ? 'none' : '';
       document.getElementById('umgtWaiterOpts').style.display = isWaiter ? '' : 'none';
+    });
+    document.getElementById('umgtRoleSel').addEventListener('change', function (e) {
+      var lbl = document.getElementById('umgtCaisseLbl');
+      if (e.target.value === 'Caissier/Caissière') {
+        lbl.innerHTML = 'Caisse assignée <span style="color:#FF4444">* obligatoire</span>';
+      } else {
+        lbl.textContent = 'Caisse assignée (optionnel)';
+      }
     });
   }
 
@@ -377,6 +385,10 @@
     var waiterCanDel = isWaiter && document.getElementById('umgtWaiterDelChk').checked;
     var caisseAssignee = (document.getElementById('umgtCaisseSel') || {}).value || '';
     var role = (document.getElementById('umgtRoleSel') || {}).value || '';
+    if (!isWaiter && role === 'Caissier/Caissière' && !caisseAssignee) {
+      err.textContent = 'Un compte Caissier/Caissière doit obligatoirement avoir une caisse assignée';
+      return;
+    }
     users.push({
       id: nextUserId, nom: nom, mdp: mdp, super: false, full: false,
       waiterOnly: isWaiter, waiterCanSeeAttente: waiterCanSee, waiterCanDeleteAttente: waiterCanDel,
@@ -393,6 +405,7 @@
     document.getElementById('umgtWaiterOpts').style.display = 'none';
     if (document.getElementById('umgtCaisseSel')) document.getElementById('umgtCaisseSel').value = '';
     if (document.getElementById('umgtRoleSel')) document.getElementById('umgtRoleSel').value = '';
+    if (document.getElementById('umgtCaisseLbl')) document.getElementById('umgtCaisseLbl').textContent = 'Caisse assignée (optionnel)';
     document.getElementById('umgtPermsGrid').style.display = '';
     document.getElementById('umgtPermsLabel').style.display = '';
     document.querySelectorAll('.umgtPermChk').forEach(function (c) { c.checked = false; });
