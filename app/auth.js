@@ -38,7 +38,7 @@
       '#authOverlay h1,#userMgmtOverlay h2,#chgPwdOverlay h1,#permsOverlay h2{color:#CC0000;margin:0 0 6px;}' +
       '#authOverlay h1{font-size:20px;} #chgPwdOverlay h1{font-size:20px;} #userMgmtOverlay h2,#permsOverlay h2{font-size:16px;}' +
       '#authOverlay p,#chgPwdOverlay p,#permsOverlay p{color:#999;font-size:12px;margin:0 0 20px;}' +
-      '#authOverlay input,#userMgmtOverlay input,#chgPwdOverlay input{width:100%;padding:11px;margin-bottom:12px;border-radius:6px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:14px;box-sizing:border-box;}' +
+      '#authOverlay input:not([type="checkbox"]),#userMgmtOverlay input:not([type="checkbox"]),#chgPwdOverlay input:not([type="checkbox"]){width:100%;padding:11px;margin-bottom:12px;border-radius:6px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:14px;box-sizing:border-box;}' +
       '#authOverlay button.main,#chgPwdOverlay button.main,#userMgmtOverlay button.main,#permsOverlay button.main{width:100%;padding:12px;border:none;border-radius:6px;background:#CC0000;color:#fff;font-weight:bold;cursor:pointer;font-size:14px;}' +
       '#authOverlay button.main:disabled{opacity:.5;cursor:default;}' +
       '#authOverlay button.main:hover,#chgPwdOverlay button.main:hover,#userMgmtOverlay button.main:hover,#permsOverlay button.main:hover{background:#a80000;}' +
@@ -55,8 +55,12 @@
       '#userMgmtOverlay button.close,#permsOverlay button.close{background:transparent;border:1px solid #333;color:#999;width:100%;padding:9px;border-radius:6px;cursor:pointer;margin-top:6px;}' +
       '#userMgmtOverlay .badge-super{background:#CC0000;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px;}' +
       '#userMgmtOverlay .badge-full{background:#1144CC;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px;}' +
-      '.permsGrid{text-align:left;display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;}' +
-      '.permsGrid label{font-size:12px;color:#eee;display:flex;align-items:center;gap:6px;cursor:pointer;}' +
+      '.permsGrid{text-align:left;display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:14px;}' +
+      '.permsGrid label{font-size:12px;color:#eee;cursor:pointer;line-height:1.4;position:relative;padding-left:22px;display:block;}' +
+      '.permsGrid label input[type="checkbox"]{position:absolute;opacity:0;width:18px;height:18px;left:0;top:1px;margin:0;cursor:pointer;}' +
+      '.permsGrid label .chkbx{position:absolute;left:0;top:1px;width:15px;height:15px;border:1.5px solid #666;border-radius:3px;background:#0e0e0e;box-sizing:border-box;}' +
+      '.permsGrid label input[type="checkbox"]:checked ~ .chkbx{background:#CC0000;border-color:#CC0000;}' +
+      '.permsGrid label input[type="checkbox"]:checked ~ .chkbx::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}' +
       '#logoFileInput{display:none;}';
     document.head.appendChild(s);
   }
@@ -266,7 +270,7 @@
     ov.id = 'userMgmtOverlay';
     var permsHtml = '<div class="permsGrid" id="umgtPermsGrid">' +
       MODULES.map(function (m) {
-        return '<label><input type="checkbox" class="umgtPermChk" value="' + m.key + '"> ' + m.label + '</label>';
+        return '<label><input type="checkbox" class="umgtPermChk" value="' + m.key + '"><span class="chkbx"></span>' + m.label + '</label>';
       }).join('') + '</div>';
     ov.innerHTML =
       '<div class="box">' +
@@ -277,16 +281,18 @@
       '<input id="umgtNom" placeholder="Identifiant">' +
       '<input id="umgtMdp" type="password" placeholder="Mot de passe">' +
       '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#eee;margin:10px 0;padding:8px;background:#0e0e0e;border-radius:6px;border:1px solid #333;cursor:pointer">' +
-      '<input type="checkbox" id="umgtWaiterChk"> 🙋 Compte Serveur/Serveuse — prise de commande uniquement (pas d\'accès à l\'encaissement)' +
+      '<input type="checkbox" id="umgtWaiterChk" style="width:14px;height:14px;min-width:14px;padding:0;margin:0 6px 0 0;flex:none"> 🙋 Compte Serveur/Serveuse — prise de commande uniquement (pas d\'accès à l\'encaissement)' +
       '</label>' +
       '<div id="umgtWaiterOpts" style="display:none;margin:0 0 10px 8px">' +
       '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#ccc;margin-bottom:6px;cursor:pointer">' +
-      '<input type="checkbox" id="umgtWaiterSeeChk"> Peut voir les commandes en attente' +
+      '<input type="checkbox" id="umgtWaiterSeeChk" style="width:14px;height:14px;min-width:14px;padding:0;margin:0 6px 0 0;flex:none"> Peut voir les commandes en attente' +
       '</label>' +
       '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#ccc;cursor:pointer">' +
-      '<input type="checkbox" id="umgtWaiterDelChk"> Peut supprimer les commandes en attente' +
+      '<input type="checkbox" id="umgtWaiterDelChk" style="width:14px;height:14px;min-width:14px;padding:0;margin:0 6px 0 0;flex:none"> Peut supprimer les commandes en attente' +
       '</label>' +
       '</div>' +
+      '<div class="fg" style="margin:10px 0"><label class="fl" style="font-size:11px;color:#888;display:block;margin-bottom:6px">Rôle</label><select id="umgtRoleSel" style="width:100%;padding:9px;border-radius:6px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:13px"><option value="">— Non défini —</option><option value="Administrateur">Administrateur</option><option value="Gérant">Gérant</option><option value="Manager">Manager</option><option value="Caissier/Caissière">Caissier / Caissière</option><option value="Comptable">Comptable</option></select></div>' +
+      '<div class="fg" style="margin:10px 0"><label class="fl" style="font-size:11px;color:#888;display:block;margin-bottom:6px">Caisse assignée (optionnel)</label><select id="umgtCaisseSel" style="width:100%;padding:9px;border-radius:6px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:13px"><option value="">— Aucune (libre) —</option></select></div>' +
       '<div style="font-size:11px;color:#888;margin-bottom:6px" id="umgtPermsLabel">Accès autorisés :</div>' +
       permsHtml +
       '<button class="main" id="umgtAddBtn">➕ Ajouter l\'utilisateur</button>' +
@@ -318,8 +324,9 @@
       var tag = u.super ? '<span class="badge-super">SUPER</span>' : (u.full ? '<span class="badge-full">COMPLET</span>' : (u.waiterOnly ? '<span class="badge-full" style="background:#996600">SERVEUR</span>' : ''));
       var permsBtn = (!u.super && !u.full && !u.waiterOnly) ? '<button class="sm" data-action="perms" data-id="' + u.id + '">🛡️ Droits</button>' : '';
       var resetBtn = !u.super ? '<button class="sm" data-action="reset" data-id="' + u.id + '">🔑</button>' : '<span style="color:#555;font-size:11px">Protégé</span>';
+      var roleTag = u.role ? '<div style="font-size:10px;color:#888;margin-top:2px">' + u.role + '</div>' : '';
       tr.innerHTML =
-        '<td>' + u.nom + tag + '</td>' +
+        '<td>' + u.nom + tag + roleTag + '</td>' +
         '<td>' + permsBtn + resetBtn + '</td>' +
         '<td>' + (canDelete ? '<button class="sm" data-action="del" data-id="' + u.id + '">🗑️</button>' : '') + '</td>';
       body.appendChild(tr);
@@ -341,6 +348,15 @@
     document.getElementById('umgtErr').textContent = '';
     document.getElementById('umgtNom').value = '';
     document.getElementById('umgtMdp').value = '';
+    var cxSel = document.getElementById('umgtCaisseSel');
+    if (cxSel) {
+      cxSel.innerHTML = '<option value="">— Aucune (libre) —</option>';
+      (window.caisses || []).forEach(function (c) {
+        var opt = document.createElement('option');
+        opt.value = c; opt.text = c;
+        cxSel.appendChild(opt);
+      });
+    }
     document.querySelectorAll('.umgtPermChk').forEach(function (c) { c.checked = false; });
   }
 
@@ -358,9 +374,12 @@
     }
     var waiterCanSee = isWaiter && document.getElementById('umgtWaiterSeeChk').checked;
     var waiterCanDel = isWaiter && document.getElementById('umgtWaiterDelChk').checked;
+    var caisseAssignee = (document.getElementById('umgtCaisseSel') || {}).value || '';
+    var role = (document.getElementById('umgtRoleSel') || {}).value || '';
     users.push({
       id: nextUserId, nom: nom, mdp: mdp, super: false, full: false,
       waiterOnly: isWaiter, waiterCanSeeAttente: waiterCanSee, waiterCanDeleteAttente: waiterCanDel,
+      caisseAssignee: caisseAssignee, role: role,
       perms: perms, doitChangerMdp: false
     });
     nextUserId++;
@@ -371,11 +390,14 @@
     document.getElementById('umgtWaiterSeeChk').checked = false;
     document.getElementById('umgtWaiterDelChk').checked = false;
     document.getElementById('umgtWaiterOpts').style.display = 'none';
+    if (document.getElementById('umgtCaisseSel')) document.getElementById('umgtCaisseSel').value = '';
+    if (document.getElementById('umgtRoleSel')) document.getElementById('umgtRoleSel').value = '';
     document.getElementById('umgtPermsGrid').style.display = '';
     document.getElementById('umgtPermsLabel').style.display = '';
     document.querySelectorAll('.umgtPermChk').forEach(function (c) { c.checked = false; });
     if (window.fssSyncPush) window.fssSyncPush();
     renderUserMgmt();
+    if (window.renderServerSelect) window.renderServerSelect();
     safeToast('Utilisateur ajouté', 's');
   }
 
@@ -388,6 +410,7 @@
     window.users = users;
     if (window.fssSyncPush) window.fssSyncPush();
     renderUserMgmt();
+    if (window.renderServerSelect) window.renderServerSelect();
     safeToast('Utilisateur supprimé', 'i');
   }
 
@@ -404,7 +427,7 @@
     ov.id = 'permsOverlay';
     var permsHtml = '<div class="permsGrid" id="permsGrid">' +
       MODULES.map(function (m) {
-        return '<label><input type="checkbox" class="permsChk" value="' + m.key + '"> ' + m.label + '</label>';
+        return '<label><input type="checkbox" class="permsChk" value="' + m.key + '"><span class="chkbx"></span>' + m.label + '</label>';
       }).join('') + '</div>';
     ov.innerHTML =
       '<div class="box">' +

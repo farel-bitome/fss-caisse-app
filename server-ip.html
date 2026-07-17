@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>FSS-CAISSE — Adresse du serveur</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #0e0e0e;
+    color: #eee;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+  }
+  .box {
+    background: #1c1c1c;
+    padding: 36px 40px;
+    border-radius: 12px;
+    width: 400px;
+    text-align: center;
+    border: 1px solid #2a2a2a;
+  }
+  h1 { color: #CC0000; font-size: 22px; margin: 0 0 4px; }
+  p { color: #999; font-size: 12px; margin: 0 0 18px; }
+  label { display:block; text-align:left; font-size: 11px; color:#888; margin-bottom: 4px; }
+  input {
+    width: 100%;
+    padding: 11px;
+    margin-bottom: 14px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background: #0e0e0e;
+    color: #fff;
+    font-size: 14px;
+  }
+  input:focus { outline: none; border-color: #CC0000; }
+  button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    background: #CC0000;
+    color: #fff;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  button:hover { background: #a80000; }
+  button.sec {
+    background: transparent;
+    border: 1px solid #333;
+    color: #999;
+  }
+  button.sec:hover { background: #222; color: #fff; }
+  .err { color: #FF4444; font-size: 12px; margin-top: 4px; min-height: 16px; }
+  .ok { color: #44CC66; font-size: 12px; margin-top: 4px; min-height: 16px; }
+  .detected {
+    background: #0e0e0e;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #ccc;
+    margin-bottom: 18px;
+    text-align: left;
+  }
+  .detected b { color: #4dd0e1; }
+  .sep { border-top: 1px solid #2a2a2a; margin: 18px 0; }
+  .back { margin-top: 14px; font-size: 11px; color: #666; cursor: pointer; }
+  .back:hover { color: #999; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>FSS-CAISSE</h1>
+  <p>Adresse réseau de ce PC (serveur)</p>
+
+  <div class="detected" id="detectedBox">
+    Adresse détectée automatiquement :<br>
+    <b id="detectedIp">...</b>
+  </div>
+
+  <div id="manualStatus" class="ok" style="display:none">✓ Adresse manuelle active</div>
+
+  <div class="sep"></div>
+
+  <label>Forcer une adresse IP manuelle (optionnel)</label>
+  <input id="ip" placeholder="ex: 100.105.213.119">
+  <label>Port</label>
+  <input id="port" placeholder="3000" value="3000">
+  <button onclick="saveManual()">Utiliser cette adresse</button>
+  <button class="sec" onclick="resetAuto()">↺ Revenir à la détection automatique</button>
+  <div class="err" id="err"></div>
+
+  <div class="back" onclick="window.electronAPI.reloadApp()">← Retour</div>
+</div>
+<script>
+  function refresh() {
+    window.electronAPI.getServerIpInfo().then(function (info) {
+      document.getElementById('detectedIp').textContent = info.detected
+        ? info.detected + ':' + info.port
+        : 'Non détectée';
+      if (info.manual) {
+        document.getElementById('ip').value = info.manualIp;
+        document.getElementById('port').value = info.manualPort;
+        document.getElementById('manualStatus').style.display = 'block';
+      } else {
+        document.getElementById('manualStatus').style.display = 'none';
+      }
+    });
+  }
+  refresh();
+
+  function saveManual() {
+    var ip = document.getElementById('ip').value.trim();
+    var port = document.getElementById('port').value.trim() || '3000';
+    var err = document.getElementById('err');
+    if (!ip) { err.textContent = "Merci d'entrer une adresse IP"; return; }
+    err.textContent = '';
+    window.electronAPI.saveManualIp(ip, port).then(function () {
+      refresh();
+      err.textContent = '';
+      document.getElementById('err').className = 'ok';
+      document.getElementById('err').textContent = '✓ Adresse manuelle enregistrée. Redémarrez ou rechargez pour l\'appliquer.';
+    });
+  }
+
+  function resetAuto() {
+    window.electronAPI.resetManualIp().then(function () {
+      document.getElementById('ip').value = '';
+      document.getElementById('err').className = 'ok';
+      document.getElementById('err').textContent = '✓ Retour à la détection automatique.';
+      refresh();
+    });
+  }
+</script>
+</body>
+</html>

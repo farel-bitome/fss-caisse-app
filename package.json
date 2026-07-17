@@ -27,6 +27,7 @@
       "embedded-server.js",
       "choice.html",
       "client.html",
+      "server-ip.html",
       "app/**/*",
       "server-data/**/*",
       "node_modules/**/*"

@@ -46,6 +46,14 @@ function getLocalIP() {
   return null;
 }
 
+// Renvoie l'adresse à afficher/utiliser : l'IP manuelle si l'utilisateur en a défini une,
+// sinon l'adresse détectée automatiquement.
+function getEffectiveIP() {
+  const cfg = loadConfig();
+  if (cfg.manualIP) return { ip: cfg.manualIP, port: cfg.manualPort || PORT, manual: true };
+  return { ip: getLocalIP(), port: PORT, manual: false };
+}
+
 async function startEmbeddedServer() {
   if (serverStarted) return;
   serverStarted = true;
@@ -90,12 +98,12 @@ async function boot() {
   } else if (cfg.role === 'server') {
     await startEmbeddedServer();
     win.loadURL('http://localhost:' + PORT);
-    const ip = getLocalIP();
+    const eff = getEffectiveIP();
     dialog.showMessageBox(win, {
       type: 'info',
       title: 'Serveur FSS-CAISSE démarré',
-      message: ip
-        ? 'Adresse à utiliser sur les postes clients :\n\n' + ip + ':' + PORT
+      message: eff.ip
+        ? 'Adresse à utiliser sur les postes clients :\n\n' + eff.ip + ':' + eff.port + (eff.manual ? '\n(adresse manuelle)' : '')
         : "Serveur démarré, mais aucune adresse réseau n'a été détectée."
     });
   } else if (cfg.role === 'client' && cfg.serverUrl) {
@@ -117,7 +125,10 @@ function buildMenu() {
         {
           label: 'Changer de rôle (Serveur / Client)',
           click: () => {
-            saveConfig({});
+            const cfg = loadConfig();
+            delete cfg.role;
+            delete cfg.serverUrl;
+            saveConfig(cfg);
             win.loadFile(path.join(__dirname, 'choice.html'));
           }
         },
@@ -128,14 +139,7 @@ function buildMenu() {
             if (cfg.role === 'client') {
               showClientScreen();
             } else {
-              const ip = getLocalIP();
-              dialog.showMessageBox(win, {
-                type: 'info',
-                title: 'Adresse de ce PC (serveur)',
-                message: ip
-                  ? 'Adresse à utiliser sur les postes clients :\n\n' + ip + ':' + PORT
-                  : "Impossible de détecter une adresse réseau valide.\nVérifiez que ce PC est bien connecté au Wi-Fi ou au câble réseau."
-              });
+              win.loadFile(path.join(__dirname, 'server-ip.html'));
             }
           }
         },
@@ -149,15 +153,17 @@ function buildMenu() {
 
 ipcMain.handle('choose-role', async (event, role) => {
   if (role === 'server') {
-    saveConfig({ role: 'server' });
+    const cfg0 = loadConfig();
+    cfg0.role = 'server';
+    saveConfig(cfg0);
     await startEmbeddedServer();
     win.loadURL('http://localhost:' + PORT);
-    const ip = getLocalIP();
+    const eff = getEffectiveIP();
     dialog.showMessageBox(win, {
       type: 'info',
       title: 'Serveur FSS-CAISSE démarré',
-      message: ip
-        ? 'Adresse à utiliser sur les postes clients :\n\n' + ip + ':' + PORT
+      message: eff.ip
+        ? 'Adresse à utiliser sur les postes clients :\n\n' + eff.ip + ':' + eff.port + (eff.manual ? '\n(adresse manuelle)' : '')
         : "Serveur démarré, mais aucune adresse réseau n'a été détectée."
     });
   } else {
@@ -168,7 +174,10 @@ ipcMain.handle('choose-role', async (event, role) => {
 
 ipcMain.handle('save-server', (event, ip, port) => {
   const url = 'http://' + ip + ':' + (port || PORT);
-  saveConfig({ role: 'client', serverUrl: url });
+  const cfgC = loadConfig();
+  cfgC.role = 'client';
+  cfgC.serverUrl = url;
+  saveConfig(cfgC);
   win.loadURL(url);
   return true;
 });
@@ -176,6 +185,38 @@ ipcMain.handle('save-server', (event, ip, port) => {
 ipcMain.handle('get-current-server', () => {
   const cfg = loadConfig();
   return cfg.serverUrl || '';
+});
+
+ipcMain.handle('get-server-ip-info', () => {
+  const cfg = loadConfig();
+  return {
+    detected: getLocalIP(),
+    port: PORT,
+    manual: !!cfg.manualIP,
+    manualIp: cfg.manualIP || '',
+    manualPort: cfg.manualPort || PORT
+  };
+});
+
+ipcMain.handle('save-manual-ip', (event, ip, port) => {
+  const cfg = loadConfig();
+  cfg.manualIP = ip;
+  cfg.manualPort = port || PORT;
+  saveConfig(cfg);
+  return true;
+});
+
+ipcMain.handle('reset-manual-ip', () => {
+  const cfg = loadConfig();
+  delete cfg.manualIP;
+  delete cfg.manualPort;
+  saveConfig(cfg);
+  return true;
+});
+
+ipcMain.handle('reload-app', () => {
+  boot();
+  return true;
 });
 
 ipcMain.handle('print-silent', (event, html) => {

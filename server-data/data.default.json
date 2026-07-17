@@ -441,5 +441,6 @@
       "st": "Libre"
     }
   ],
-  "servers": ["Serveur 1", "Serveur 2", "Serveur 3"]
+  "servers": [],
+  "caisses": ["Caisse 1", "Caisse 2"]
 }
