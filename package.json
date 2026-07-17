@@ -1,6 +1,6 @@
 {
   "name": "fss-caisse",
-  "version": "1.0.0",
+  "version": "1.2.3",
   "description": "FSS-CAISSE - Gestion Restobar (Serveur ou Client)",
   "main": "main.js",
   "author": "FSS",

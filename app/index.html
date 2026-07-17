@@ -610,6 +610,7 @@ td{padding:8px 11px;vertical-align:middle}
       <button class="it" onclick="goSub('params','users',this)">👤 Utilisateurs</button>
       <button class="it" onclick="goSub('params','tables',this)">🪑 Tables</button>
       <button class="it" onclick="goSub('params','caisses',this)">💰 Caisses</button>
+      <button class="it" onclick="goSub('params','cats',this)">🏷️ Catégories</button>
       <button class="it" onclick="goSub('params','opts',this)">⚙️ Options</button>
       <button class="it" onclick="goSub('params','sauv',this)">💾 Sauvegarde</button>
       <button class="it" onclick="goSub('params','dev',this)">🖨️ Périphériques</button>
@@ -693,6 +694,10 @@ td{padding:8px 11px;vertical-align:middle}
       <div class="stb"><span class="stit">Caisses</span><button class="btn btn-r sm" onclick="openCaisseModal()">➕ Ajouter une caisse</button></div>
       <div class="tw"><table id="tCaisses"><thead><tr><th>Nom</th><th>Actions</th></tr></thead><tbody id="bCaisses"></tbody></table></div>
     </div>
+    <div class="sub" id="sub-params-cats">
+      <div class="stb"><span class="stit">Catégories d'articles</span><button class="btn btn-r sm" onclick="openCatModal()">➕ Ajouter une catégorie</button></div>
+      <div class="tw"><table id="tCats"><thead><tr><th>Nom</th><th>Actions</th></tr></thead><tbody id="bCats"></tbody></table></div>
+    </div>
     <div class="sub" id="sub-params-opts">
       <div class="slay"><div class="ssect"><div class="ssti">Options Caisse</div><div id="optsWrap"></div></div></div>
     </div>
@@ -714,6 +719,11 @@ td{padding:8px 11px;vertical-align:middle}
             <tr><td>Hier 08:00</td><td>2.2 MB</td><td><span class="badge bo">Manuel</span></td><td><button class="ibt">Restaurer</button></td></tr>
           </tbody>
         </table></div>
+        <div class="ssect" id="ssectPerformances" style="display:none;border:1px solid #442222">
+          <div class="ssti" style="color:#FF6666">⚠️ Performances / Zone sensible</div>
+          <div style="font-size:12px;color:#888;margin-bottom:12px">Action réservée aux administrateurs. Remet le stock de <strong>tous les articles</strong> à zéro — utile pour repartir sur un inventaire propre.</div>
+          <button class="btn btn-r" onclick="initStockArticlesZero()">🗑️ Initialise le stock article à 0</button>
+        </div>
       </div>
     </div>
     <div class="sub" id="sub-params-dev">
@@ -787,7 +797,7 @@ td{padding:8px 11px;vertical-align:middle}
   <div class="mb"><div class="sg">
     <div class="fg"><label class="fl">Référence</label><input class="fi" id="aRef" placeholder="ART-001"></div>
     <div class="fg"><label class="fl">Désignation *</label><input class="fi" id="aNom" placeholder="Nom"></div>
-    <div class="fg"><label class="fl">Catégorie *</label><select class="fi" id="aCat"><option>Boissons</option><option>Bières</option><option>Alcools</option><option>Apéritifs</option><option>Digestifs</option><option>Entrées</option><option>Plats</option><option>Viandes</option><option>Poissons</option><option>Salades</option><option>Desserts</option><option>Accompagnements</option><option>Sauces</option><option>Fromages</option><option>Fruits</option></select></div>
+    <div class="fg"><label class="fl">Catégorie *</label><div style="display:flex;gap:6px"><select class="fi" id="aCat" style="flex:1"></select><button type="button" class="btn btn-o sm" onclick="openCatModal()">➕</button></div></div>
     <div class="fg"><label class="fl">Unité</label><select class="fi" id="aUn"><option>Unité</option><option>Bouteille</option><option>Verre</option><option>Litre</option><option>cl</option><option>kg</option><option>g</option><option>Portion</option><option>Carton</option></select></div>
     <div class="fg"><label class="fl">Prix vente (FCFA) *</label><input class="fi" type="number" id="aPV" placeholder="0" oninput="calcMg()"></div>
     <div class="fg"><label class="fl">Prix achat (FCFA)</label><input class="fi" type="number" id="aPA" placeholder="0" oninput="calcMg()"></div>
@@ -904,7 +914,24 @@ td{padding:8px 11px;vertical-align:middle}
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovCaisse')">Annuler</button><button class="btn btn-r" onclick="saveCaisse()">Enregistrer</button></div>
 </div></div>
 
+<div class="ov" id="ovCat"><div class="md"><div class="mh"><span class="mt" id="catMT">Nouvelle catégorie</span><button class="mc" onclick="closeM('ovCat')">✕</button></div>
+  <div class="mb">
+    <div class="fg"><label class="fl">Nom *</label><input class="fi" id="ctNom" placeholder="Ex: Boissons, Plats..."></div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovCat')">Annuler</button><button class="btn btn-r" onclick="saveCat()">Enregistrer</button></div>
+</div></div>
+
+<div class="ov" id="ovStockZero"><div class="md"><div class="mh"><span class="mt">⚠️ Confirmation requise</span><button class="mc" onclick="closeM('ovStockZero')">✕</button></div>
+  <div class="mb">
+    <div style="font-size:12px;color:#FF6666;margin-bottom:14px;line-height:1.5">Cette action va remettre le <strong>stock de tous les articles à 0</strong>. C'est irréversible.<br><br>Pour confirmer, saisissez votre mot de passe administrateur :</div>
+    <div class="fg"><label class="fl">Mot de passe admin</label><input class="fi" type="password" id="stockZeroPwd" placeholder="••••••" autocomplete="off" onkeydown="if(event.key==='Enter')confirmStockZero()"></div>
+    <div class="authErr" id="stockZeroErr"></div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovStockZero')">Annuler</button><button class="btn btn-r" onclick="confirmStockZero()">🗑️ Confirmer la remise à zéro</button></div>
+</div></div>
+
 <script>
+window.FSS_VERSION='1.2.3';
 var arts=[
   {id:1,ref:'ART-001',nom:'Castel Bière',cat:'Bières',un:'Bouteille',pv:1500,pa:900,stk:48,smin:10,emo:'🍺',tva:18,actif:true},
   {id:2,ref:'ART-002',nom:'Régab',cat:'Bières',un:'Bouteille',pv:1500,pa:900,stk:36,smin:10,emo:'🍺',tva:18,actif:true},
@@ -1302,7 +1329,7 @@ function renderAttenteBar(){
     btnR.onclick=(function(id){return function(){reprendreAttente(id);};})(c.id);
     var info=document.createElement('span');
     info.innerHTML='<span style="color:#FFCC00;font-weight:700">'+c.id+'</span> '+
-      '<span style="color:#FF6666">'+c.tableNom+'</span> '+
+      '<span style="color:#FF6666">'+(c.srv&&c.srv!=='—'?c.srv:c.tableNom)+'</span> '+
       '<span style="color:#888">'+c.heure+'</span> '+
       '<span style="color:#fff;font-weight:700">'+fmt(c.total)+' F</span> ';
     div.appendChild(info);div.appendChild(btnR);
@@ -2084,6 +2111,91 @@ function delCaisse(nom){
   if(window.fssSyncPush)window.fssSyncPush();
   toast('Caisse supprimée','i');
 }
+var categories=['Boissons','Bières','Alcools','Apéritifs','Digestifs','Entrées','Plats','Viandes','Poissons','Salades','Desserts','Accompagnements','Sauces','Fromages','Fruits'];
+var editCatNom=null;
+function renderCatSelect(){
+  var sel=g('aCat');if(!sel)return;
+  var prev=sel.value;
+  sel.innerHTML='';
+  categories.slice().sort().forEach(function(c){
+    var opt=document.createElement('option');
+    opt.value=c;opt.text=c;
+    sel.appendChild(opt);
+  });
+  if(sel.querySelector('option[value="'+CSS.escape(prev)+'"]'))sel.value=prev;
+}
+function initStockArticlesZero(){
+  var u=window.currentUser;
+  if(!u||!(u.super||u.full)){toast('Action réservée aux administrateurs','e');return;}
+  g('stockZeroPwd').value='';g('stockZeroErr').textContent='';
+  g('ovStockZero').classList.add('on');
+  setTimeout(function(){g('stockZeroPwd').focus();},50);
+}
+function confirmStockZero(){
+  var u=window.currentUser;
+  if(!u||!(u.super||u.full)){toast('Action réservée aux administrateurs','e');return;}
+  var pwd=g('stockZeroPwd').value;
+  if(!pwd){g('stockZeroErr').textContent='Mot de passe requis';return;}
+  if(pwd!==u.mdp){g('stockZeroErr').textContent='Mot de passe incorrect';return;}
+  arts.forEach(function(a){a.stk=0;});
+  renderArt();renderStk();renderProds('');
+  if(window.fssSyncPush)window.fssSyncPush();
+  closeM('ovStockZero');
+  toast('Stock de tous les articles remis à 0','s');
+}
+function applyPerfSectionVisibility(){
+  var el=g('ssectPerformances');if(!el)return;
+  var u=window.currentUser;
+  el.style.display=(u&&(u.super||u.full))?'':'none';
+}
+window.applyPerfSectionVisibility=applyPerfSectionVisibility;
+function initCategories(){
+  var b=g('bCats');if(!b)return;b.innerHTML='';
+  categories.slice().sort().forEach(function(c){
+    var tr=document.createElement('tr');
+    var tdNom=document.createElement('td');tdNom.textContent=c;
+    var tdAct=document.createElement('td');
+    var btnEdit=document.createElement('button');btnEdit.className='ibt';btnEdit.textContent='✏️';
+    btnEdit.addEventListener('click',function(){openCatModal(c);});
+    var btnDel=document.createElement('button');btnDel.className='ibt';btnDel.textContent='🗑️';
+    btnDel.addEventListener('click',function(){delCat(c);});
+    tdAct.appendChild(btnEdit);tdAct.appendChild(btnDel);
+    tr.appendChild(tdNom);tr.appendChild(tdAct);
+    b.appendChild(tr);
+  });
+  renderCatSelect();
+}
+function openCatModal(nom){
+  editCatNom=nom||null;
+  g('catMT').textContent=nom?'Modifier la catégorie':'Nouvelle catégorie';
+  g('ctNom').value=nom||'';
+  g('ovCat').classList.add('on');
+}
+function saveCat(){
+  var nom=g('ctNom').value.trim();
+  if(!nom){toast('Nom requis','e');return;}
+  if(nom!==editCatNom&&categories.some(function(c){return c.toLowerCase()===nom.toLowerCase();})){toast('Cette catégorie existe déjà','e');return;}
+  if(editCatNom){
+    var idx=categories.indexOf(editCatNom);
+    if(idx>=0)categories[idx]=nom;
+    arts.forEach(function(a){if(a.cat===editCatNom)a.cat=nom;});
+  }else{
+    categories.push(nom);
+  }
+  closeM('ovCat');initCategories();
+  if(editCatNom)g('aCat').value=nom;else g('aCat').value=nom;
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('Catégorie enregistrée','s');
+}
+function delCat(nom){
+  if(categories.length<=1){toast('Il doit rester au moins une catégorie','e');return;}
+  if(arts.some(function(a){return a.cat===nom;})){toast('Impossible : des articles utilisent encore cette catégorie','e');return;}
+  if(!confirm('Supprimer la catégorie "'+nom+'" ?'))return;
+  categories=categories.filter(function(c){return c!==nom;});
+  initCategories();
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('Catégorie supprimée','i');
+}
 var toggles={print:false,ttc:true,son:true,alerte:true,confirm:true,remise:true,multi:true,cloture:false};
 function initOpts(){var w=g('optsWrap');if(!w)return;w.innerHTML='';[['print','Impression automatique','Imprimer dès validation'],['ttc','Prix affichés TTC','TVA incluse'],['son','Son de caisse','Bip sonore'],['alerte','Alerte stock faible','Notification seuil min'],['confirm','Confirmation suppression','Sécurité ticket'],['remise','Autoriser remises','Champ remise visible'],['multi','Multi-serveurs','Serveur par ticket'],['cloture','Clôture obligatoire','Forcer avant ouverture']].forEach(function(o){var d=document.createElement('div');d.className='togr';var tg=document.createElement('div');tg.className='tg'+(toggles[o[0]]?' on':'');tg.onclick=function(){toggles[o[0]]=!toggles[o[0]];tg.classList.toggle('on');if(o[0]==='alerte')renderStk();};d.innerHTML='<div><div style="font-size:12px;color:#fff">'+o[1]+'</div><div style="font-size:10px;color:#555;margin-top:2px">'+o[2]+'</div></div>';d.appendChild(tg);w.appendChild(d);});}
 
@@ -2097,7 +2209,7 @@ document.addEventListener('DOMContentLoaded',function(){
   renderArt();renderStk();renderMouv();
   renderCli();renderFour();
   renderTkList();renderDV();renderLV();renderReg();renderRegG();renderTopV();renderTotCat();
-  renderRap();initCloture();initTables();initServers();initCaisses();initOpts();
+  renderRap();initCloture();initTables();initServers();initCaisses();initCategories();initOpts();
   document.querySelectorAll('.ov').forEach(function(o){o.addEventListener('click',function(e){if(e.target===o)o.classList.remove('on');});});
   var td=new Date().toISOString().split('T')[0];
   document.querySelectorAll('input[type=date]').forEach(function(e){if(!e.value)e.value=td;});

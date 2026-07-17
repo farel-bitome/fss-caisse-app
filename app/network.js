@@ -15,12 +15,13 @@
   window.tables = window.tables || [];
   window.servers = window.servers || [];
   window.caisses = window.caisses || [];
+  window.categories = window.categories || [];
 
   function fullState() {
     return {
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
-      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses
+      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories
     };
   }
 
@@ -70,6 +71,8 @@
     window.servers = servers;
     if (s.caisses && s.caisses.length) caisses = s.caisses;
     window.caisses = caisses;
+    if (s.categories && s.categories.length) categories = s.categories;
+    window.categories = categories;
     refreshAllViews();
     applyEtabToInputs();
     applying = false;
@@ -91,6 +94,7 @@
     safe(function () { initTables(); });
     safe(function () { initServers(); });
     safe(function () { initCaisses(); });
+    safe(function () { initCategories(); });
     safe(function () { if (window.refreshEtabLogoPreview) refreshEtabLogoPreview(); });
     safe(function () { renderDV(); });
     safe(function () { renderLV(); });

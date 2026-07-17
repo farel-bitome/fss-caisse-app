@@ -83,6 +83,7 @@
       '<button class="main" id="authLoginBtn" disabled>Chargement...</button>' +
       '<div class="authErr" id="authErr"></div>' +
       '<div style="margin-top:22px;font-size:10px;color:#555;font-weight:700">D\u00e9velopp\u00e9 par FallServices&amp;Solutions \u2014 +241 77 37 86 02</div>' +
+      '<div style="margin-top:4px;font-size:9px;color:#444;font-weight:700">v' + (window.FSS_VERSION || '?') + '</div>' +
       '</div>';
     document.body.appendChild(ov);
 
@@ -489,6 +490,7 @@
     try { renderRap(); } catch (e) {}
     try { renderTkList(); } catch (e) {}
     try { if (window.applyWaiterUI) window.applyWaiterUI(); } catch (e) {}
+    try { if (window.applyPerfSectionVisibility) window.applyPerfSectionVisibility(); } catch (e) {}
   }
 
   injectCSS();
