@@ -23,11 +23,26 @@ function saveConfig(cfg) {
 
 function getLocalIP() {
   const nets = os.networkInterfaces();
+  const candidates = [];
   for (const name of Object.keys(nets)) {
     for (const net of nets[name]) {
-      if (net.family === 'IPv4' && !net.internal) return net.address;
+      if (net.family !== 'IPv4' || net.internal) continue;
+      candidates.push({ name: name, address: net.address });
     }
   }
+  // On écarte les adresses de secours Windows (APIPA, 169.254.x.x) : jamais utilisables en réseau.
+  const usable = candidates.filter(c => !c.address.startsWith('169.254.'));
+  // On écarte les cartes virtuelles connues (VPN, machines virtuelles, Bluetooth...) qui ne
+  // correspondent pas au vrai réseau local du restaurant.
+  const virtualPattern = /virtualbox|vmware|hyper-v|tailscale|loopback|bluetooth|docker|wsl|zerotier|radmin|vethernet/i;
+  const real = usable.filter(c => !virtualPattern.test(c.name));
+  // On préfère les plages d'adresses privées classiques d'un réseau Wi-Fi/Ethernet domestique.
+  const privatePattern = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/;
+  const preferred = real.find(c => privatePattern.test(c.address));
+  if (preferred) return preferred.address;
+  if (real.length) return real[0].address;
+  if (usable.length) return usable[0].address;
+  if (candidates.length) return candidates[0].address;
   return null;
 }
 
@@ -107,10 +122,21 @@ function buildMenu() {
           }
         },
         {
-          label: "Changer l'adresse du serveur",
+          label: "Changer l'adresse du serveur / Voir mon adresse",
           click: () => {
             const cfg = loadConfig();
-            if (cfg.role === 'client') showClientScreen();
+            if (cfg.role === 'client') {
+              showClientScreen();
+            } else {
+              const ip = getLocalIP();
+              dialog.showMessageBox(win, {
+                type: 'info',
+                title: 'Adresse de ce PC (serveur)',
+                message: ip
+                  ? 'Adresse à utiliser sur les postes clients :\n\n' + ip + ':' + PORT
+                  : "Impossible de détecter une adresse réseau valide.\nVérifiez que ce PC est bien connecté au Wi-Fi ou au câble réseau."
+              });
+            }
           }
         },
         { label: 'Recharger', click: () => boot() },
