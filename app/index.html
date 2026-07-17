@@ -955,7 +955,7 @@ td{padding:8px 11px;vertical-align:middle}
 </div></div>
 
 <script>
-window.FSS_VERSION='1.5.2';
+window.FSS_VERSION='1.6.0';
 var arts=[
   {id:1,ref:'ART-001',nom:'Castel Bière',cat:'Bières',un:'Bouteille',pv:1500,pa:900,stk:48,smin:10,emo:'🍺',tva:18,actif:true},
   {id:2,ref:'ART-002',nom:'Régab',cat:'Bières',un:'Bouteille',pv:1500,pa:900,stk:36,smin:10,emo:'🍺',tva:18,actif:true},
@@ -1284,7 +1284,9 @@ function updateTableOptions(){
 // (ajout de table géré via le formulaire modal openTableModal / saveTable)
 // ---- COMMANDES EN ATTENTE ----
 var cmdAttente=[];var attenteSeq=1;
-function imprimerTicketAttente(order){
+var printBatches=[];
+var resumingAttenteId=null,resumingBaseItems=null;
+function imprimerTicketAttente(batch){
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
   var css='@page{size:80mm auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
@@ -1299,23 +1301,76 @@ function imprimerTicketAttente(order){
   function ligne(label,val){
     return '<table><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';
   }
+  var attId=batch.attenteId||batch.id;
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
   html+='<div class="c" style="font-size:15px">'+etab+'</div>';
-  html+='<div class="c" style="font-size:14px;margin:4px 0">📨 BON DE COMMANDE</div>';
+  html+='<div class="c" style="font-size:14px;margin:4px 0">'+(batch.ajout?'📨 AJOUT À LA COMMANDE':'📨 BON DE COMMANDE')+'</div>';
   html+='<div class="sep"></div>';
-  html+='<div class="c" style="font-size:26px;line-height:1.15">'+(order.tableNom||'—')+'</div>';
-  html+='<div class="c" style="font-size:16px;margin-top:2px">👤 '+(order.srv||'—')+'</div>';
+  html+='<div class="c" style="font-size:26px;line-height:1.15">'+(batch.tableNom||'—')+'</div>';
+  html+='<div class="c" style="font-size:16px;margin-top:2px">👤 '+(batch.srv||'—')+'</div>';
   html+='<div class="sep"></div>';
-  html+=ligne('N° Commande','<strong>'+order.id+'</strong>');
-  html+=ligne('Heure',order.heure||'');
+  html+=ligne('N° Commande','<strong>'+attId+'</strong>');
+  html+=ligne('Heure',batch.heure||'');
   html+='<div class="sep"></div>';
-  (order.items||[]).forEach(function(it){
+  (batch.items||[]).forEach(function(it){
     html+='<div style="font-size:15px;padding:2px 0">▸ '+(it.qty||it.qt||1)+'x '+it.nom+'</div>';
   });
   html+='<div class="sep"></div>';
   html+='<div class="c" style="font-size:10px">Impression automatique — poste serveur</div>';
   html+='</body></html>';
   imprimerSilencieux(html);
+}
+function imprimerAddition(attId){
+  var c=cmdAttente.find(function(x){return x.id===attId;});
+  if(!c){toast('Commande introuvable','e');return;}
+  var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
+  var tvaOn=typeof tvaActif!=='undefined'?tvaActif:false;
+  var tvaPct=typeof tvaRate!=='undefined'?Math.round(tvaRate*100):18;
+  var ttc=c.total;
+  var ht=tvaOn?Math.round(ttc/(1+tvaRate)):ttc;
+  var tva=ttc-ht;
+  var css='@page{size:80mm auto;margin:0}'+
+    '*{margin:0;padding:0;box-sizing:border-box}'+
+    'html,body{width:80mm}'+
+    'body{font-family:"Courier New",monospace;font-size:12px;font-weight:700;padding:3mm 4mm}'+
+    'table{width:100%;border-collapse:collapse;margin:2px 0}'+
+    'td{padding:2px 0;vertical-align:top}'+
+    'td.l{text-align:left}'+
+    'td.r{text-align:right;padding-left:10px}'+
+    '.sep{border-top:1px dashed #000;margin:6px 0}'+
+    '.c{text-align:center}';
+  function ligne(label,val){
+    return '<table><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';
+  }
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
+  html+='<div class="c" style="font-size:16px">'+etab+'</div>';
+  html+='<div class="c" style="font-size:13px;margin:4px 0;border:1.5px solid #000;padding:3px">🧾 ADDITION — APERÇU</div>';
+  html+='<div class="c" style="font-size:10px">Document non définitif, non fiscal</div>';
+  html+='<div class="sep"></div>';
+  html+=ligne('Table',c.tableNom||'—');
+  if(c.srv&&c.srv!=='—')html+=ligne('Serveur',c.srv);
+  html+=ligne('Heure commande',c.heure||'');
+  html+='<div class="sep"></div>';
+  (c.items||[]).forEach(function(it){
+    var qty=it.qty||it.qt||1;
+    html+=ligne(qty+'x '+it.nom,(it.pv*qty).toLocaleString('fr-FR')+' F');
+  });
+  html+='<div class="sep"></div>';
+  if(tvaOn){
+    html+=ligne('Sous-total HT',ht.toLocaleString('fr-FR')+' F');
+    html+=ligne('TVA '+tvaPct+'%',tva.toLocaleString('fr-FR')+' F');
+    html+='<div class="sep"></div>';
+  }
+  html+='<div style="font-size:16px">'+ligne('<strong>TOTAL À PAYER</strong>','<strong>'+ttc.toLocaleString('fr-FR')+' F</strong>')+'</div>';
+  html+='<div class="sep"></div>';
+  html+='<div class="c" style="font-size:10px">Merci de repasser en caisse pour le règlement</div>';
+  html+='</body></html>';
+  var w=window.open('','_blank','width=380,height=600');
+  w.document.write(html);w.document.close();
+  w.onafterprint=function(){w.close();};
+  setTimeout(function(){w.print();},400);
+  setTimeout(function(){if(!w.closed)w.close();},15000);
+  toast('Addition imprimée (aperçu)','s');
 }
 function imprimerSilencieux(html){
   if(window.electronAPI&&window.electronAPI.printSilent){
@@ -1370,11 +1425,38 @@ function mettreEnAttente(){
   var tableVal=sel.value;
   var srv=g('selSrv').value||'—';
   var total=tkt.reduce(function(s,i){return s+i.pv*(i.qty||i.qt||1);},0);
-  var num='ATT-'+attenteSeq++;
-  cmdAttente.push({id:num,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),total:total,heure:new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'})});
+  var heure=new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'});
+  var id,deltaItems;
+  if(resumingAttenteId){
+    // Ajout sur une commande déjà envoyée : on ne réimprime que les nouveaux articles/quantités
+    id=resumingAttenteId;
+    deltaItems=calcDeltaItems(resumingBaseItems,tkt);
+  }else{
+    // Toute nouvelle commande
+    id='ATT-'+attenteSeq++;
+    deltaItems=tkt.map(function(i){return{nom:i.nom,qty:i.qty||i.qt||1};});
+  }
+  cmdAttente.push({id:id,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),total:total,heure:heure});
+  if(deltaItems.length){
+    printBatches.push({batchId:id+'-'+Date.now(),attenteId:id,tableNom:tableNom,srv:srv,heure:heure,items:deltaItems,ajout:!!resumingAttenteId});
+  }
+  resumingAttenteId=null;resumingBaseItems=null;
   libererTable();clearTk(true);
-  toast('Commande '+num+' en attente ⏸','s');
+  toast('Commande '+id+' en attente ⏸','s');
   renderAttenteBar();updateTableOptions();
+  if(window.fssSyncPush)window.fssSyncPush();
+}
+function calcDeltaItems(baseItems,currentItems){
+  var baseMap={};
+  (baseItems||[]).forEach(function(it){baseMap[it.id]=(baseMap[it.id]||0)+(it.qty||it.qt||1);});
+  var delta=[];
+  currentItems.forEach(function(it){
+    var qtyNow=it.qty||it.qt||1;
+    var qtyAvant=baseMap[it.id]||0;
+    var diff=qtyNow-qtyAvant;
+    if(diff>0)delta.push({nom:it.nom,qty:diff});
+  });
+  return delta;
 }
 function reprendreAttente(id){
   var idx=cmdAttente.findIndex(function(c){return c.id===id;});
@@ -1382,12 +1464,14 @@ function reprendreAttente(id){
   if(tkt.length&&!confirm('Remplacer le ticket actuel ?'))return;
   var c=cmdAttente[idx];
   tkt=JSON.parse(JSON.stringify(c.items));
+  resumingAttenteId=c.id;
+  resumingBaseItems=JSON.parse(JSON.stringify(c.items));
   var sel=g('selTable');sel.value=c.tableVal;onTableChange();
   var selS=g('selSrv');
   for(var j=0;j<selS.options.length;j++){if(selS.options[j].text===c.srv){selS.value=selS.options[j].value;break;}}
   cmdAttente.splice(idx,1);
   renderTkt();updTotal();renderAttenteBar();updateTableOptions();
-  toast('Commande '+c.id+' reprise ▶','s');
+  toast('Commande '+c.id+' reprise ▶ — ajoutez vos articles puis "Envoyer" ou payez directement','s');
 }
 function supprimerAttente(id){
   if(window.waiterCanDeleteAttente&&!window.waiterCanDeleteAttente()){toast('Vous n\'avez pas le droit de supprimer une commande en attente','e');return;}
@@ -1406,12 +1490,15 @@ function renderAttenteBar(){
     var btnR=document.createElement('button');
     btnR.textContent='▶';btnR.style.cssText='background:#44FF88;color:#000;border:none;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer;font-weight:700';
     btnR.onclick=(function(id){return function(){reprendreAttente(id);};})(c.id);
+    var btnA=document.createElement('button');
+    btnA.textContent='🧾';btnA.title='Imprimer l\'addition (aperçu, non définitif)';btnA.style.cssText='background:#1144CC;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer;font-weight:700';
+    btnA.onclick=(function(id){return function(){imprimerAddition(id);};})(c.id);
     var info=document.createElement('span');
     info.innerHTML='<span style="color:#FFCC00;font-weight:700">'+c.id+'</span> '+
       '<span style="color:#FF6666">'+(c.srv&&c.srv!=='—'?c.srv:c.tableNom)+'</span> '+
       '<span style="color:#888">'+c.heure+'</span> '+
       '<span style="color:#fff;font-weight:700">'+fmt(c.total)+' F</span> ';
-    div.appendChild(info);div.appendChild(btnR);
+    div.appendChild(info);div.appendChild(btnA);div.appendChild(btnR);
     if(canDel){
       var btnS=document.createElement('button');
       btnS.textContent='✕';btnS.style.cssText='background:#FF4444;color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer';
@@ -1459,7 +1546,7 @@ function testScanner(){
     g('devScanStatus').textContent='❌ Accès caméra refusé ou indisponible';g('devScanDot').style.background='#FF4444';
   });
 }
-function clearTk(silent){tkt=[];g('remF').value='';g('remP').value='';renderTkt();updTotal();if(!silent)toast('Ticket annulé','i');}
+function clearTk(silent){tkt=[];g('remF').value='';g('remP').value='';resumingAttenteId=null;resumingBaseItems=null;renderTkt();updTotal();if(!silent)toast('Ticket annulé','i');}
 function tblN(v){
   if(v==='0'||!v)return '—';
   var t=tables.find(function(x){return String(x.n)===String(v);});

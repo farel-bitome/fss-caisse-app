@@ -5,7 +5,7 @@
   var socket = (typeof io === 'function') ? io() : null;
   var API = '/api/state';
   var applying = false;
-  var prevAttenteIds = null;
+  var prevBatchIds = null;
   var prevTxIds = null;
   window.FSS_IS_SERVER = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '');
   window.users = window.users || [];
@@ -17,12 +17,13 @@
   window.caisses = window.caisses || [];
   window.categories = window.categories || [];
   window.fondsOuverture = window.fondsOuverture || {};
+  window.printBatches = window.printBatches || [];
 
   function fullState() {
     return {
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
-      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture
+      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches
     };
   }
 
@@ -53,13 +54,14 @@
     mouv = s.mouv || [];
     prls = s.prls || [];
     cmdAttente = s.cmdAttente || [];
-    if (window.FSS_IS_SERVER && prevAttenteIds !== null) {
-      var nouvelles = cmdAttente.filter(function (c) { return prevAttenteIds.indexOf(c.id) === -1; });
-      nouvelles.forEach(function (order) {
-        safe(function () { if (window.imprimerTicketAttente) window.imprimerTicketAttente(order); });
+    printBatches = s.printBatches || [];
+    if (window.FSS_IS_SERVER && prevBatchIds !== null) {
+      var nouveauxLots = printBatches.filter(function (bt) { return prevBatchIds.indexOf(bt.batchId) === -1; });
+      nouveauxLots.forEach(function (batch) {
+        safe(function () { if (window.imprimerTicketAttente) window.imprimerTicketAttente(batch); });
       });
     }
-    prevAttenteIds = cmdAttente.map(function (c) { return c.id; });
+    prevBatchIds = printBatches.map(function (bt) { return bt.batchId; });
     nextTk = s.nextTk || 1;
     attenteSeq = s.attenteSeq || 1;
     users = s.users || [];
