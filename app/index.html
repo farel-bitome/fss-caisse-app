@@ -328,6 +328,7 @@ td{padding:8px 11px;vertical-align:middle}
       <div class="pbts">
         <button class="pbt pbt-e" id="btnPayEsp" onclick="openPay('esp')">💵 Espèces</button>
         <button class="pbt pbt-c" id="btnPayCarte" onclick="openPay('cart')">💳 Carte</button>
+        <button class="pbt-a" id="btnPayAirtel" style="background:#CC0000;border-color:#CC0000;color:#fff" onclick="openPay('airtel')">📱 Airtel Money</button>
         <button class="pbt-a" id="btnEnAttente" style="background:#1a1a00;border-color:#888;color:#FFCC00" onclick="mettreEnAttente()">⏸ En attente</button>
         <button class="pbt-a" onclick="clearTk()">🗑️ Annuler</button>
       </div>
@@ -611,6 +612,7 @@ td{padding:8px 11px;vertical-align:middle}
       <button class="it" onclick="goSub('params','tables',this)">🪑 Tables</button>
       <button class="it" onclick="goSub('params','caisses',this)">💰 Caisses</button>
       <button class="it" onclick="goSub('params','cats',this)">🏷️ Catégories</button>
+      <button class="it" onclick="goSub('params','airtel',this)">📱 Paiement Mobile</button>
       <button class="it" onclick="goSub('params','opts',this)">⚙️ Options</button>
       <button class="it" onclick="goSub('params','sauv',this)">💾 Sauvegarde</button>
       <button class="it" onclick="goSub('params','dev',this)">🖨️ Périphériques</button>
@@ -697,6 +699,24 @@ td{padding:8px 11px;vertical-align:middle}
     <div class="sub" id="sub-params-cats">
       <div class="stb"><span class="stit">Catégories d'articles</span><button class="btn btn-r sm" onclick="openCatModal()">➕ Ajouter une catégorie</button></div>
       <div class="tw"><table id="tCats"><thead><tr><th>Nom</th><th>Actions</th></tr></thead><tbody id="bCats"></tbody></table></div>
+    </div>
+    <div class="sub" id="sub-params-airtel">
+      <div class="slay"><div class="ssect">
+        <div class="ssti">📱 Paiement mobile — Airtel Money</div>
+        <div style="font-size:12px;color:#888;margin-bottom:16px;line-height:1.5">
+          Ces identifiants viennent du <strong>portail développeur Airtel Africa</strong>, une fois votre compte Marchand Airtel Money créé.
+          Ils sont enregistrés uniquement sur ce PC serveur, jamais transmis ailleurs.
+        </div>
+        <div id="airtelStatusBox" style="padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:12px;font-weight:700"></div>
+        <div class="sg">
+          <div class="fg"><label class="fl">Client ID</label><input class="fi" id="atClientId" placeholder="Fourni par Airtel Africa"></div>
+          <div class="fg"><label class="fl">Client Secret</label><input class="fi" type="password" id="atClientSecret" placeholder="••••••••"></div>
+          <div class="fg"><label class="fl">Pays</label><select class="fi" id="atCountry"><option value="GA">Gabon (GA)</option><option value="CD">RD Congo (CD)</option><option value="KE">Kenya (KE)</option></select></div>
+          <div class="fg"><label class="fl">Devise</label><input class="fi" id="atCurrency" value="XAF"></div>
+          <div class="fg"><label class="fl">Environnement</label><select class="fi" id="atEnv"><option value="staging">Test (staging)</option><option value="production">Production (réel)</option></select></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:10px"><button class="btn btn-r" onclick="saveAirtelConfig()">💾 Enregistrer</button></div>
+      </div></div>
     </div>
     <div class="sub" id="sub-params-opts">
       <div class="slay"><div class="ssect"><div class="ssti">Options Caisse</div><div id="optsWrap"></div></div></div>
@@ -932,6 +952,30 @@ td{padding:8px 11px;vertical-align:middle}
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovClotureBilan')">Fermer</button><button class="btn btn-r" onclick="print80()">🖨️ Imprimer 80mm</button><button class="btn btn-r" onclick="printA4()">📄 Imprimer A4</button></div>
 </div></div>
 
+<div class="ov" id="ovAirtel"><div class="md"><div class="mh"><span class="mt">📱 Paiement Airtel Money</span><button class="mc" onclick="fermerAirtelModal()">✕</button></div>
+  <div class="mb">
+    <div id="airtelStep1">
+      <div style="font-size:13px;color:#ccc;margin-bottom:14px">Montant à encaisser : <strong style="color:#CC0000;font-size:18px" id="airtelMontant">0 FCFA</strong></div>
+      <div class="fg"><label class="fl">Numéro de téléphone du client (Airtel)</label><input class="fi" id="airtelTel" placeholder="Ex: 074123456" autocomplete="off" onkeydown="if(event.key==='Enter')lancerPaiementAirtel()"></div>
+      <div class="authErr" id="airtelErr"></div>
+    </div>
+    <div id="airtelStep2" style="display:none;text-align:center;padding:20px 0">
+      <div style="font-size:40px;margin-bottom:10px">⏳</div>
+      <div style="font-size:14px;color:#eee;margin-bottom:6px">En attente de validation du client...</div>
+      <div style="font-size:11px;color:#888">Le client doit valider sur son téléphone avec son code Airtel Money</div>
+      <div style="font-size:11px;color:#666;margin-top:10px" id="airtelPollInfo"></div>
+    </div>
+    <div id="airtelStep3" style="display:none;text-align:center;padding:20px 0">
+      <div style="font-size:40px;margin-bottom:10px;color:#44CC66">✓</div>
+      <div style="font-size:15px;color:#44CC66;font-weight:700">Paiement confirmé !</div>
+    </div>
+  </div>
+  <div class="mf" id="airtelFooter">
+    <button class="btn btn-o" onclick="fermerAirtelModal()">Annuler</button>
+    <button class="btn btn-r" style="flex:1" onclick="lancerPaiementAirtel()">📱 Envoyer la demande</button>
+  </div>
+</div></div>
+
 <div class="ov" id="ovFonds"><div class="md"><div class="mh"><span class="mt">💰 Fonds de caisse d'ouverture</span></div>
   <div class="mb">
     <div style="font-size:12px;color:#ccc;margin-bottom:14px;line-height:1.5">Avant de commencer à vendre aujourd'hui, indiquez la caisse utilisée et le montant en espèces déjà présent dans le tiroir (fonds de départ) :</div>
@@ -955,7 +999,7 @@ td{padding:8px 11px;vertical-align:middle}
 </div></div>
 
 <script>
-window.FSS_VERSION='1.6.0';
+window.FSS_VERSION='1.7.0';
 var arts=[
   {id:1,ref:'ART-001',nom:'Castel Bière',cat:'Bières',un:'Bouteille',pv:1500,pa:900,stk:48,smin:10,emo:'🍺',tva:18,actif:true},
   {id:2,ref:'ART-002',nom:'Régab',cat:'Bières',un:'Bouteille',pv:1500,pa:900,stk:36,smin:10,emo:'🍺',tva:18,actif:true},
@@ -1025,6 +1069,7 @@ function goSub(page,sub,btn){
   pg.querySelectorAll('.it').forEach(function(t){t.classList.remove('on');});
   var s=g('sub-'+page+'-'+sub);if(s)s.classList.add('on');
   if(btn)btn.classList.add('on');
+  if(page==='params'&&sub==='airtel')loadAirtelStatus();
 }
 function startClock(){
   function tick(){g('clk').textContent=new Date().toLocaleTimeString('fr-FR');}
@@ -1612,6 +1657,7 @@ function openPay(mode){
   if(!srvVal){toast('Veuillez sélectionner un serveur avant de facturer','e');return;}
   var cxVal=g('selCaisse')?g('selCaisse').value:'';
   if(!cxVal){toast('Veuillez sélectionner une caisse avant de facturer','e');return;}
+  if(mode==='airtel'){ouvrirAirtelModal();return;}
   payMode=mode;recAmt=0;
   g('payMT').textContent='Paiement — '+(mode==='esp'?'Espèces':'Carte');
   g('payAmt').textContent=fmt(getTotal());
@@ -1651,7 +1697,7 @@ function valPay(){
   var rendu=payMode==='esp'?Math.max(0,recAmt-tot):0;
   var caissier=(window.currentUser&&window.currentUser.nom)?window.currentUser.nom:'—';
   var caisseNom=g('selCaisse')?g('selCaisse').value:'';
-  txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tblN(g('selTable').value),srv:g('selSrv').value,caissier:caissier,caisse:caisseNom,arts:nb,items:itemsSnapshot,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':'Carte',recu:recu,rendu:rendu,stat:'Validé'});
+  txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tblN(g('selTable').value),srv:g('selSrv').value,caissier:caissier,caisse:caisseNom,arts:nb,items:itemsSnapshot,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':(payMode==='airtel'?'Airtel Money':'Carte'),recu:recu,rendu:rendu,stat:'Validé'});
   nextTk++;g('tkNum').textContent='TK-#'+('000'+nextTk).slice(-4);
   closeM('ovPay');clearTk(true);libererTable();renderProds('');renderStk();renderTkList();renderRap();initCloture();
   afficherRecu(txs[0]);
@@ -2367,7 +2413,71 @@ function renderCatSelect(){
   });
   if(sel.querySelector('option[value="'+CSS.escape(prev)+'"]'))sel.value=prev;
 }
-var pendingAdminAction=null;
+var airtelPollTimer=null,airtelPollCount=0;
+function ouvrirAirtelModal(){
+  g('airtelMontant').textContent=fmt(getTotal());
+  g('airtelTel').value='';g('airtelErr').textContent='';
+  g('airtelStep1').style.display='';g('airtelStep2').style.display='none';g('airtelStep3').style.display='none';
+  g('airtelFooter').style.display='flex';
+  g('ovAirtel').classList.add('on');
+  setTimeout(function(){g('airtelTel').focus();},50);
+}
+function fermerAirtelModal(){
+  if(airtelPollTimer){clearInterval(airtelPollTimer);airtelPollTimer=null;}
+  g('ovAirtel').classList.remove('on');
+}
+function lancerPaiementAirtel(){
+  var tel=g('airtelTel').value.trim().replace(/[^\d]/g,'');
+  if(!tel||tel.length<8){g('airtelErr').textContent='Numéro de téléphone invalide';return;}
+  g('airtelErr').textContent='';
+  var montant=getTotal();
+  g('airtelStep1').style.display='none';g('airtelStep2').style.display='';g('airtelFooter').style.display='none';
+  fetch('/api/airtel/collect',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({phone:tel,amount:montant,reference:'TK-'+('000'+nextTk).slice(-4)})
+  }).then(function(r){return r.json();}).then(function(d){
+    if(!d.ok){
+      g('airtelStep1').style.display='';g('airtelStep2').style.display='none';g('airtelFooter').style.display='flex';
+      g('airtelErr').textContent=d.error||'Échec de la demande de paiement';
+      return;
+    }
+    airtelPollCount=0;
+    airtelPollTimer=setInterval(function(){pollAirtelStatus(d.transactionId);},4000);
+  }).catch(function(){
+    g('airtelStep1').style.display='';g('airtelStep2').style.display='none';g('airtelFooter').style.display='flex';
+    g('airtelErr').textContent='Impossible de contacter le serveur de paiement';
+  });
+}
+function pollAirtelStatus(transactionId){
+  airtelPollCount++;
+  if(airtelPollCount>30){ // ~2 minutes
+    clearInterval(airtelPollTimer);airtelPollTimer=null;
+    g('airtelStep1').style.display='';g('airtelStep2').style.display='none';g('airtelFooter').style.display='flex';
+    g('airtelErr').textContent='Le client n\'a pas validé à temps. Réessayez.';
+    return;
+  }
+  g('airtelPollInfo').textContent='Vérification... ('+airtelPollCount+')';
+  fetch('/api/airtel/status/'+encodeURIComponent(transactionId)).then(function(r){return r.json();}).then(function(d){
+    if(!d.ok)return;
+    if(d.status==='TS'||d.status==='SUCCESS'||d.status==='SUCCESSFUL'){
+      clearInterval(airtelPollTimer);airtelPollTimer=null;
+      g('airtelStep2').style.display='none';g('airtelStep3').style.display='';
+      setTimeout(function(){
+        fermerAirtelModal();
+        finaliserPaiementAirtel();
+      },1200);
+    }else if(d.status==='TF'||d.status==='FAILED'||d.status==='FAILURE'){
+      clearInterval(airtelPollTimer);airtelPollTimer=null;
+      g('airtelStep1').style.display='';g('airtelStep2').style.display='none';g('airtelFooter').style.display='flex';
+      g('airtelErr').textContent='Paiement refusé ou annulé par le client';
+    }
+    // sinon (PENDING/TIP...) on continue de sonder
+  });
+}
+function finaliserPaiementAirtel(){
+  payMode='airtel';recAmt=getTotal();
+  valPay();
+}
 function openAdminPwdConfirm(msg,btnLabel,action){
   var u=window.currentUser;
   if(!u||!(u.super||u.full)){toast('Action réservée aux administrateurs','e');return;}
@@ -2402,6 +2512,36 @@ function applyPerfSectionVisibility(){
   el.style.display=(u&&(u.super||u.full))?'':'none';
 }
 window.applyPerfSectionVisibility=applyPerfSectionVisibility;
+function loadAirtelStatus(){
+  var box=g('airtelStatusBox');if(!box)return;
+  fetch('/api/airtel/config-status').then(function(r){return r.json();}).then(function(d){
+    if(d.configured){
+      box.style.background='#0a2a12';box.style.color='#44CC66';box.style.border='1px solid #1a5c30';
+      box.textContent='✓ Airtel Money configuré ('+(d.environment==='production'?'Production — paiements réels':'Test / staging')+')';
+    }else{
+      box.style.background='#2a1a0a';box.style.color='#FFAA44';box.style.border='1px solid #5c3a1a';
+      box.textContent='⚠️ Airtel Money pas encore configuré — renseignez vos identifiants ci-dessous';
+    }
+  }).catch(function(){box.textContent='Impossible de vérifier le statut (serveur non démarré ?)';});
+}
+function saveAirtelConfig(){
+  var body={
+    clientId:g('atClientId').value.trim(),
+    clientSecret:g('atClientSecret').value.trim(),
+    country:g('atCountry').value,
+    currency:g('atCurrency').value.trim()||'XAF',
+    environment:g('atEnv').value
+  };
+  if(!body.clientId||!body.clientSecret){toast('Client ID et Client Secret requis','e');return;}
+  fetch('/api/airtel/save-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){return r.json();})
+    .then(function(){
+      toast('Configuration Airtel Money enregistrée','s');
+      g('atClientSecret').value='';
+      loadAirtelStatus();
+    })
+    .catch(function(){toast('Erreur lors de l\'enregistrement','e');});
+}
 function initCategories(){
   var b=g('bCats');if(!b)return;b.innerHTML='';
   categories.slice().sort().forEach(function(c){

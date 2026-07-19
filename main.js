@@ -56,9 +56,22 @@ function getEffectiveIP() {
 
 async function startEmbeddedServer() {
   if (serverStarted) return;
-  serverStarted = true;
   const startEmbeddedServerFn = require('./embedded-server');
-  await startEmbeddedServerFn(PORT, app.getPath('userData'), __dirname);
+  try {
+    await startEmbeddedServerFn(PORT, app.getPath('userData'), __dirname);
+    serverStarted = true;
+  } catch (e) {
+    serverStarted = false; // on autorise une nouvelle tentative (ex: via "Recharger")
+    var msg;
+    if (e && e.code === 'EADDRINUSE') {
+      msg = "Le port " + PORT + " est déjà utilisé par un autre programme (peut-être une autre fenêtre de FSS-CAISSE déjà ouverte en arrière-plan).\n\n" +
+            "Solution : fermez complètement FSS-CAISSE (vérifiez le Gestionnaire des tâches Windows), puis relancez l'application.";
+    } else {
+      msg = "Le serveur FSS-CAISSE n'a pas pu démarrer.\n\nDétail technique : " + (e && e.message ? e.message : e);
+    }
+    dialog.showErrorBox('Erreur de démarrage du serveur', msg);
+    throw e;
+  }
 }
 
 function createWindow() {
@@ -96,7 +109,12 @@ async function boot() {
   if (!cfg.role) {
     win.loadFile(path.join(__dirname, 'choice.html'));
   } else if (cfg.role === 'server') {
-    await startEmbeddedServer();
+    try {
+      await startEmbeddedServer();
+    } catch (e) {
+      win.loadFile(path.join(__dirname, 'choice.html'));
+      return;
+    }
     win.loadURL('http://localhost:' + PORT);
     const eff = getEffectiveIP();
     dialog.showMessageBox(win, {
@@ -156,7 +174,11 @@ ipcMain.handle('choose-role', async (event, role) => {
     const cfg0 = loadConfig();
     cfg0.role = 'server';
     saveConfig(cfg0);
-    await startEmbeddedServer();
+    try {
+      await startEmbeddedServer();
+    } catch (e) {
+      return false;
+    }
     win.loadURL('http://localhost:' + PORT);
     const eff = getEffectiveIP();
     dialog.showMessageBox(win, {
