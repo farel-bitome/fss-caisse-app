@@ -61,6 +61,12 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
     const server = http.createServer(expressApp);
     const io = new Server(server);
 
+    expressApp.use(function (req, res, next) {
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'GET,POST');
+      res.header('Access-Control-Allow-Headers', 'Content-Type');
+      next();
+    });
     expressApp.use(express.json({ limit: '10mb' }));
     expressApp.use(express.static(appStaticDir));
 
