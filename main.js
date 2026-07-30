@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const licensing = require('./licensing');
 
 const PORT = 3000;
 const configPath = path.join(app.getPath('userData'), 'config.json');
@@ -101,6 +102,20 @@ function createWindow() {
     }
   });
 
+  if (licensing.isBlocked()) {
+    win.loadFile(path.join(__dirname, 'activation.html'));
+    return;
+  }
+
+  if (!licensing.isLicensed()) {
+    const trial = licensing.getTrialStatus();
+    dialog.showMessageBox(win, {
+      type: 'info',
+      title: "Version d'essai",
+      message: `Version d'essai — ${trial.daysLeft} jour(s) restant(s) avant activation obligatoire.\n\nMenu FSS-CAISSE → "Licence / Activation" pour activer dès maintenant.`
+    });
+  }
+
   boot();
 }
 
@@ -162,6 +177,10 @@ function buildMenu() {
           }
         },
         { label: 'Recharger', click: () => boot() },
+        {
+          label: 'Licence / Activation',
+          click: () => win.loadFile(path.join(__dirname, 'activation.html'))
+        },
         { role: 'quit', label: 'Quitter' }
       ]
     }
@@ -241,6 +260,11 @@ ipcMain.handle('reload-app', () => {
   return true;
 });
 
+ipcMain.handle('get-machine-id', () => licensing.getMachineId());
+ipcMain.handle('is-licensed', () => licensing.isLicensed());
+ipcMain.handle('activate-license', (event, key) => licensing.activate(key));
+ipcMain.handle('get-trial-status', () => licensing.getTrialStatus());
+
 ipcMain.handle('print-silent', (event, html) => {
   return new Promise((resolve) => {
     const printWin = new BrowserWindow({
@@ -257,7 +281,10 @@ ipcMain.handle('print-silent', (event, html) => {
   });
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  licensing.init(app.getPath('userData'));
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

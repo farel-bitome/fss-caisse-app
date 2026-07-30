@@ -25,9 +25,11 @@
       "main.js",
       "preload.js",
       "embedded-server.js",
+      "licensing.js",
       "choice.html",
       "client.html",
       "server-ip.html",
+      "activation.html",
       "app/**/*",
       "server-data/**/*",
       "node_modules/**/*"

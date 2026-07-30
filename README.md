@@ -103,3 +103,26 @@ fss-caisse-app/
 ├── .github/workflows/build.yml  ← compile automatiquement le .exe
 └── README.md
 ```
+
+## Licence — protection anti-copie
+
+Depuis cette mise à jour, chaque PC (Serveur **et** Client) doit être **activé**
+individuellement avant de pouvoir utiliser l'application — copier l'installation
+sur un autre PC ne fonctionne pas sans une nouvelle clé.
+
+Ce système est **compatible avec vos générateurs de licence existants**
+(Windows, HTML, Android construits pour FSS-CAISSE-SALON) — une clé générée avec
+l'un fonctionne pour n'importe lequel de vos logiciels, tant que vous utilisez le
+bon identifiant machine.
+
+**Pour activer un PC :**
+
+1. Au premier lancement (ou via le menu **FSS-CAISSE → Licence / Activation**),
+   l'écran affiche l'**identifiant de ce PC**
+2. Le client vous communique cet identifiant
+3. Générez la clé avec l'outil de votre choix (`node build/generate-license.js
+   <identifiant>` sur FSS-CAISSE-SALON, l'outil HTML, ou l'app Android)
+4. Le client saisit la clé reçue — l'application démarre normalement ensuite
+
+⚠️ Ne partagez jamais le contenu de `licensing.js` (la clé secrète qu'il contient)
+avec vos clients.

@@ -8,5 +8,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getServerIpInfo: () => ipcRenderer.invoke('get-server-ip-info'),
   saveManualIp: (ip, port) => ipcRenderer.invoke('save-manual-ip', ip, port),
   resetManualIp: () => ipcRenderer.invoke('reset-manual-ip'),
-  reloadApp: () => ipcRenderer.invoke('reload-app')
+  reloadApp: () => ipcRenderer.invoke('reload-app'),
+  getMachineId: () => ipcRenderer.invoke('get-machine-id'),
+  isLicensed: () => ipcRenderer.invoke('is-licensed'),
+  activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
+  getTrialStatus: () => ipcRenderer.invoke('get-trial-status')
 });
