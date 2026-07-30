@@ -442,8 +442,30 @@
     }
   ],
   "servers": [],
-  "caisses": ["Caisse 1", "Caisse 2"],
-  "categories": ["Boissons", "Bières", "Alcools", "Apéritifs", "Digestifs", "Entrées", "Plats", "Viandes", "Poissons", "Salades", "Desserts", "Accompagnements", "Sauces", "Fromages", "Fruits"],
+  "caisses": [
+    "Caisse 1",
+    "Caisse 2"
+  ],
+  "categories": [
+    "Boissons",
+    "Bières",
+    "Alcools",
+    "Apéritifs",
+    "Digestifs",
+    "Entrées",
+    "Plats",
+    "Viandes",
+    "Poissons",
+    "Salades",
+    "Desserts",
+    "Accompagnements",
+    "Sauces",
+    "Fromages",
+    "Fruits"
+  ],
   "fondsOuverture": {},
-  "printBatches": []
+  "printBatches": [],
+  "employes": [],
+  "pointages": [],
+  "paieEntries": []
 }

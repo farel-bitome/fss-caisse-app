@@ -18,12 +18,16 @@
   window.categories = window.categories || [];
   window.fondsOuverture = window.fondsOuverture || {};
   window.printBatches = window.printBatches || [];
+  window.employes = window.employes || [];
+  window.pointages = window.pointages || [];
+  window.paieEntries = window.paieEntries || [];
 
   function fullState() {
     return {
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
-      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches
+      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches,
+      employes: employes, pointages: pointages, paieEntries: paieEntries
     };
   }
 
@@ -78,6 +82,12 @@
     window.categories = categories;
     if (s.fondsOuverture) fondsOuverture = s.fondsOuverture;
     window.fondsOuverture = fondsOuverture;
+    employes = s.employes || [];
+    window.employes = employes;
+    pointages = s.pointages || [];
+    window.pointages = pointages;
+    paieEntries = s.paieEntries || [];
+    window.paieEntries = paieEntries;
     refreshAllViews();
     applyEtabToInputs();
     applying = false;
@@ -111,6 +121,9 @@
     safe(function () { initCloture(); });
     safe(function () { renderAttenteBar(); });
     safe(function () { renderPrls(); });
+    safe(function () { renderEmp(); });
+    safe(function () { renderPtgLive(); });
+    safe(function () { renderPaie(); });
     safe(function () { if (g('tkNum')) g('tkNum').textContent = 'TK-#' + ('000' + nextTk).slice(-4); });
   }
 
@@ -145,7 +158,8 @@
     'saveArt', 'delArt', 'togArt', 'saveStk',
     'saveCli', 'delCli', 'saveFour', 'delFour',
     'saveCmd', 'valPay', 'addPrel', 'razCaisse',
-    'mettreEnAttente', 'reprendreAttente', 'supprimerAttente'
+    'mettreEnAttente', 'reprendreAttente', 'supprimerAttente',
+    'saveEmp', 'delEmp', 'clockIn', 'clockOut', 'savePointageManuel', 'delPointage', 'savePaieDetail'
   ].forEach(wrap);
 
   if (socket) {

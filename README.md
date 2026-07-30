@@ -126,3 +126,26 @@ bon identifiant machine.
 
 ⚠️ Ne partagez jamais le contenu de `licensing.js` (la clé secrète qu'il contient)
 avec vos clients.
+
+## Personnel — Pointage et Paie
+
+Nouvel onglet **🧑‍🍳 Personnel** dans le menu principal, avec trois sections :
+
+- **Employés** : liste du personnel avec poste et salaire de base mensuel fixé
+- **Pointage** : arrivée/départ en un clic pour chaque employé actif (avec saisie
+  manuelle possible), historique du jour
+- **Paie** : calcul automatique du net à payer par employé, mois par mois, à partir
+  du salaire de base et des ajustements saisis (absences, retard, sanction,
+  accompte, produits/facture) — imprimable via le bouton "🖨️ État de paie"
+
+Ces données sont **synchronisées en temps réel** entre tous les postes (Serveur et
+Clients), comme le reste de l'application — pas besoin de configuration
+supplémentaire.
+
+**Calcul du net à payer :**
+```
+Salaire / jour  = Salaire brut / 30
+Salaire / heure = Salaire brut / 240
+Net à payer = Salaire brut − (absences × salaire/jour) − (retard × salaire/heure)
+              − produits/facture − sanction − accompte
+```

@@ -278,6 +278,7 @@ td{padding:8px 11px;vertical-align:middle}
     <button class="nb" onclick="goPage('stock',this)">📦 Stock</button>
     <button class="nb" onclick="goPage('achats',this)">🛒 Achats</button>
     <button class="nb" onclick="goPage('clients',this)">👥 Clients</button>
+    <button class="nb" onclick="goPage('personnel',this)">🧑‍🍳 Personnel</button>
     <button class="nb" onclick="goPage('fournisseurs',this)">🚚 Fournisseurs</button>
     <button class="nb" onclick="goPage('bons',this)">📄 Bons &amp; Ventes</button>
     <button class="nb" onclick="goPage('rapports',this)">📊 Rapports</button>
@@ -475,6 +476,38 @@ td{padding:8px 11px;vertical-align:middle}
     <div class="sub" id="sub-clients-ca">
       <div class="stb"><span class="stit">CA par Client</span></div>
       <div class="tw"><table><thead><tr><th>Client</th><th>Nb tickets</th><th>CA HT</th><th>CA TTC</th><th>Panier moy.</th><th>Dernière visite</th></tr></thead><tbody id="bCaCli"></tbody></table></div>
+    </div>
+  </div>
+</div>
+<!-- PERSONNEL -->
+<div class="pg" id="pg-personnel">
+  <div class="sp">
+    <div class="itabs">
+      <button class="btn btn-o sm" onclick="goPage('caisse',document.querySelector('.nb'))" style="margin-right:8px">← Retour</button>
+      <button class="it on" onclick="goSub('personnel','employes',this)">🧑‍🍳 Employés</button>
+      <button class="it" onclick="goSub('personnel','pointage',this)">⏱️ Pointage</button>
+      <button class="it" onclick="goSub('personnel','paie',this)">🧮 Paie</button>
+    </div>
+    <div class="sub on" id="sub-personnel-employes">
+      <div class="stb"><span class="stit">Employés</span><input class="si" style="max-width:200px" placeholder="🔍" oninput="filtT('tEmp',this.value)"><button class="btn btn-r" onclick="openEmpModal()">+ Nouvel employé</button></div>
+      <div class="tw"><table id="tEmp"><thead><tr><th>Nom</th><th>Poste</th><th>Salaire de base</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="bEmp"></tbody></table></div>
+    </div>
+    <div class="sub" id="sub-personnel-pointage">
+      <div class="stb"><span class="stit">Pointage du jour</span><button class="btn btn-o sm" onclick="openPtgManuel()">+ Saisie manuelle</button></div>
+      <div class="tw" style="margin-bottom:14px"><table id="tPtgLive"><thead><tr><th>Employé</th><th>Poste</th><th>Statut</th><th>Depuis</th><th>Action</th></tr></thead><tbody id="bPtgLive"></tbody></table></div>
+      <div class="stb"><span class="stit">Historique du jour</span></div>
+      <div class="tw"><table id="tPtg"><thead><tr><th>Employé</th><th>Arrivée</th><th>Départ</th><th>Durée</th><th>Actions</th></tr></thead><tbody id="bPtg"></tbody></table></div>
+    </div>
+    <div class="sub" id="sub-personnel-paie">
+      <div class="stb">
+        <span class="stit">Paie</span>
+        <button class="btn btn-o sm" onclick="shiftPaieMonth(-1)">‹</button>
+        <span id="paieMoisLbl" style="font-weight:700;min-width:150px;text-align:center;display:inline-block"></span>
+        <button class="btn btn-o sm" onclick="shiftPaieMonth(1)">›</button>
+        <button class="btn btn-o sm" onclick="prtT('tPaie')">🖨️ État de paie</button>
+      </div>
+      <div style="padding:10px 14px;font-size:12px;color:#999">Masse salariale (net à payer) : <strong style="color:#CC0000;font-size:15px" id="paieTotal">0 FCFA</strong></div>
+      <div class="tw"><table id="tPaie"><thead><tr><th>Employé</th><th>Poste</th><th>Salaire brut</th><th>Absences (j)</th><th>Retenue absences</th><th>Retard (h)</th><th>Retenue retard</th><th>Sanction</th><th>Accompte</th><th>Net à payer</th><th>Actions</th></tr></thead><tbody id="bPaie"></tbody></table></div>
     </div>
   </div>
 </div>
@@ -862,6 +895,33 @@ td{padding:8px 11px;vertical-align:middle}
     <div class="fg"><label class="fl">Remise habituelle (%)</label><input class="fi" type="number" id="cRem" value="0"></div>
   </div></div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovCli')">Annuler</button><button class="btn btn-r" onclick="saveCli()">Enregistrer</button></div>
+</div></div>
+<div class="ov" id="ovEmp"><div class="md lg"><div class="mh"><span class="mt" id="empMT">Nouvel employé</span><button class="mc" onclick="closeM('ovEmp')">✕</button></div>
+  <div class="mb"><div class="sg">
+    <div class="fg"><label class="fl">Nom complet *</label><input class="fi" id="eNom" placeholder="Prénom Nom"></div>
+    <div class="fg"><label class="fl">Poste occupé</label><input class="fi" id="ePoste" placeholder="Serveur, Cuisinier, Caissier..."></div>
+    <div class="fg"><label class="fl">Salaire de base mensuel (FCFA)</label><input class="fi" type="number" id="eSalaire" value="0"></div>
+    <div class="fg"><label class="fl">Statut</label><select class="fi" id="eActif"><option value="1">Actif</option><option value="0">Inactif</option></select></div>
+  </div></div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovEmp')">Annuler</button><button class="btn btn-r" onclick="saveEmp()">Enregistrer</button></div>
+</div></div>
+<div class="ov" id="ovPtgManuel"><div class="md"><div class="mh"><span class="mt">Pointage manuel</span><button class="mc" onclick="closeM('ovPtgManuel')">✕</button></div>
+  <div class="mb"><div class="sg">
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Employé</label><select class="fi" id="ptgEmpSel"></select></div>
+    <div class="fg"><label class="fl">Heure d'arrivée</label><input class="fi" type="time" id="ptgIn"></div>
+    <div class="fg"><label class="fl">Heure de départ (facultatif)</label><input class="fi" type="time" id="ptgOut"></div>
+  </div></div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovPtgManuel')">Annuler</button><button class="btn btn-r" onclick="savePointageManuel()">Enregistrer</button></div>
+</div></div>
+<div class="ov" id="ovPaieDetail"><div class="md"><div class="mh"><span class="mt" id="paieDetMT">Détail de paie</span><button class="mc" onclick="closeM('ovPaieDetail')">✕</button></div>
+  <div class="mb"><div class="sg">
+    <div class="fg"><label class="fl">Absences (jours)</label><input class="fi" type="number" id="pdAbs" value="0" min="0"></div>
+    <div class="fg"><label class="fl">Retard (heures)</label><input class="fi" type="number" id="pdRetard" value="0" min="0"></div>
+    <div class="fg"><label class="fl">Sanction (FCFA)</label><input class="fi" type="number" id="pdSanction" value="0" min="0"></div>
+    <div class="fg"><label class="fl">Accompte (FCFA)</label><input class="fi" type="number" id="pdAccompte" value="0" min="0"></div>
+    <div class="fg" style="grid-column:1/-1"><label class="fl">Produits / Facture (FCFA)</label><input class="fi" type="number" id="pdProduits" value="0" min="0"></div>
+  </div></div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovPaieDetail')">Annuler</button><button class="btn btn-r" onclick="savePaieDetail()">Enregistrer</button></div>
 </div></div>
 <div class="ov" id="ovFour"><div class="md lg"><div class="mh"><span class="mt">Nouveau fournisseur</span><button class="mc" onclick="closeM('ovFour')">✕</button></div>
   <div class="mb"><div class="sg">
@@ -2063,6 +2123,177 @@ function saveCli(){
   editCliId=null;closeM('ovCli');renderCli();toast('Enregistré','s');
 }
 function delCli(id){clis=clis.filter(function(c){return c.id!==id;});renderCli();toast('Supprimé','i');}
+
+// ============================================================
+// PERSONNEL — Employés, Pointage, Paie
+// ============================================================
+var employes=[];
+var pointages=[];
+var paieEntries=[];
+var editEmpId=null;
+var ptgManuelEmpId=null;
+var paieMois=new Date().toISOString().slice(0,7);
+var paieDetEmpId=null;
+
+function todayStr(){return new Date().toISOString().slice(0,10);}
+
+// ---------- Employés ----------
+function renderEmp(){
+  var b=g('bEmp');if(!b)return;b.innerHTML='';
+  employes.forEach(function(e){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><strong>'+e.nom+'</strong></td><td>'+(e.poste||'—')+'</td><td>'+fmt(e.salaire||0)+'</td>'+
+      '<td>'+(e.actif===false?'<span class="badge" style="background:#333;color:#999">Inactif</span>':'<span class="badge bg">Actif</span>')+'</td>'+
+      '<td><div style="display:flex;gap:4px"><button class="ibt" onclick="openEmpModal('+e.id+')">✏️</button><button class="ibt d" onclick="delEmp('+e.id+')">🗑️</button></div></td>';
+    b.appendChild(tr);
+  });
+  fillEmpSelects();
+}
+function fillEmpSelects(){
+  var sel=g('ptgEmpSel');
+  if(sel){
+    var prev=sel.value;
+    sel.innerHTML='';
+    employes.filter(function(e){return e.actif!==false;}).forEach(function(e){
+      var o=document.createElement('option');o.value=e.id;o.textContent=e.nom;sel.appendChild(o);
+    });
+    if(sel.querySelector('option[value="'+prev+'"]'))sel.value=prev;
+  }
+}
+function openEmpModal(id){
+  editEmpId=id||null;g('empMT').textContent=id?'Modifier employé':'Nouvel employé';
+  if(id){var e=employes.find(function(x){return x.id===id;});g('eNom').value=e.nom;g('ePoste').value=e.poste||'';g('eSalaire').value=e.salaire||0;g('eActif').value=e.actif===false?'0':'1';}
+  else{g('eNom').value='';g('ePoste').value='';g('eSalaire').value=0;g('eActif').value='1';}
+  g('ovEmp').classList.add('on');
+}
+function saveEmp(){
+  var nom=g('eNom').value.trim();if(!nom){toast('Nom requis','e');return;}
+  var obj={nom:nom,poste:g('ePoste').value.trim(),salaire:parseInt(g('eSalaire').value)||0,actif:g('eActif').value==='1'};
+  if(editEmpId){var i=employes.findIndex(function(e){return e.id===editEmpId;});employes[i]=Object.assign(employes[i],obj);}
+  else{employes.push(Object.assign({id:Date.now()},obj));}
+  editEmpId=null;closeM('ovEmp');renderEmp();renderPtgLive();renderPaie();toast('Enregistré','s');
+}
+function delEmp(id){
+  if(!confirm('Retirer cet employé ?'))return;
+  employes=employes.filter(function(e){return e.id!==id;});
+  renderEmp();renderPtgLive();renderPaie();toast('Supprimé','i');
+}
+
+// ---------- Pointage ----------
+function renderPtgLive(){
+  var b=g('bPtgLive');if(!b)return;b.innerHTML='';
+  employes.filter(function(e){return e.actif!==false;}).forEach(function(e){
+    var actif=pointages.find(function(p){return p.empId===e.id&&!p.out;});
+    var tr=document.createElement('tr');
+    var statut=actif?'<span class="badge bg">En service</span>':'<span class="badge" style="background:#333;color:#999">Non pointé</span>';
+    var depuis=actif?new Date(actif.in).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'—';
+    var action=actif?'<button class="btn btn-o sm" style="border-color:#CC0000;color:#CC0000" onclick="clockOut('+e.id+')">Départ</button>':'<button class="btn btn-r sm" onclick="clockIn('+e.id+')">Arrivée</button>';
+    tr.innerHTML='<td><strong>'+e.nom+'</strong></td><td>'+(e.poste||'—')+'</td><td>'+statut+'</td><td>'+depuis+'</td><td>'+action+'</td>';
+    b.appendChild(tr);
+  });
+  renderPtgHisto();
+}
+function clockIn(empId){
+  pointages.push({id:Date.now(),empId:empId,in:new Date().toISOString(),out:null});
+  renderPtgLive();toast('Arrivée pointée','s');
+}
+function clockOut(empId){
+  var p=pointages.find(function(x){return x.empId===empId&&!x.out;});
+  if(p)p.out=new Date().toISOString();
+  renderPtgLive();toast('Départ pointé','s');
+}
+function renderPtgHisto(){
+  var b=g('bPtg');if(!b)return;b.innerHTML='';
+  var today=todayStr();
+  pointages.filter(function(p){return p.in.slice(0,10)===today;}).slice().reverse().forEach(function(p){
+    var e=employes.find(function(x){return x.id===p.empId;});
+    var dureeTxt='—';
+    if(p.out){var mins=Math.round((new Date(p.out)-new Date(p.in))/60000);dureeTxt=Math.floor(mins/60)+'h'+String(mins%60).padStart(2,'0');}
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(e?e.nom:'—')+'</td><td>'+new Date(p.in).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</td>'+
+      '<td>'+(p.out?new Date(p.out).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'en cours')+'</td><td>'+dureeTxt+'</td>'+
+      '<td><button class="ibt d" onclick="delPointage('+p.id+')">🗑️</button></td>';
+    b.appendChild(tr);
+  });
+}
+function delPointage(id){pointages=pointages.filter(function(p){return p.id!==id;});renderPtgLive();}
+function openPtgManuel(){
+  fillEmpSelects();
+  g('ptgIn').value='';g('ptgOut').value='';
+  g('ovPtgManuel').classList.add('on');
+}
+function savePointageManuel(){
+  var empId=parseInt(g('ptgEmpSel').value);if(!empId){toast('Sélectionnez un employé','e');return;}
+  var hIn=g('ptgIn').value;if(!hIn){toast("Heure d'arrivée requise",'e');return;}
+  var today=todayStr();
+  var inIso=today+'T'+hIn+':00';
+  var outIso=g('ptgOut').value?today+'T'+g('ptgOut').value+':00':null;
+  pointages.push({id:Date.now(),empId:empId,in:inIso,out:outIso});
+  closeM('ovPtgManuel');renderPtgLive();toast('Pointage enregistré','s');
+}
+
+// ---------- Paie ----------
+function shiftPaieMonth(delta){
+  var parts=paieMois.split('-').map(Number);
+  var d=new Date(parts[0],parts[1]-1+delta,1);
+  paieMois=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  renderPaie();
+}
+function monthLabelFr(m){
+  var parts=m.split('-').map(Number);
+  return new Date(parts[0],parts[1]-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+}
+function paieEntryFor(empId,mois){
+  var e=paieEntries.find(function(x){return x.empId===empId&&x.mois===mois;});
+  if(!e){e={empId:empId,mois:mois,absences:0,retard:0,sanction:0,accompte:0,produits:0};paieEntries.push(e);}
+  return e;
+}
+function computePaieRow(emp,mois){
+  var brut=emp.salaire||0;
+  var entry=paieEntryFor(emp.id,mois);
+  var salJour=brut/30,salHeure=brut/240;
+  var retAbs=(entry.absences||0)*salJour;
+  var retRetard=(entry.retard||0)*salHeure;
+  var net=Math.max(0,brut-retAbs-retRetard-(entry.produits||0)-(entry.sanction||0)-(entry.accompte||0));
+  return{emp:emp,entry:entry,brut:brut,retAbs:retAbs,retRetard:retRetard,net:net};
+}
+function renderPaie(){
+  var lbl=g('paieMoisLbl');if(lbl)lbl.textContent=monthLabelFr(paieMois).replace(/^./,function(c){return c.toUpperCase();});
+  var b=g('bPaie');if(!b)return;b.innerHTML='';
+  var totalNet=0;
+  employes.filter(function(e){return e.actif!==false;}).forEach(function(emp){
+    var r=computePaieRow(emp,paieMois);
+    totalNet+=r.net;
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td><strong>'+r.emp.nom+'</strong></td><td>'+(r.emp.poste||'—')+'</td><td>'+fmt(r.brut)+'</td>'+
+      '<td>'+(r.entry.absences||0)+'</td><td style="color:#CC0000">-'+fmt(r.retAbs)+'</td>'+
+      '<td>'+(r.entry.retard||0)+'</td><td style="color:#CC0000">-'+fmt(r.retRetard)+'</td>'+
+      '<td style="color:#CC0000">-'+fmt(r.entry.sanction||0)+'</td><td style="color:#CC0000">-'+fmt(r.entry.accompte||0)+'</td>'+
+      '<td><strong style="color:#0A0">'+fmt(r.net)+'</strong></td>'+
+      '<td><button class="ibt" onclick="openPaieDetail('+emp.id+')">✏️</button></td>';
+    b.appendChild(tr);
+  });
+  if(g('paieTotal'))g('paieTotal').textContent=fmt(totalNet);
+}
+function openPaieDetail(empId){
+  paieDetEmpId=empId;
+  var emp=employes.find(function(e){return e.id===empId;});
+  var entry=paieEntryFor(empId,paieMois);
+  g('paieDetMT').textContent='Détail de paie — '+emp.nom;
+  g('pdAbs').value=entry.absences||0;g('pdRetard').value=entry.retard||0;
+  g('pdSanction').value=entry.sanction||0;g('pdAccompte').value=entry.accompte||0;g('pdProduits').value=entry.produits||0;
+  g('ovPaieDetail').classList.add('on');
+}
+function savePaieDetail(){
+  var entry=paieEntryFor(paieDetEmpId,paieMois);
+  entry.absences=parseInt(g('pdAbs').value)||0;
+  entry.retard=parseInt(g('pdRetard').value)||0;
+  entry.sanction=parseInt(g('pdSanction').value)||0;
+  entry.accompte=parseInt(g('pdAccompte').value)||0;
+  entry.produits=parseInt(g('pdProduits').value)||0;
+  closeM('ovPaieDetail');renderPaie();toast('Enregistré','s');
+}
+
 function renderHistoCli(){
   var id=parseInt(g('histCliSel').value),b=g('bHistoCli');
   if(!id){b.innerHTML='<tr><td colspan="6" style="text-align:center;color:#444;padding:20px">Sélectionnez un client</td></tr>';return;}
@@ -2602,7 +2833,7 @@ document.addEventListener('DOMContentLoaded',function(){
   renderArt();renderStk();renderMouv();
   renderCli();renderFour();
   renderTkList();renderDV();renderLV();renderReg();renderRegG();renderTopV();renderTotCat();
-  renderRap();initCloture();initTables();initServers();initCaisses();initCategories();initOpts();
+  renderRap();initCloture();initTables();initServers();initCaisses();initCategories();initOpts();renderEmp();renderPtgLive();renderPaie();
   document.querySelectorAll('.ov').forEach(function(o){o.addEventListener('click',function(e){if(e.target===o)o.classList.remove('on');});});
   var td=new Date().toISOString().split('T')[0];
   document.querySelectorAll('input[type=date]').forEach(function(e){if(!e.value)e.value=td;});
