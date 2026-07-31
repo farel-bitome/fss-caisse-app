@@ -149,3 +149,24 @@ Salaire / heure = Salaire brut / 240
 Net à payer = Salaire brut − (absences × salaire/jour) − (retard × salaire/heure)
               − produits/facture − sanction − accompte
 ```
+
+## Bons de commande — envoi incrémental (pas de réimpression)
+
+Quand un serveur/serveuse ajoute des articles à une commande déjà envoyée (via le
+bouton **▶ Reprendre** dans "Commandes en attente"), seuls les **nouveaux
+articles/quantités** s'impriment au prochain envoi — pas ceux déjà envoyés.
+
+Cette mécanique existait déjà dans le fichier reçu, mais reposait sur une variable
+temporaire en mémoire pouvant potentiellement se perdre selon le déroulé exact des
+actions. Je l'ai rendue plus robuste : ce qui a été "déjà envoyé" est maintenant
+enregistré directement sur la commande elle-même (`sentQty`), et non plus dans une
+variable annexe — ça élimine tout risque de perte de cet état.
+
+**Testé** (calcul isolé, 3 envois successifs sur la même commande) :
+- Envoi 1 : 2 Bières + 1 Frites → tout s'imprime (nouvelle commande)
+- Envoi 2 : ajout de 1 Bière + 1 Coca → seuls ces 2 articles s'impriment
+- Envoi 3 : ajout de 2 Desserts → seul cet article s'imprime
+
+Si le problème persiste malgré cette correction, dites-le-moi avec le détail exact
+de ce qui se passe (idéalement en testant sur un seul poste/une seule imprimante
+pour écarter toute question de synchronisation réseau).

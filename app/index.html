@@ -1390,7 +1390,7 @@ function updateTableOptions(){
 // ---- COMMANDES EN ATTENTE ----
 var cmdAttente=[];var attenteSeq=1;
 var printBatches=[];
-var resumingAttenteId=null,resumingBaseItems=null;
+var resumingAttenteId=null,resumingBaseItems=null,resumingSentQty=null;
 function imprimerTicketAttente(batch){
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
   var css='@page{size:80mm auto;margin:0}'+
@@ -1532,32 +1532,34 @@ function mettreEnAttente(){
   var total=tkt.reduce(function(s,i){return s+i.pv*(i.qty||i.qt||1);},0);
   var heure=new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'});
   var id,deltaItems;
+  // Quantité actuelle du ticket, par article — sert de nouvelle référence "déjà envoyé"
+  var qtyMapNow={};
+  tkt.forEach(function(it){qtyMapNow[it.id]=(qtyMapNow[it.id]||0)+(it.qty||it.qt||1);});
   if(resumingAttenteId){
-    // Ajout sur une commande déjà envoyée : on ne réimprime que les nouveaux articles/quantités
+    // Ajout sur une commande déjà envoyée : on ne réimprime que les nouveaux articles/quantités,
+    // calculées à partir de ce qui a été explicitement enregistré comme "déjà envoyé" (resumingSentQty).
     id=resumingAttenteId;
-    deltaItems=calcDeltaItems(resumingBaseItems,tkt);
+    deltaItems=calcDeltaItems(resumingSentQty||{},tkt);
   }else{
-    // Toute nouvelle commande
+    // Toute nouvelle commande : tout est nouveau
     id='ATT-'+attenteSeq++;
     deltaItems=tkt.map(function(i){return{nom:i.nom,qty:i.qty||i.qt||1};});
   }
-  cmdAttente.push({id:id,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),total:total,heure:heure});
+  cmdAttente.push({id:id,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),sentQty:qtyMapNow,total:total,heure:heure});
   if(deltaItems.length){
     printBatches.push({batchId:id+'-'+Date.now(),attenteId:id,tableNom:tableNom,srv:srv,heure:heure,items:deltaItems,ajout:!!resumingAttenteId});
   }
-  resumingAttenteId=null;resumingBaseItems=null;
+  resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;
   libererTable();clearTk(true);
-  toast('Commande '+id+' en attente ⏸','s');
+  toast('Commande '+id+' en attente ⏸ — '+deltaItems.length+' article(s) envoyé(s) en cuisine/bar','s');
   renderAttenteBar();updateTableOptions();
   if(window.fssSyncPush)window.fssSyncPush();
 }
-function calcDeltaItems(baseItems,currentItems){
-  var baseMap={};
-  (baseItems||[]).forEach(function(it){baseMap[it.id]=(baseMap[it.id]||0)+(it.qty||it.qt||1);});
+function calcDeltaItems(sentQtyMap,currentItems){
   var delta=[];
   currentItems.forEach(function(it){
     var qtyNow=it.qty||it.qt||1;
-    var qtyAvant=baseMap[it.id]||0;
+    var qtyAvant=sentQtyMap[it.id]||0;
     var diff=qtyNow-qtyAvant;
     if(diff>0)delta.push({nom:it.nom,qty:diff});
   });
@@ -1571,6 +1573,15 @@ function reprendreAttente(id){
   tkt=JSON.parse(JSON.stringify(c.items));
   resumingAttenteId=c.id;
   resumingBaseItems=JSON.parse(JSON.stringify(c.items));
+  // sentQty = ce qui a été réellement envoyé/imprimé pour cette commande jusqu'ici.
+  // Repli pour les commandes créées avant cette mise à jour (pas encore de champ sentQty) :
+  // on reconstruit à partir des articles stockés, pour rester compatible.
+  if(c.sentQty){
+    resumingSentQty=JSON.parse(JSON.stringify(c.sentQty));
+  }else{
+    resumingSentQty={};
+    c.items.forEach(function(it){resumingSentQty[it.id]=(resumingSentQty[it.id]||0)+(it.qty||it.qt||1);});
+  }
   var sel=g('selTable');sel.value=c.tableVal;onTableChange();
   var selS=g('selSrv');
   for(var j=0;j<selS.options.length;j++){if(selS.options[j].text===c.srv){selS.value=selS.options[j].value;break;}}
@@ -1651,7 +1662,7 @@ function testScanner(){
     g('devScanStatus').textContent='❌ Accès caméra refusé ou indisponible';g('devScanDot').style.background='#FF4444';
   });
 }
-function clearTk(silent){tkt=[];g('remF').value='';g('remP').value='';resumingAttenteId=null;resumingBaseItems=null;renderTkt();updTotal();if(!silent)toast('Ticket annulé','i');}
+function clearTk(silent){tkt=[];g('remF').value='';g('remP').value='';resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;renderTkt();updTotal();if(!silent)toast('Ticket annulé','i');}
 function tblN(v){
   if(v==='0'||!v)return '—';
   var t=tables.find(function(x){return String(x.n)===String(v);});
