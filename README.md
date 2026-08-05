@@ -299,3 +299,27 @@ n'ayez cliqué manuellement sur "Imprimer" pour le reçu).
 - **Envoyer une commande** → bon de commande cuisine imprimé (normal)
 - **Payer** → seul le ticket de caisse s'imprime, en 2 exemplaires — plus aucune
   impression automatique parasite
+
+## Nombre de tickets mémorisé + coupe papier entre chaque exemplaire
+
+Le nombre de tickets choisi (Paiement → +/−) est maintenant **mémorisé** d'une
+vente à l'autre (et même après avoir fermé et rouvert l'application) — plus
+besoin de le régler à chaque paiement.
+
+De plus, un saut de page est inséré entre chaque exemplaire imprimé, ce qui
+déclenche la **coupe automatique du papier** entre chaque ticket sur la plupart
+des imprimantes thermiques (comportement standard des pilotes Windows pour ce
+type d'imprimante). Aucune coupe/page vide superflue après le tout dernier
+exemplaire.
+
+## Nombre de tickets — mémorisé, avec coupure entre chaque exemplaire
+
+Le nombre de tickets choisi (Paiement → sélecteur −/+) est maintenant **mémorisé**
+sur ce PC (via localStorage) — il ne repart plus à 1 à chaque nouvelle vente,
+il garde le dernier choix.
+
+Chaque exemplaire est maintenant séparé par un **saut de page forcé**
+(`page-break-after`), ce qui déclenche une **coupure papier** entre chaque ticket
+sur la plupart des imprimantes thermiques (à condition que la coupe automatique
+soit activée dans les paramètres du pilote d'imprimante Windows — généralement le
+cas par défaut).

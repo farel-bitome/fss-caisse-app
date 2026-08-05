@@ -1895,10 +1895,11 @@ function hasAccessGlobal(key){
 }
 window.applyWaiterUI=applyWaiterUI;
 // PAIEMENT
-var nbTickets=1;
+var nbTickets=parseInt(localStorage.getItem('fss-nb-tickets'))||1;
 function ajusterNbTickets(delta){
   nbTickets=Math.max(1,Math.min(5,nbTickets+delta));
   if(g('nbTicketsVal'))g('nbTicketsVal').textContent=nbTickets;
+  localStorage.setItem('fss-nb-tickets',nbTickets);
 }
 function openPay(mode){
   if(window.isWaiterOnly&&window.isWaiterOnly()){toast('Ce compte ne peut pas encaisser — utilisez "En attente"','e');return;}
@@ -1911,7 +1912,7 @@ function openPay(mode){
   if(!cxVal){toast('Veuillez sélectionner une caisse avant de facturer','e');return;}
   if(mode==='airtel'){ouvrirAirtelModal();return;}
   payMode=mode;recAmt=0;
-  nbTickets=1;if(g('nbTicketsVal'))g('nbTicketsVal').textContent='1';
+  if(g('nbTicketsVal'))g('nbTicketsVal').textContent=nbTickets;
   g('payMT').textContent='Paiement — '+(mode==='esp'?'Espèces':'Carte');
   g('payAmt').textContent=fmt(getTotal());
   g('numWrap').style.display=mode==='cart'?'none':'block';
@@ -2034,7 +2035,9 @@ function imprimerRecu(){
     'td.l{text-align:left}'+
     'td.r{text-align:right;padding-left:10px}'+
     '.sep{border-top:1px dashed #000;margin:7px 0}'+
-    '.c{text-align:center}.b{font-weight:900}';
+    '.c{text-align:center}.b{font-weight:900}'+
+    '.pgbreak{page-break-after:always;break-after:page;}'+
+    '.pgbreak{page-break-after:always;break-after:page}';
   function ligne(label,val,cls){
     cls=cls||'';
     return '<table class="'+cls+'"><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';
@@ -2082,8 +2085,11 @@ function imprimerRecu(){
   var copies=[];
   for(var ci=0;ci<n;ci++){
     var prefix=n>1?('<div class="c" style="font-size:10px;margin-bottom:4px">— EXEMPLAIRE '+(ci+1)+' —</div>'):'';
-    var sep=ci>0?'<div style="border-top:2px dashed #000;margin:14px 0 8px"></div>':'';
-    copies.push(sep+prefix+body);
+    // page-break-after force la coupe papier entre chaque exemplaire — la plupart
+    // des pilotes d'imprimantes thermiques coupent à chaque saut de page. On ne
+    // l'applique pas après le tout dernier exemplaire (pas de page vide inutile).
+    var cls=ci<n-1?'pgbreak':'';
+    copies.push('<div class="'+cls+'">'+prefix+body+'</div>');
   }
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+copies.join('')+'</body></html>';
   w.document.write(html);w.document.close();
