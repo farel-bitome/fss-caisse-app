@@ -1259,19 +1259,38 @@ function applyPct(){
 // ---- TVA SETTINGS ----
 var tvaActif=true;
 var tvaRate=0.18;
-function saveTVASettings(){
-  tvaActif=g('settTVAOn').checked;
-  tvaRate=(parseFloat(g('settTVA').value)||18)/100;
+function applyTVAToggleUI(){
   var lbl=g('tvaToggleLbl'),track=g('tvaToggleTrack'),thumb=g('tvaToggleThumb');
+  if(!lbl||!track||!thumb)return;
+  if(g('settTVAOn'))g('settTVAOn').checked=tvaActif;
+  if(g('settTVA'))g('settTVA').value=Math.round(tvaRate*100);
   if(tvaActif){
     track.style.background='#CC0000';thumb.style.left='3px';
     lbl.textContent='TVA active ('+Math.round(tvaRate*100)+'%)';lbl.style.color='#44FF88';
-    g('frTVA').style.display='';
+    if(g('frTVA'))g('frTVA').style.display='';
   } else {
     track.style.background='#444';thumb.style.left='27px';
     lbl.textContent='TVA désactivée';lbl.style.color='#888';
-    g('frTVA').style.display='none';
+    if(g('frTVA'))g('frTVA').style.display='none';
   }
+}
+// Appelée par network.js à chaque chargement/synchronisation de l'état, pour que
+// le réglage TVA enregistré soit bien celui affiché — plus de retour automatique
+// à "activée" après un rechargement de page.
+window.applyTVAFromEtab=function(){
+  if(window.etabInfo&&typeof window.etabInfo.tvaActif==='boolean')tvaActif=window.etabInfo.tvaActif;
+  if(window.etabInfo&&typeof window.etabInfo.tvaRate==='number')tvaRate=window.etabInfo.tvaRate;
+  applyTVAToggleUI();
+  if(typeof updTotal==='function')updTotal();
+};
+function saveTVASettings(){
+  tvaActif=g('settTVAOn').checked;
+  tvaRate=(parseFloat(g('settTVA').value)||18)/100;
+  applyTVAToggleUI();
+  // Sauvegarde permanente : sans ceci, le réglage n'existait qu'en mémoire pour
+  // la session en cours et repartait sur "activée" au prochain chargement.
+  if(window.etabInfo){window.etabInfo.tvaActif=tvaActif;window.etabInfo.tvaRate=tvaRate;}
+  if(window.fssSyncPush)window.fssSyncPush();
   updTotal();
 }
 function updTotal(){
@@ -1857,45 +1876,49 @@ function imprimerRecu(){
     cls=cls||'';
     return '<table class="'+cls+'"><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';
   }
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
-  html+='<div class="c">';
-  if(logoData)html+='<img src="'+logoData+'" style="height:100px;object-fit:contain;margin-bottom:8px"><br>';
-  html+='<strong style="font-size:19px">'+etab+'</strong><br>';
-  if(adr)html+='<span style="font-size:12px">'+adr+'</span><br>';
-  if(tel)html+='<span style="font-size:12px">Tél: '+tel+'</span><br>';
-  if(rccm)html+='<span style="font-size:12px">RCCM: '+rccm+'</span><br>';
-  if(nif)html+='<span style="font-size:12px">NIF: '+nif+'</span><br>';
-  html+='</div><div class="sep"></div>';
-  html+=ligne('N° Ticket','<strong>'+tk.id+'</strong>');
-  html+=ligne('Date',dateStr);
-  html+=ligne('Heure',heureStr);
-  html+=ligne('Table',tk.tbl);
-  if(tk.srv&&tk.srv!=='—')html+=ligne('Serveur',tk.srv);
-  if(tk.caissier&&tk.caissier!=='—')html+=ligne('Caissier','<strong>'+tk.caissier+'</strong>');
-  if(tk.caisse)html+=ligne('Caisse',tk.caisse);
-  html+='<div class="sep"></div>';
+  var body='<div class="c">';
+  if(logoData)body+='<img src="'+logoData+'" style="height:100px;object-fit:contain;margin-bottom:8px"><br>';
+  body+='<strong style="font-size:19px">'+etab+'</strong><br>';
+  if(adr)body+='<span style="font-size:12px">'+adr+'</span><br>';
+  if(tel)body+='<span style="font-size:12px">Tél: '+tel+'</span><br>';
+  if(rccm)body+='<span style="font-size:12px">RCCM: '+rccm+'</span><br>';
+  if(nif)body+='<span style="font-size:12px">NIF: '+nif+'</span><br>';
+  body+='</div><div class="sep"></div>';
+  body+=ligne('N° Ticket','<strong>'+tk.id+'</strong>');
+  body+=ligne('Date',dateStr);
+  body+=ligne('Heure',heureStr);
+  body+=ligne('Table',tk.tbl);
+  if(tk.srv&&tk.srv!=='—')body+=ligne('Serveur',tk.srv);
+  if(tk.caissier&&tk.caissier!=='—')body+=ligne('Caissier','<strong>'+tk.caissier+'</strong>');
+  if(tk.caisse)body+=ligne('Caisse',tk.caisse);
+  body+='<div class="sep"></div>';
   if(tk.items&&tk.items.length){
     tk.items.forEach(function(it){
-      html+=ligne(it.qty+'x '+it.nom,(it.pv*it.qty).toLocaleString('fr-FR')+' F');
+      body+=ligne(it.qty+'x '+it.nom,(it.pv*it.qty).toLocaleString('fr-FR')+' F');
     });
   }else{
-    html+='<div>'+tk.arts+' article(s)</div>';
+    body+='<div>'+tk.arts+' article(s)</div>';
   }
-  html+='<div class="sep"></div>';
+  body+='<div class="sep"></div>';
   if(tvaActif){
-    html+=ligne('Sous-total HT',tk.ht.toLocaleString('fr-FR')+' F');
-    html+=ligne('TVA '+Math.round(tvaRate*100)+'%',tk.tva.toLocaleString('fr-FR')+' F');
-    html+='<div class="sep"></div>';
+    body+=ligne('Sous-total HT',tk.ht.toLocaleString('fr-FR')+' F');
+    body+=ligne('TVA '+Math.round(tvaRate*100)+'%',tk.tva.toLocaleString('fr-FR')+' F');
+    body+='<div class="sep"></div>';
   }
-  html+=ligne('<span class="b">TOTAL TTC</span>','<span class="b">'+tk.ttc.toLocaleString('fr-FR')+' F</span>');
-  html+='<div class="sep"></div>';
-  html+='<div style="font-size:14px">'+ligne('<span class="b">Paiement</span>','<span class="b">'+tk.pay+'</span>')+'</div>';
+  body+=ligne('<span class="b">TOTAL TTC</span>','<span class="b">'+tk.ttc.toLocaleString('fr-FR')+' F</span>');
+  body+='<div class="sep"></div>';
+  body+='<div style="font-size:14px">'+ligne('<span class="b">Paiement</span>','<span class="b">'+tk.pay+'</span>')+'</div>';
   if(tk.pay==='Espèces'&&tk.recu){
-    html+=ligne('Montant reçu',tk.recu.toLocaleString('fr-FR')+' F');
-    html+=ligne('Monnaie rendue',(tk.rendu||0).toLocaleString('fr-FR')+' F');
+    body+=ligne('Montant reçu',tk.recu.toLocaleString('fr-FR')+' F');
+    body+=ligne('Monnaie rendue',(tk.rendu||0).toLocaleString('fr-FR')+' F');
   }
-  html+='<div class="sep"></div><div class="c" style="font-size:11px">'+msgFin+'</div>';
-  html+='</body></html>';
+  body+='<div class="sep"></div><div class="c" style="font-size:11px">'+msgFin+'</div>';
+  // Impression en double exemplaire : le même contenu est répété deux fois dans
+  // le même document, séparé par une ligne de coupe — un seul travail d'impression,
+  // deux tickets à la sortie de l'imprimante.
+  var copie1='<div class="c" style="font-size:10px;margin-bottom:4px">— EXEMPLAIRE 1 —</div>'+body;
+  var copie2='<div style="border-top:2px dashed #000;margin:14px 0 8px"></div><div class="c" style="font-size:10px;margin-bottom:4px">— EXEMPLAIRE 2 —</div>'+body;
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+copie1+copie2+'</body></html>';
   w.document.write(html);w.document.close();
   w.onafterprint=function(){w.close();};
   setTimeout(function(){w.print();},400);

@@ -38,6 +38,10 @@
     if (g('etabRCCM')) g('etabRCCM').value = etabInfo.rccm || '';
     if (g('etabNIF')) g('etabNIF').value = etabInfo.nif || '';
     if (g('etabMsgFin')) g('etabMsgFin').value = etabInfo.msgFin || 'Merci pour votre visite !';
+    // TVA : restaure l'état activé/désactivé et le taux, tels qu'enregistrés —
+    // sans ça, ils repartaient toujours sur les valeurs par défaut (activée, 18%)
+    // à chaque rechargement de la page, même après une désactivation explicite.
+    if (typeof window.applyTVAFromEtab === 'function') window.applyTVAFromEtab();
   }
 
   function applyState(s) {

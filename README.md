@@ -170,3 +170,30 @@ variable annexe — ça élimine tout risque de perte de cet état.
 Si le problème persiste malgré cette correction, dites-le-moi avec le détail exact
 de ce qui se passe (idéalement en testant sur un seul poste/une seule imprimante
 pour écarter toute question de synchronisation réseau).
+
+## TVA — réglage désormais permanent
+
+Le bouton d'activation/désactivation de la TVA (Paramètres → TVA & Prix) ne
+sauvegardait jamais son état : à chaque rechargement de la page, il repartait sur
+"activée" par défaut, même après une désactivation explicite. C'est corrigé —
+le réglage (activé/désactivé + taux) est maintenant enregistré avec les autres
+paramètres de l'établissement et restauré correctement à chaque démarrage.
+
+## Ticket de caisse en double exemplaire
+
+Le ticket de caisse final (`imprimerRecu`) imprime maintenant **automatiquement
+en 2 exemplaires** — le même contenu est répété deux fois dans le même document
+imprimé (séparés par une ligne de coupe), donc un seul geste d'impression sort
+directement les deux tickets.
+
+## Bon de commande au ticket final — non reproduit dans le code
+
+J'ai vérifié en détail : dans le code actuel, la fonction qui imprime le ticket
+final de paiement (`imprimerRecu`) n'appelle à aucun moment la fonction qui imprime
+le bon de commande cuisine (`imprimerTicketAttente`) — ce sont deux mécanismes
+indépendants, l'un ne déclenche pas l'autre. Je n'ai donc rien changé sur ce point
+faute d'avoir pu identifier où ce lien se ferait dans le code fourni.
+
+Si le problème persiste malgré cette vérification, décrivez-moi précisément les
+étapes suivies (Envoyer → Reprendre → Payer ? ou un autre enchaînement ?) pour
+que je puisse localiser exactement où ça se déclenche.
