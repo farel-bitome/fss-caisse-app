@@ -265,6 +265,26 @@ ipcMain.handle('is-licensed', () => licensing.isLicensed());
 ipcMain.handle('activate-license', (event, key) => licensing.activate(key));
 ipcMain.handle('get-trial-status', () => licensing.getTrialStatus());
 
+ipcMain.handle('save-file-dialog', async (event, defaultName, content) => {
+  const result = await dialog.showSaveDialog(win, {
+    title: 'Enregistrer le fichier',
+    defaultPath: defaultName,
+    filters: [
+      { name: 'Fichiers CSV', extensions: ['csv'] },
+      { name: 'Tous les fichiers', extensions: ['*'] }
+    ]
+  });
+  if (result.canceled || !result.filePath) {
+    return { success: false, canceled: true };
+  }
+  try {
+    fs.writeFileSync(result.filePath, content, 'utf-8');
+    return { success: true, filePath: result.filePath };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
 ipcMain.handle('print-silent', (event, html) => {
   return new Promise((resolve) => {
     const printWin = new BrowserWindow({

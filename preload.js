@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMachineId: () => ipcRenderer.invoke('get-machine-id'),
   isLicensed: () => ipcRenderer.invoke('is-licensed'),
   activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
-  getTrialStatus: () => ipcRenderer.invoke('get-trial-status')
+  getTrialStatus: () => ipcRenderer.invoke('get-trial-status'),
+  saveFileDialog: (defaultName, content) => ipcRenderer.invoke('save-file-dialog', defaultName, content)
 });

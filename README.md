@@ -274,3 +274,28 @@ Après plusieurs allers-retours, voici le comportement définitif :
   en 2 exemplaires — le bon de commande cuisine ne ressort jamais à ce moment,
   car ces deux impressions sont deux mécanismes entièrement séparés dans le code
   (payer n'appelle jamais la fonction d'impression du bon de commande)
+
+## Export CSV — choix de l'emplacement à l'enregistrement
+
+Le bouton **⬇️ Export** (Articles, Clients, Rapports, etc.) ouvre maintenant une
+véritable boîte de dialogue Windows **"Enregistrer sous"**, pour choisir
+exactement où enregistrer le fichier CSV — au lieu d'un téléchargement
+automatique dans le dossier par défaut.
+
+## Bon de commande qui sortait avant le ticket de caisse — cause trouvée et corrigée
+
+Après plusieurs vérifications infructueuses des chemins évidents (paiement,
+impression du reçu), la vraie cause était **un troisième mécanisme d'impression
+automatique**, séparé de tout le reste : à chaque vente finalisée, le serveur
+imprimait automatiquement un document intitulé "🧾 BON DE COMMANDE"
+(`imprimerTicketCommande`), déclenché par la synchronisation dès qu'une nouvelle
+transaction apparaissait — indépendamment du ticket de caisse habituel.
+
+C'est ce mécanisme qui sortait juste avant le vrai ticket de caisse (l'impression
+automatique, quasi instantanée via la synchronisation, sortait avant que vous
+n'ayez cliqué manuellement sur "Imprimer" pour le reçu).
+
+**Ce mécanisme a été retiré.** Comportement final :
+- **Envoyer une commande** → bon de commande cuisine imprimé (normal)
+- **Payer** → seul le ticket de caisse s'imprime, en 2 exemplaires — plus aucune
+  impression automatique parasite

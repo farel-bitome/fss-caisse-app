@@ -994,6 +994,14 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺,18"></textarea>
         <span style="font-size:16px;font-weight:700;color:#4488FF" id="payMon">0 FCFA</span>
       </div>
     </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid #333;margin-top:6px">
+      <span style="font-size:12px;color:#999">Nombre de tickets à imprimer</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button type="button" class="btn btn-o sm" style="width:30px;padding:0" onclick="ajusterNbTickets(-1)">−</button>
+        <span id="nbTicketsVal" style="font-size:16px;font-weight:700;min-width:18px;text-align:center">1</span>
+        <button type="button" class="btn btn-o sm" style="width:30px;padding:0" onclick="ajusterNbTickets(1)">+</button>
+      </div>
+    </div>
   </div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovPay')">Annuler</button><button class="btn btn-r" onclick="valPay()" style="min-width:130px">✅ Valider</button></div>
 </div></div>
@@ -1887,6 +1895,11 @@ function hasAccessGlobal(key){
 }
 window.applyWaiterUI=applyWaiterUI;
 // PAIEMENT
+var nbTickets=1;
+function ajusterNbTickets(delta){
+  nbTickets=Math.max(1,Math.min(5,nbTickets+delta));
+  if(g('nbTicketsVal'))g('nbTicketsVal').textContent=nbTickets;
+}
 function openPay(mode){
   if(window.isWaiterOnly&&window.isWaiterOnly()){toast('Ce compte ne peut pas encaisser — utilisez "En attente"','e');return;}
   if(!tkt.length){toast('Aucun article','e');return;}
@@ -1898,6 +1911,7 @@ function openPay(mode){
   if(!cxVal){toast('Veuillez sélectionner une caisse avant de facturer','e');return;}
   if(mode==='airtel'){ouvrirAirtelModal();return;}
   payMode=mode;recAmt=0;
+  nbTickets=1;if(g('nbTicketsVal'))g('nbTicketsVal').textContent='1';
   g('payMT').textContent='Paiement — '+(mode==='esp'?'Espèces':'Carte');
   g('payAmt').textContent=fmt(getTotal());
   g('numWrap').style.display=mode==='cart'?'none':'block';
@@ -2062,16 +2076,22 @@ function imprimerRecu(){
     body+=ligne('Monnaie rendue',(tk.rendu||0).toLocaleString('fr-FR')+' F');
   }
   body+='<div class="sep"></div><div class="c" style="font-size:11px">'+msgFin+'</div>';
-  // Impression en double exemplaire : le même contenu est répété deux fois dans
-  // le même document, séparé par une ligne de coupe — un seul travail d'impression,
-  // deux tickets à la sortie de l'imprimante.
-  var copie1='<div class="c" style="font-size:10px;margin-bottom:4px">— EXEMPLAIRE 1 —</div>'+body;
-  var copie2='<div style="border-top:2px dashed #000;margin:14px 0 8px"></div><div class="c" style="font-size:10px;margin-bottom:4px">— EXEMPLAIRE 2 —</div>'+body;
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+copie1+copie2+'</body></html>';
+  // Répète le contenu autant de fois que demandé (Paiement → nombre de tickets),
+  // séparé par une ligne de coupe — un seul travail d'impression.
+  var n=Math.max(1,nbTickets||1);
+  var copies=[];
+  for(var ci=0;ci<n;ci++){
+    var prefix=n>1?('<div class="c" style="font-size:10px;margin-bottom:4px">— EXEMPLAIRE '+(ci+1)+' —</div>'):'';
+    var sep=ci>0?'<div style="border-top:2px dashed #000;margin:14px 0 8px"></div>':'';
+    copies.push(sep+prefix+body);
+  }
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+copies.join('')+'</body></html>';
   w.document.write(html);w.document.close();
   w.onafterprint=function(){w.close();};
   setTimeout(function(){w.print();},400);
   setTimeout(function(){if(!w.closed)w.close();},15000);
+  // Ferme aussi la fenêtre du reçu dans l'application une fois l'impression lancée
+  closeM('ovRecu');
 }
 
 
@@ -3242,7 +3262,26 @@ function initOpts(){var w=g('optsWrap');if(!w)return;w.innerHTML='';[['print','I
 
 // UTILS
 function filtT(id,v){document.querySelectorAll('#'+id+' tbody tr').forEach(function(r){r.style.display=r.textContent.toLowerCase().indexOf(v.toLowerCase())>=0?'':'none';});}
-function exportT(id,name){var rows=[].slice.call(document.querySelectorAll('#'+id+' tr'));var csv=rows.map(function(r){return [].slice.call(r.querySelectorAll('th,td')).map(function(c){return '"'+c.textContent.replace(/"/g,'').trim()+'"';}).join(',');}).join('\n');var b=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='fss-'+name+'_'+new Date().toISOString().split('T')[0]+'.csv';a.click();toast('Export CSV téléchargé','s');}
+function exportT(id,name){
+  var rows=[].slice.call(document.querySelectorAll('#'+id+' tr'));
+  var csv=rows.map(function(r){return [].slice.call(r.querySelectorAll('th,td')).map(function(c){return '"'+c.textContent.replace(/"/g,'').trim()+'"';}).join(',');}).join('\n');
+  var fileName='fss-'+name+'_'+new Date().toISOString().split('T')[0]+'.csv';
+  var content='\uFEFF'+csv;
+  if(window.electronAPI&&window.electronAPI.saveFileDialog){
+    // Ouvre la boîte de dialogue native "Enregistrer sous" pour choisir l'emplacement
+    window.electronAPI.saveFileDialog(fileName,content).then(function(result){
+      if(result.canceled)return;
+      if(result.success)toast('Fichier enregistré : '+result.filePath,'s');
+      else toast("Erreur lors de l'enregistrement : "+(result.error||''),'e');
+    });
+  }else{
+    // Repli navigateur (hors Electron) : téléchargement classique
+    var b=new Blob([content],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(b);a.download=fileName;a.click();
+    toast('Export CSV téléchargé','s');
+  }
+}
 function prtT(id){var w=window.open('','_blank');var t=g(id)?g(id).outerHTML:'';w.document.write('<html><head><title>FSS-CAISSE</title><style>body{font-family:Arial,sans-serif;font-size:11px;padding:10mm}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px}th{background:#CC0000;color:#fff}</style></head><body><h3 style="color:#CC0000">FSS-CAISSE</h3>'+t+'</body></html>');w.document.close();w.print();}
 
 // Affiche le numéro de version + le numéro de compilation (incrémenté

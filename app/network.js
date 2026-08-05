@@ -52,12 +52,11 @@
     fours = s.fours || [];
     cmds = s.cmds || [];
     txs = s.txs || [];
-    if (window.FSS_IS_SERVER && prevTxIds !== null) {
-      var nouvellesTx = txs.filter(function (t) { return prevTxIds.indexOf(t.id) === -1; });
-      nouvellesTx.forEach(function (tx) {
-        safe(function () { if (window.imprimerTicketCommande) window.imprimerTicketCommande(tx); });
-      });
-    }
+    // L'impression automatique d'un "bon de commande" à chaque nouvelle vente a
+    // été retirée : c'était la cause exacte du bon de commande qui sortait juste
+    // avant le ticket de caisse au moment de payer. Seul le ticket de caisse
+    // (imprimerRecu, déclenché manuellement, en 2 exemplaires) s'imprime désormais
+    // au moment du paiement.
     prevTxIds = txs.map(function (t) { return t.id; });
     mouv = s.mouv || [];
     prls = s.prls || [];
