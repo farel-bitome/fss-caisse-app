@@ -197,3 +197,25 @@ faute d'avoir pu identifier où ce lien se ferait dans le code fourni.
 Si le problème persiste malgré cette vérification, décrivez-moi précisément les
 étapes suivies (Envoyer → Reprendre → Payer ? ou un autre enchaînement ?) pour
 que je puisse localiser exactement où ça se déclenche.
+
+## Contrats du personnel (types + alertes) et archives des bulletins
+
+**Types de contrat** (Personnel → Employés → ✏️) :
+- **1 mois renouvelable** — avec une date de prochain renouvellement (proposée
+  automatiquement à +1 mois, modifiable)
+- **CDD** — avec une date de fin
+- **CDI** — sans échéance
+
+**Alertes** : un bandeau apparaît en haut de l'onglet Employés dès qu'un contrat
+"1 mois renouvelable" doit être renouvelé sous 7 jours (ou est déjà dépassé), ou
+qu'un CDD arrive à échéance sous 15 jours — avec un bouton "Renouveler" direct pour
+les contrats mensuels. Un badge 🟠/🔴 apparaît aussi dans la liste, à côté du type
+de contrat de l'employé concerné.
+
+**Archives des bulletins** : nouveau sous-onglet **🗂️ Archives** (Personnel), qui
+liste tous les bulletins de paie déjà calculés, filtrables par employé, avec un
+bouton pour réimprimer n'importe quel bulletin passé à tout moment.
+
+**Testé** : la logique de calcul des jours restants/dépassés a été vérifiée
+isolément sur plusieurs cas (renouvellement proche, dépassé, CDD proche de la fin,
+CDI sans alerte) — tous corrects.

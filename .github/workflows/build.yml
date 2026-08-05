@@ -21,6 +21,15 @@ jobs:
       - name: Installer les dépendances
         run: npm install
 
+      - name: Générer le numéro de version (incrémenté à chaque compilation)
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          BUILD=${{ github.run_number }}
+          DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
+          echo "{\"version\": \"$VERSION\", \"build\": $BUILD, \"date\": \"$DATE\"}" > app/version.json
+          cat app/version.json
+
       - name: Compiler l'application (.exe)
         run: npm run dist
 
