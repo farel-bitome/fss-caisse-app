@@ -266,13 +266,16 @@ ipcMain.handle('activate-license', (event, key) => licensing.activate(key));
 ipcMain.handle('get-trial-status', () => licensing.getTrialStatus());
 
 ipcMain.handle('save-file-dialog', async (event, defaultName, content) => {
+  const ext = (defaultName.split('.').pop() || 'csv').toLowerCase();
+  const filterByExt = {
+    csv: { name: 'Fichiers CSV', extensions: ['csv'] },
+    json: { name: 'Fichiers de sauvegarde JSON', extensions: ['json'] }
+  };
+  const mainFilter = filterByExt[ext] || { name: 'Fichier', extensions: [ext] };
   const result = await dialog.showSaveDialog(win, {
     title: 'Enregistrer le fichier',
     defaultPath: defaultName,
-    filters: [
-      { name: 'Fichiers CSV', extensions: ['csv'] },
-      { name: 'Tous les fichiers', extensions: ['*'] }
-    ]
+    filters: [mainFilter, { name: 'Tous les fichiers', extensions: ['*'] }]
   });
   if (result.canceled || !result.filePath) {
     return { success: false, canceled: true };
@@ -280,6 +283,87 @@ ipcMain.handle('save-file-dialog', async (event, defaultName, content) => {
   try {
     fs.writeFileSync(result.filePath, content, 'utf-8');
     return { success: true, filePath: result.filePath };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+// ---------- Sauvegardes internes (historique, restauration) ----------
+const backupsDir = path.join(app.getPath('userData'), 'backups');
+function ensureBackupsDir() {
+  if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
+}
+const MAX_BACKUPS = 60; // conserve les 60 dernières sauvegardes (auto + manuelles), purge les plus anciennes au-delà
+
+function listBackupFiles() {
+  ensureBackupsDir();
+  return fs.readdirSync(backupsDir)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => {
+      const full = path.join(backupsDir, f);
+      const st = fs.statSync(full);
+      let type = 'Manuel';
+      if (f.startsWith('auto_')) type = 'Auto';
+      return { filename: f, date: st.mtime.toISOString(), size: st.size, type };
+    })
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+ipcMain.handle('list-backups', () => {
+  try {
+    return { success: true, backups: listBackupFiles() };
+  } catch (e) {
+    return { success: false, error: e.message, backups: [] };
+  }
+});
+
+ipcMain.handle('create-backup', (event, stateJson, type) => {
+  try {
+    ensureBackupsDir();
+    const prefix = type === 'auto' ? 'auto_' : 'manuel_';
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = prefix + stamp + '.json';
+    fs.writeFileSync(path.join(backupsDir, filename), stateJson, 'utf-8');
+    // Purge : garde seulement les MAX_BACKUPS plus récentes
+    const all = listBackupFiles();
+    if (all.length > MAX_BACKUPS) {
+      all.slice(MAX_BACKUPS).forEach((b) => {
+        try { fs.unlinkSync(path.join(backupsDir, b.filename)); } catch (e) {}
+      });
+    }
+    const st = fs.statSync(path.join(backupsDir, filename));
+    return { success: true, filename, date: st.mtime.toISOString(), size: st.size };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('read-backup', (event, filename) => {
+  try {
+    // Sécurité : empêche toute tentative de sortir du dossier de sauvegardes
+    const safeName = path.basename(filename);
+    const content = fs.readFileSync(path.join(backupsDir, safeName), 'utf-8');
+    return { success: true, content };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('open-backup-file-dialog', async () => {
+  const result = await dialog.showOpenDialog(win, {
+    title: 'Choisir un fichier de sauvegarde',
+    filters: [
+      { name: 'Fichiers de sauvegarde JSON', extensions: ['json'] },
+      { name: 'Tous les fichiers', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+  if (result.canceled || !result.filePaths.length) {
+    return { success: false, canceled: true };
+  }
+  try {
+    const content = fs.readFileSync(result.filePaths[0], 'utf-8');
+    return { success: true, content, filePath: result.filePaths[0] };
   } catch (e) {
     return { success: false, error: e.message };
   }

@@ -14,7 +14,8 @@
     { key: 'rapports', label: '📊 Rapports' },
     { key: 'cloture', label: '🔒 Clôture' },
     { key: 'params', label: '⚙️ Paramètres' },
-    { key: 'reimpression', label: '🖨️ Réimpression / Annulation tickets' }
+    { key: 'reimpression', label: '🖨️ Réimpression tickets' },
+    { key: 'annulation', label: '🗑️ Annulation tickets' }
   ];
 
   document.addEventListener('fss:ready', function () {
@@ -169,6 +170,11 @@
 
   window.hasReimprPermission = function () {
     return hasAccess(currentUser, 'reimpression');
+  };
+
+  // Permission distincte pour l'annulation de tickets (séparée de la réimpression).
+  window.hasAnnulationPermission = function () {
+    return hasAccess(currentUser, 'annulation');
   };
 
   window.isWaiterOnly = function () {
@@ -465,6 +471,13 @@
     if (!u) return;
     if (u.super || u.full) { safeToast('Ce compte a déjà accès à tout et ne peut pas être modifié', 'e'); return; }
     editingUserId = id;
+    // Migration ponctuelle : les comptes qui avaient l'ancienne permission combinée
+    // "Réimpression / Annulation" gardent l'accès aux deux actions désormais
+    // séparées, jusqu'à ce que l'admin ajuste explicitement l'une ou l'autre ici.
+    u.perms = u.perms || [];
+    if (u.perms.indexOf('reimpression') !== -1 && u.perms.indexOf('annulation') === -1) {
+      u.perms.push('annulation');
+    }
     document.getElementById('permsUserName').textContent = u.nom;
     document.querySelectorAll('.permsChk').forEach(function (c) {
       c.checked = (u.perms || []).indexOf(c.value) !== -1;

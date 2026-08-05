@@ -323,3 +323,103 @@ Chaque exemplaire est maintenant séparé par un **saut de page forcé**
 sur la plupart des imprimantes thermiques (à condition que la coupe automatique
 soit activée dans les paramètres du pilote d'imprimante Windows — généralement le
 cas par défaut).
+
+## Permissions séparées : Réimpression et Annulation de tickets
+
+Dans **Utilisateurs → Droits d'accès**, la case combinée "🖨️ Réimpression /
+Annulation tickets" est maintenant **deux cases distinctes** :
+- 🖨️ **Réimpression tickets**
+- 🗑️ **Annulation tickets**
+
+Un compte peut donc avoir l'une sans l'autre (ex : autoriser à réimprimer un
+ticket perdu, mais pas à annuler des ventes).
+
+**Comptes déjà configurés** : la première fois que vous ouvrez les droits d'accès
+d'un compte qui avait l'ancienne permission combinée, les deux nouvelles cases
+apparaissent cochées automatiquement (pour ne rien changer à ce qu'il pouvait déjà
+faire) — vous pouvez ensuite décocher l'une des deux si besoin, puis Enregistrer.
+
+## Bug corrigé : catégories/articles qui disparaissaient sur un poste client
+
+**Cause trouvée** : au tout premier chargement de l'application sur un poste
+client, il existait une petite fenêtre de temps (plus large si le réseau est un
+peu lent) pendant laquelle l'app pouvait renvoyer vers le serveur ses données
+locales par défaut — celles intégrées dans le fichier avant toute
+synchronisation — **avant** d'avoir reçu les vraies données. Si une action se
+produisait pendant cette fenêtre (même un clic anodin), ça écrasait
+silencieusement le vrai catalogue enregistré sur le serveur pour **tout le
+monde**, jusqu'à ce qu'un redémarrage force une resynchronisation propre.
+
+**Corrigé** : un verrou empêche désormais tout envoi vers le serveur tant que ce
+poste n'a pas reçu au moins une fois les vraies données. Ce n'est qu'une fraction
+de seconde au démarrage, donc ça ne change rien à l'usage normal — ça bloque
+uniquement le scénario qui causait ce bug.
+
+## Bouton "Exporter" (Sauvegarde) — enfin fonctionnel
+
+Ce bouton n'était en réalité qu'un texte de test (`toast('Export en cours...')`)
+qui ne faisait jamais rien. Il exporte maintenant réellement **toutes les
+données de l'application** (articles, clients, ventes, personnel, tout) dans un
+fichier `.json`, avec la boîte de dialogue **"Enregistrer sous"** pour choisir
+l'emplacement.
+
+## Sauvegarde / Restauration / Historique — désormais réels
+
+Toute la section **Paramètres → Sauvegarde** était en réalité un décor (données
+fictives, boutons sans effet). Elle est maintenant entièrement fonctionnelle :
+
+- **💾 Sauvegarder** : crée immédiatement une sauvegarde complète (toutes les
+  données) sur ce PC
+- **🔄 Restaurer** : ouvre un sélecteur de fichier pour restaurer une sauvegarde
+  externe (ex. exportée précédemment, ou copiée depuis un autre PC) —
+  remplace toutes les données actuelles, sur tous les postes connectés
+  (confirmation obligatoire avant d'agir, action irréversible)
+- **⬇️ Exporter** : (déjà corrigé précédemment) exporte vers un fichier de votre choix
+- **Historique** : liste réelle des sauvegardes déjà effectuées sur ce PC (taille
+  réelle, date réelle, type Auto/Manuel), avec un bouton "Restaurer" par ligne
+
+**Sauvegarde automatique** : le poste Serveur crée automatiquement une
+sauvegarde toutes les 6 heures (uniquement lui, pour éviter les doublons entre
+postes), conservées dans un dossier dédié sur ce PC. Les 60 sauvegardes les plus
+récentes sont conservées, les plus anciennes sont supprimées automatiquement.
+
+**Testé avant envoi** : logique de purge vérifiée avec de vrais fichiers (8
+sauvegardes créées, limite à 5 pour le test → les 5 plus récentes correctement
+conservées, les plus anciennes supprimées), lecture de fichier vérifiée.
+
+## Ticket de clôture (80mm) — police agrandie + détail des ventes
+
+Le ticket imprimé lors d'une clôture de caisse :
+- Police **plus grande et en gras** partout (titres encore plus marqués)
+- Nouvelle section **"DÉTAIL DES VENTES"** : la quantité totale vendue de chaque
+  article (toutes boissons/plats confondus) sur la période clôturée, triée du
+  plus vendu au moins vendu, avec le montant total par article
+
+## Impression automatique à chaque prélèvement
+
+Chaque fois qu'un prélèvement est enregistré (Clôture → Prélèvements), un petit
+ticket 80mm s'imprime désormais automatiquement, avec : caisse, heure, caissier,
+motif, montant prélevé et solde restant.
+
+## Bilan de clôture — impression automatique
+
+En plus des tickets de prélèvement (déjà auto-imprimés individuellement), le
+**bilan de clôture complet** (ticket 80mm avec récapitulatif, détail des ventes,
+solde) s'imprime maintenant **automatiquement** dès que la clôture est validée
+— plus besoin de cliquer sur le bouton "80mm" après coup.
+
+## Ticket de clôture depuis un téléphone ou un poste client
+
+Quand la clôture est validée **depuis le poste Serveur lui-même**, le ticket
+s'imprime directement, comme avant.
+
+Quand elle est validée **depuis un téléphone ou un poste client** (aucune
+imprimante physique connectée à cet appareil), la demande est désormais transmise
+automatiquement au poste Serveur — qui imprime le bilan complet sur sa propre
+imprimante, garantissant qu'un ticket sort bien à chaque clôture, peu importe
+l'appareil utilisé pour la valider. Le ticket indique aussi depuis quel poste
+(et quel utilisateur) la clôture a été déclenchée.
+
+**Testé** : la logique de détection des nouvelles demandes de clôture a été
+vérifiée (aucune impression au premier chargement, chaque demande imprimée une
+seule fois, pas de doublon en cas de resynchronisation).

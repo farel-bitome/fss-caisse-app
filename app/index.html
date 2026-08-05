@@ -768,19 +768,17 @@ td{padding:8px 11px;vertical-align:middle}
     <div class="sub" id="sub-params-sauv">
       <div class="slay">
         <div class="ssect"><div class="ssti">Sauvegarde &amp; Restauration</div>
-          <div style="font-size:12px;color:#666;margin-bottom:12px">Dernière sauvegarde : <strong style="color:#4488FF">Aujourd'hui à 08:00</strong></div>
+          <div style="font-size:12px;color:#666;margin-bottom:12px">Dernière sauvegarde : <strong style="color:#4488FF" id="derniereSauvTxt">—</strong></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn btn-r" onclick="toast('Sauvegarde effectuée','s')">💾 Sauvegarder</button>
-            <button class="btn btn-o" onclick="toast('Sélectionner fichier','i')">🔄 Restaurer</button>
-            <button class="btn btn-b" onclick="toast('Export en cours...','i')">⬇️ Exporter</button>
+            <button class="btn btn-r" onclick="sauvegarderMaintenant()">💾 Sauvegarder</button>
+            <button class="btn btn-o" onclick="restaurerDepuisFichier()">🔄 Restaurer</button>
+            <button class="btn btn-b" onclick="exporterSauvegarde()">⬇️ Exporter</button>
           </div>
         </div>
         <div class="ssect"><div class="ssti">Historique</div>
           <table><thead><tr><th>Date</th><th>Taille</th><th>Type</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr><td>Aujourd'hui 08:00</td><td>2.4 MB</td><td><span class="badge bg">Auto</span></td><td><button class="ibt">Restaurer</button></td></tr>
-            <tr><td>Hier 20:00</td><td>2.3 MB</td><td><span class="badge bg">Auto</span></td><td><button class="ibt">Restaurer</button></td></tr>
-            <tr><td>Hier 08:00</td><td>2.2 MB</td><td><span class="badge bo">Manuel</span></td><td><button class="ibt">Restaurer</button></td></tr>
+          <tbody id="bHistoriqueSauv">
+            <tr><td colspan="4" style="text-align:center;color:#666;padding:16px">Chargement...</td></tr>
           </tbody>
         </table></div>
         <div class="ssect" id="ssectPerformances" style="display:none;border:1px solid #442222">
@@ -1277,6 +1275,7 @@ function goSub(page,sub,btn){
   var s=g('sub-'+page+'-'+sub);if(s)s.classList.add('on');
   if(btn)btn.classList.add('on');
   if(page==='params'&&sub==='airtel')loadAirtelStatus();
+  if(page==='params'&&sub==='sauv')renderHistoriqueSauvegardes();
   if(page==='personnel'&&sub==='archives')renderArchives();
 }
 function startClock(){
@@ -1398,7 +1397,7 @@ function renderTkt(){
   });
 }
 function chgQ(i,d){tkt[i].qty+=d;if(tkt[i].qty<=0)tkt.splice(i,1);renderTkt();updTotal();}
-function delI(i){tkt.splice(i,1);renderTkt();updTotal();}
+function delI(i){if(!confirm('Retirer cet article du ticket ?'))return;tkt.splice(i,1);renderTkt();updTotal();}
 function applyPct(){
   var sub=tkt.reduce(function(s,it){return s+it.pv*it.qty;},0);
   var pct=parseFloat(g('remP').value)||0;
@@ -1557,6 +1556,7 @@ function updateTableOptions(){
 // ---- COMMANDES EN ATTENTE ----
 var cmdAttente=[];var attenteSeq=1;
 var printBatches=[];
+var clotureBatches=[];
 var resumingAttenteId=null,resumingBaseItems=null,resumingSentQty=null;
 function imprimerTicketAttente(batch){
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
@@ -2214,7 +2214,14 @@ function saveArt(){
   closeM('ovArt');renderArt();buildCats();renderProds('');renderStk();toast(editArtId?'Modifié':'Ajouté','s');
 }
 function togArt(id){var a=arts.find(function(x){return x.id===id;});if(a){a.actif=!a.actif;renderArt();renderProds('');}}
-function delArt(id){if(!confirm('Supprimer ?'))return;arts=arts.filter(function(a){return a.id!==id;});renderArt();buildCats();renderProds('');toast('Supprimé','i');}
+function delArt(id){
+  var a=arts.find(function(x){return x.id===id;});
+  var nom=a?a.nom:'cet article';
+  if(!confirm('Voulez-vous vraiment supprimer « '+nom+' » ?\n\nCette action est irréversible.'))return;
+  arts=arts.filter(function(x){return x.id!==id;});
+  renderArt();buildCats();renderProds('');
+  toast('Article supprimé','i');
+}
 
 // ---------- Import / vidage du catalogue d'articles ----------
 function openImportModal(){
@@ -2786,7 +2793,7 @@ function saveCmd(){
 }
 
 // BONS & VENTES
-function renderTkList(){var b=g('bTk');if(!b)return;b.innerHTML='';var canR=(typeof hasReimprPermission==='function')&&hasReimprPermission();txs.forEach(function(t){var tr=document.createElement('tr');var statBadge=t.stat==='Annulé'?'<span class="badge br">Annulé</span>':'<span class="badge bg">'+t.stat+'</span>';var acts=canR?('<div style="display:flex;gap:4px"><button class="ibt" title="Réimprimer" onclick="reimprimerTicket(\''+t.id+'\')">🖨️</button><button class="ibt" title="Annuler" onclick="annulerTicket(\''+t.id+'\')">🗑️</button></div>'):'<span style="color:#444;font-size:11px">—</span>';tr.innerHTML='<td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.srv||'—')+'</td><td>'+t.arts+'</td><td>'+fmt(t.ht)+'</td><td>'+fmt(t.tva)+'</td><td><strong>'+fmt(t.ttc)+'</strong></td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td><td>'+statBadge+'</td><td>'+acts+'</td>';b.appendChild(tr);});}
+function renderTkList(){var b=g('bTk');if(!b)return;b.innerHTML='';var canR=(typeof hasReimprPermission==='function')&&hasReimprPermission();var canA=(typeof hasAnnulationPermission==='function')&&hasAnnulationPermission();txs.forEach(function(t){var tr=document.createElement('tr');var statBadge=t.stat==='Annulé'?'<span class="badge br">Annulé</span>':'<span class="badge bg">'+t.stat+'</span>';var btns=(canR?'<button class="ibt" title="Réimprimer" onclick="reimprimerTicket(\''+t.id+'\')">🖨️</button>':'')+(canA?'<button class="ibt" title="Annuler" onclick="annulerTicket(\''+t.id+'\')">🗑️</button>':'');var acts=btns?('<div style="display:flex;gap:4px">'+btns+'</div>'):'<span style="color:#444;font-size:11px">—</span>';tr.innerHTML='<td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.srv||'—')+'</td><td>'+t.arts+'</td><td>'+fmt(t.ht)+'</td><td>'+fmt(t.tva)+'</td><td><strong>'+fmt(t.ttc)+'</strong></td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td><td>'+statBadge+'</td><td>'+acts+'</td>';b.appendChild(tr);});}
 function renderDV(){var b=g('bDV');if(!b)return;b.innerHTML='';arts.forEach(function(a){var q=Math.floor(Math.random()*12)+3,ca=q*a.pv,ht=Math.round(ca/1.18),mg=a.pa?Math.round((a.pv-a.pa)*q):0;var tr=document.createElement('tr');tr.innerHTML='<td>'+a.emo+' '+a.nom+'</td><td><span class="badge bo">'+a.cat+'</span></td><td>'+q+'</td><td>'+fmt(a.pv)+'</td><td>'+fmt(ht)+'</td><td>'+fmt(ca-ht)+'</td><td><strong>'+fmt(ca)+'</strong></td><td style="color:#4488FF">'+fmt(mg)+'</td>';b.appendChild(tr);});}
 function renderLV(){var b=g('bLV');if(!b)return;b.innerHTML='';txs.forEach(function(t){var tr=document.createElement('tr');tr.innerHTML='<td>'+t.date+'</td><td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>—</td><td>'+fmt(t.ht)+'</td><td>0 FCFA</td><td>'+fmt(t.tva)+'</td><td><strong>'+fmt(t.ttc)+'</strong></td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td>';b.appendChild(tr);});}
 function renderReg(){var b=g('bReg');if(!b)return;b.innerHTML='';txs.forEach(function(t){var tr=document.createElement('tr');tr.innerHTML='<td>'+t.date+'</td><td><strong>'+t.id+'</strong></td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td><td><strong>'+fmt(t.ttc)+'</strong></td><td>'+(t.pay==='Espèces'?fmt(Math.ceil(t.ttc/1000)*1000-t.ttc):'—')+'</td><td>admin</td>';b.appendChild(tr);});}
@@ -2806,7 +2813,7 @@ function renderRap(){
   });
   var bc=g('barCh');if(bc){bc.innerHTML='';d.bars.forEach(function(v,i){var col=document.createElement('div');col.className='bcol';col.innerHTML='<div class="bbar" style="height:'+Math.round(v/d.max*100)+'%"></div><div class="blbl">'+d.lbls[i]+'</div>';bc.appendChild(col);});}
   var tl=g('topList');if(tl){tl.innerHTML='';[].concat(arts).sort(function(a,b){return b.pv-a.pv;}).slice(0,5).forEach(function(a,i){var div=document.createElement('div');div.style.cssText='display:flex;align-items:center;gap:7px;margin-bottom:7px';div.innerHTML='<span style="font-size:10px;color:#555;width:16px">'+(i+1)+'</span><span style="flex:1;font-size:11px">'+a.emo+' '+a.nom+'</span><div style="width:50px;height:5px;background:#333;border-radius:3px"><div style="height:5px;background:#CC0000;border-radius:3px;width:'+Math.round((5-i)/5*100)+'%"></div></div><span style="font-size:11px;font-weight:700;color:#CC0000;min-width:55px;text-align:right">'+fmt(a.pv)+'</span>';tl.appendChild(div);});}
-  var bt=g('bTrans');if(bt){bt.innerHTML='';var canR=(typeof hasReimprPermission==='function')&&hasReimprPermission();txs.slice(0,6).forEach(function(t){var tr=document.createElement('tr');var statTag=t.stat==='Annulé'?' <span class="badge br">Annulé</span>':'';var acts=canR?('<div style="display:flex;gap:4px"><button class="ibt" title="Réimprimer" onclick="reimprimerTicket(\''+t.id+'\')">🖨️</button><button class="ibt" title="Annuler" onclick="annulerTicket(\''+t.id+'\')">🗑️</button></div>'):'<span style="color:#444;font-size:11px">—</span>';tr.innerHTML='<td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.srv||'—')+'</td><td>'+t.arts+'</td><td><strong>'+fmt(t.ttc)+'</strong>'+statTag+'</td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td><td>'+acts+'</td>';bt.appendChild(tr);});}
+  var bt=g('bTrans');if(bt){bt.innerHTML='';var canR=(typeof hasReimprPermission==='function')&&hasReimprPermission();var canA=(typeof hasAnnulationPermission==='function')&&hasAnnulationPermission();txs.slice(0,6).forEach(function(t){var tr=document.createElement('tr');var statTag=t.stat==='Annulé'?' <span class="badge br">Annulé</span>':'';var btns=(canR?'<button class="ibt" title="Réimprimer" onclick="reimprimerTicket(\''+t.id+'\')">🖨️</button>':'')+(canA?'<button class="ibt" title="Annuler" onclick="annulerTicket(\''+t.id+'\')">🗑️</button>':'');var acts=btns?('<div style="display:flex;gap:4px">'+btns+'</div>'):'<span style="color:#444;font-size:11px">—</span>';tr.innerHTML='<td style="color:#CC0000"><strong>'+t.id+'</strong></td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.srv||'—')+'</td><td>'+t.arts+'</td><td><strong>'+fmt(t.ttc)+'</strong>'+statTag+'</td><td><span class="badge '+(t.pay==='Espèces'?'bg':'bo')+'">'+t.pay+'</span></td><td>'+acts+'</td>';bt.appendChild(tr);});}
   renderLC();renderLR();
 }
 function reimprimerTicket(id){
@@ -2816,7 +2823,7 @@ function reimprimerTicket(id){
   afficherRecu(t);
 }
 function annulerTicket(id){
-  if(!(typeof hasReimprPermission==='function'&&hasReimprPermission())){toast('Accès non autorisé pour ce compte','e');return;}
+  if(!(typeof hasAnnulationPermission==='function'&&hasAnnulationPermission())){toast('Accès non autorisé pour ce compte','e');return;}
   var t=txs.find(function(x){return x.id===id;});
   if(!t){toast('Ticket introuvable','e');return;}
   if(t.stat==='Annulé'){toast('Ce ticket est déjà annulé','i');return;}
@@ -2880,17 +2887,69 @@ function addPrel(){
   var solde=ca-dejaPrel;
   if(solde<=0){toast('❌ Caisse à zéro — prélèvement impossible','e');return;}
   if(mnt>solde){toast('❌ Montant supérieur au solde disponible ('+fmt(solde)+' FCFA)','e');return;}
-  prls.push({mnt:mnt,motif:motif,heure:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})});
+  var heure=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  prls.push({mnt:mnt,motif:motif,heure:heure});
   g('prelMnt').value='';g('prelMotif').value='';
   renderPrls();initCloture();
   if(window.fssSyncPush)window.fssSyncPush();
   toast(fmt(mnt)+' prélevé','s');
+  imprimerPrelevement(mnt,motif,heure,solde-mnt);
+}
+// Petit ticket 80mm imprimé automatiquement à chaque prélèvement, pour garder
+// une trace papier immédiate (montant, motif, heure, caissier, nouveau solde).
+function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
+  var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
+  var caissier=(window.currentUser&&window.currentUser.nom)?window.currentUser.nom:'—';
+  var cxLbl=(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses';
+  var css='@page{size:80mm auto;margin:0}'+
+    '*{margin:0;padding:0;box-sizing:border-box}'+
+    'html,body{width:80mm}'+
+    'body{font-family:"Courier New",monospace;font-size:13px;font-weight:700;padding:3mm 4mm}'+
+    'table{width:100%;border-collapse:collapse;margin:2px 0}'+
+    'td{padding:2px 0}'+
+    'td.r{text-align:right}'+
+    '.sep{border-top:1px dashed #000;margin:6px 0}'+
+    '.c{text-align:center}';
+  function ligne(l,v){return '<table><tr><td>'+l+'</td><td class="r">'+v+'</td></tr></table>';}
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
+  html+='<div class="c" style="font-size:16px">'+etab+'</div>';
+  html+='<div class="c" style="font-size:13px;margin:4px 0">💸 PRÉLÈVEMENT</div>';
+  html+='<div class="sep"></div>';
+  html+=ligne('Caisse',cxLbl);
+  html+=ligne('Heure',heure);
+  html+=ligne('Caissier',caissier);
+  html+=ligne('Motif',motif);
+  html+='<div class="sep"></div>';
+  html+='<div style="font-size:16px">'+ligne('MONTANT','-'+fmt(mnt))+'</div>';
+  html+='<div class="sep"></div>';
+  html+=ligne('Solde restant',fmt(Math.max(0,nouveauSolde)));
+  html+='<div class="sep"></div>';
+  html+='<div class="c" style="font-size:11px">Édité le '+new Date().toLocaleString('fr-FR')+'</div>';
+  html+='</body></html>';
+  var w=window.open('','_blank','width=380,height=600');
+  w.document.write(html);w.document.close();
+  w.onafterprint=function(){w.close();};
+  setTimeout(function(){w.print();},400);
+  setTimeout(function(){if(!w.closed)w.close();},15000);
 }
 function renderPrls(){var w=g('prelList');if(!w)return;var tot=prls.reduce(function(s,p){return s+p.mnt;},0);if(!prls.length){w.innerHTML='<span style="color:#444">Aucun prélèvement</span>';}else{w.innerHTML='';prls.forEach(function(p){var d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #222;font-size:12px';d.innerHTML='<span>'+p.heure+' — '+p.motif+'</span><span style="color:#FF4444;font-weight:700">'+fmt(p.mnt)+'</span>';w.appendChild(d);});}g('clPrel').textContent=fmt(tot);}
 function doCloture(){
   if(!prls.length){toast('Veuillez effectuer au moins un prélèvement avant de clôturer la caisse','e');return;}
   if(!confirm('Confirmer la clôture ?'))return;
   afficherBilanCloture();
+  // Impression automatique du bilan de clôture complet (ticket 80mm) :
+  // - Depuis le poste Serveur lui-même : impression directe.
+  // - Depuis un téléphone ou un poste client : la demande est transmise au
+  //   Serveur (seul poste avec l'imprimante physique), qui imprime à sa place —
+  //   garantit qu'un ticket sort bien, même sans imprimante sur l'appareil
+  //   utilisé pour clôturer.
+  if(window.FSS_IS_SERVER){
+    print80();
+  }else{
+    clotureBatches.push({batchId:'CLO-'+Date.now(),snapshot:construireInstantaneCloture()});
+    if(window.fssSyncPush)window.fssSyncPush();
+    toast('Ticket de clôture envoyé à l\'imprimante du serveur','i');
+  }
   toast('Journée clôturée et archivée','s');
 }
 function afficherBilanCloture(){
@@ -2930,7 +2989,104 @@ function razCaisse(){
   });
 }
 function calcCpt(){var tot=(parseInt(g('b10').value)||0)*10000+(parseInt(g('b5').value)||0)*5000+(parseInt(g('b2').value)||0)*2000+(parseInt(g('b1').value)||0)*1000+(parseInt(g('p500').value)||0)*500+(parseInt(g('p250').value)||0)*250;var f=g('cloCaisse')?g('cloCaisse').value:'';var fonds=getFondsOuverture(f);var j=txsCloture().reduce(function(s,t){return s+t.ttc;},0)+fonds-prls.reduce(function(s,p){return s+p.mnt;},0);var ec=tot-j;g('cptTot').textContent=fmt(tot);g('cptEcart').textContent=(ec>=0?'+':'')+fmt(ec);g('cptEcart').style.color=ec===0?'#4488FF':ec<0?'#FF4444':'#CC0000';}
-function print80(){var tl=txsCloture(),cxLbl=(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses',ttc=tl.reduce(function(s,t){return s+t.ttc;},0),tp=prls.reduce(function(s,p){return s+p.mnt;},0),w=window.open('','_blank','width=320,height=700'),now=new Date().toLocaleString('fr-FR');w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0}body{font-family:Courier New,monospace;font-size:11px;width:80mm;padding:4mm}h2{text-align:center;font-size:14px}.sep{border-top:1px dashed #000;margin:4px 0}table{width:100%;border-collapse:collapse}td{padding:2px}.r{text-align:right}.tot{font-weight:bold;font-size:13px}.center{text-align:center}</style></head><body><h2>FSS-CAISSE</h2><div class="center" style="font-size:10px">CLÔTURE — '+cxLbl+'</div><div class="center" style="font-size:10px">'+now+'</div><div class="sep"></div><table>');tl.forEach(function(t){w.document.write('<tr><td>'+t.id+'</td><td>'+t.date+'</td><td class="r">'+t.ttc.toLocaleString('fr-FR')+' F</td></tr>');});w.document.write('</table><div class="sep"></div><table class="tot"><tr><td>CA TTC</td><td class="r">'+ttc.toLocaleString('fr-FR')+' F</td></tr>');if(tp)w.document.write('<tr><td>Prélèvements</td><td class="r" style="color:red">-'+tp.toLocaleString('fr-FR')+' F</td></tr>');w.document.write('<tr><td>SOLDE</td><td class="r">'+(ttc-tp).toLocaleString('fr-FR')+' F</td></tr></table><div class="sep"></div><div class="center" style="font-size:10px;margin-top:4px">Merci</div></body></html>');w.document.close();w.onafterprint=function(){w.close();};setTimeout(function(){w.print();},400);setTimeout(function(){if(!w.closed)w.close();},15000);}
+// Construit le HTML du bilan de clôture à partir d'un instantané de données
+// (pas d'accès au DOM ici) — réutilisé à la fois pour l'impression locale et
+// pour l'impression automatique routée vers le poste Serveur.
+function buildBilanClotureHTML(snapshot){
+  var tl=snapshot.tl,cxLbl=snapshot.cxLbl,ttc=snapshot.ttc,tp=snapshot.tp,now=snapshot.now;
+
+  var parArticle={};
+  tl.forEach(function(t){
+    (t.items||[]).forEach(function(it){
+      if(!parArticle[it.nom])parArticle[it.nom]={qty:0,total:0};
+      parArticle[it.nom].qty+=it.qty;
+      parArticle[it.nom].total+=it.qty*it.pv;
+    });
+  });
+  var articlesTries=Object.keys(parArticle).map(function(nom){
+    return {nom:nom,qty:parArticle[nom].qty,total:parArticle[nom].total};
+  }).sort(function(a,b){return b.qty-a.qty;});
+
+  var css='@page{size:80mm auto;margin:0}'+
+    '*{margin:0;padding:0;box-sizing:border-box}'+
+    'html,body{width:80mm}'+
+    'body{font-family:"Courier New",monospace;font-size:14px;font-weight:700;padding:3mm 4mm}'+
+    'h2{text-align:center;font-size:18px;font-weight:900}'+
+    '.sep{border-top:2px dashed #000;margin:6px 0}'+
+    'table{width:100%;border-collapse:collapse}'+
+    'td{padding:2px 0}'+
+    '.r{text-align:right}'+
+    '.tot{font-weight:900;font-size:16px}'+
+    '.center{text-align:center}'+
+    '.stit{font-size:14px;font-weight:900;margin-top:8px}';
+
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
+  html+='<h2>FSS-CAISSE</h2>';
+  html+='<div class="center" style="font-size:12px">CLÔTURE — '+cxLbl+'</div>';
+  html+='<div class="center" style="font-size:12px">'+now+'</div>';
+  if(snapshot.origine)html+='<div class="center" style="font-size:11px">Clôturé depuis : '+snapshot.origine+'</div>';
+  html+='<div class="sep"></div>';
+
+  html+='<table>';
+  tl.forEach(function(t){
+    html+='<tr><td>'+t.id+'</td><td>'+t.date+'</td><td class="r">'+t.ttc.toLocaleString('fr-FR')+' F</td></tr>';
+  });
+  html+='</table>';
+
+  html+='<div class="sep"></div>';
+  html+='<div class="stit">DÉTAIL DES VENTES</div>';
+  html+='<div class="sep"></div>';
+  html+='<table>';
+  if(articlesTries.length){
+    articlesTries.forEach(function(a){
+      html+='<tr><td>'+a.qty+'x '+a.nom+'</td><td class="r">'+a.total.toLocaleString('fr-FR')+' F</td></tr>';
+    });
+  }else{
+    html+='<tr><td colspan="2" class="center">Aucune vente</td></tr>';
+  }
+  html+='</table>';
+
+  html+='<div class="sep"></div>';
+  html+='<table class="tot">';
+  html+='<tr><td>CA TTC</td><td class="r">'+ttc.toLocaleString('fr-FR')+' F</td></tr>';
+  if(tp)html+='<tr><td>Prélèvements</td><td class="r" style="color:red">-'+tp.toLocaleString('fr-FR')+' F</td></tr>';
+  html+='<tr><td>SOLDE</td><td class="r">'+(ttc-tp).toLocaleString('fr-FR')+' F</td></tr>';
+  html+='</table>';
+  html+='<div class="sep"></div>';
+  html+='<div class="center" style="font-size:12px;margin-top:4px">Merci</div>';
+  html+='</body></html>';
+  return html;
+}
+// Impression locale directe (utilisée par le bouton "80mm" manuel)
+function print80(){
+  var snapshot=construireInstantaneCloture();
+  ouvrirEtImprimerHTML(buildBilanClotureHTML(snapshot));
+}
+function construireInstantaneCloture(){
+  var tl=txsCloture();
+  return {
+    tl:tl,
+    cxLbl:(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses',
+    ttc:tl.reduce(function(s,t){return s+t.ttc;},0),
+    tp:prls.reduce(function(s,p){return s+p.mnt;},0),
+    now:new Date().toLocaleString('fr-FR'),
+    origine:(window.currentUser&&window.currentUser.nom?window.currentUser.nom+' — ':'')+(window.FSS_IS_SERVER?'Poste Serveur':'Poste distant (client/mobile)')
+  };
+}
+function ouvrirEtImprimerHTML(html){
+  var w=window.open('','_blank','width=380,height=700');
+  w.document.write(html);w.document.close();
+  w.onafterprint=function(){w.close();};
+  setTimeout(function(){w.print();},400);
+  setTimeout(function(){if(!w.closed)w.close();},15000);
+}
+// Appelée uniquement côté Serveur (voir network.js) quand une clôture a été
+// déclenchée depuis un autre poste (téléphone, poste client) — garantit que le
+// ticket sort bien sur l'imprimante physique du serveur, peu importe l'appareil
+// qui a validé la clôture.
+function imprimerBilanClotureAuto(snapshot){
+  ouvrirEtImprimerHTML(buildBilanClotureHTML(snapshot));
+}
 function printA4(){var tl=txsCloture(),cxLbl=(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses',ttc=tl.reduce(function(s,t){return s+t.ttc;},0),tp=prls.reduce(function(s,p){return s+p.mnt;},0),w=window.open('','_blank'),now=new Date().toLocaleString('fr-FR');w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;padding:20mm}h1{font-size:22px;color:#CC0000}h2{font-size:14px;margin:14px 0 6px}table{width:100%;border-collapse:collapse;margin-bottom:12px}th{background:#CC0000;color:#fff;padding:7px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#f9f9f9}.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.kc{border:1px solid #ddd;border-radius:6px;padding:10px 14px}.kl{font-size:10px;color:#666;text-transform:uppercase}.kv{font-size:20px;font-weight:700;color:#CC0000}.sep{border-top:2px solid #CC0000;margin:14px 0}.footer{text-align:center;font-size:10px;color:#666;margin-top:20px}</style></head><body>');w.document.write('<h1>FSS-CAISSE</h1><div style="font-size:12px;color:#666">RAPPORT DE CLÔTURE — '+cxLbl+' — '+now+'</div><div class="sep"></div><div class="kpi"><div class="kc"><div class="kl">Tickets</div><div class="kv" style="color:#1144CC">'+tl.length+'</div></div><div class="kc"><div class="kl">CA TTC</div><div class="kv">'+ttc.toLocaleString('fr-FR')+' F</div></div><div class="kc"><div class="kl">TVA</div><div class="kv">'+Math.round(ttc*0.18/1.18).toLocaleString('fr-FR')+' F</div></div><div class="kc"><div class="kl">Solde</div><div class="kv" style="color:#1144CC">'+(ttc-tp).toLocaleString('fr-FR')+' F</div></div></div><h2>Transactions</h2><table><thead><tr><th>N° Ticket</th><th>Date</th><th>Table</th><th>Caisse</th><th>HT</th><th>TVA</th><th>TTC</th><th>Paiement</th></tr></thead><tbody>');tl.forEach(function(t){w.document.write('<tr><td>'+t.id+'</td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.caisse||'—')+'</td><td>'+t.ht.toLocaleString('fr-FR')+'</td><td>'+t.tva.toLocaleString('fr-FR')+'</td><td><strong>'+t.ttc.toLocaleString('fr-FR')+'</strong></td><td>'+t.pay+'</td></tr>');});w.document.write('</tbody></table><div class="footer">FSS-CAISSE — '+now+'</div></body></html>');w.document.close();w.onafterprint=function(){w.close();};setTimeout(function(){w.print();},400);setTimeout(function(){if(!w.closed)w.close();},15000);}
 
 // PARAMÈTRES
@@ -3268,6 +3424,118 @@ function initOpts(){var w=g('optsWrap');if(!w)return;w.innerHTML='';[['print','I
 
 // UTILS
 function filtT(id,v){document.querySelectorAll('#'+id+' tbody tr').forEach(function(r){r.style.display=r.textContent.toLowerCase().indexOf(v.toLowerCase())>=0?'':'none';});}
+// Export complet de toutes les données (sauvegarde) au format JSON, avec choix
+// de l'emplacement via la boîte de dialogue native — contrairement au bouton
+// précédent qui n'était qu'un texte de test sans effet réel.
+// ============================================================
+// SAUVEGARDE & RESTAURATION (système interne, historique réel)
+// ============================================================
+function fmtTailleFichier(bytes){
+  if(bytes<1024)return bytes+' o';
+  if(bytes<1024*1024)return Math.round(bytes/1024)+' Ko';
+  return (bytes/(1024*1024)).toFixed(1)+' Mo';
+}
+function fmtDateSauv(iso){
+  var d=new Date(iso),now=new Date();
+  var sameDay=d.toDateString()===now.toDateString();
+  var yesterday=new Date(now);yesterday.setDate(yesterday.getDate()-1);
+  var isYesterday=d.toDateString()===yesterday.toDateString();
+  var heure=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  if(sameDay)return "Aujourd'hui "+heure;
+  if(isYesterday)return 'Hier '+heure;
+  return d.toLocaleDateString('fr-FR')+' '+heure;
+}
+function renderHistoriqueSauvegardes(){
+  if(!window.electronAPI||!window.electronAPI.listBackups)return;
+  window.electronAPI.listBackups().then(function(result){
+    var b=g('bHistoriqueSauv');if(!b)return;
+    if(!result.success||!result.backups.length){
+      b.innerHTML='<tr><td colspan="4" style="text-align:center;color:#666;padding:16px">Aucune sauvegarde pour le moment</td></tr>';
+      if(g('derniereSauvTxt'))g('derniereSauvTxt').textContent='Aucune';
+      return;
+    }
+    b.innerHTML='';
+    result.backups.forEach(function(bk,idx){
+      if(idx===0&&g('derniereSauvTxt'))g('derniereSauvTxt').textContent=fmtDateSauv(bk.date);
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td>'+fmtDateSauv(bk.date)+'</td><td>'+fmtTailleFichier(bk.size)+'</td>'+
+        '<td><span class="badge '+(bk.type==='Auto'?'bg':'bo')+'">'+bk.type+'</span></td>'+
+        '<td><button class="ibt" onclick="restaurerBackup(\''+bk.filename+'\')">Restaurer</button></td>';
+      b.appendChild(tr);
+    });
+  });
+}
+function sauvegarderMaintenant(){
+  if(!window.fssFullState||!window.electronAPI||!window.electronAPI.createBackup){toast('Fonction indisponible','e');return;}
+  var content=JSON.stringify(window.fssFullState());
+  window.electronAPI.createBackup(content,'manuel').then(function(result){
+    if(result.success){toast('Sauvegarde effectuée','s');renderHistoriqueSauvegardes();}
+    else toast('Erreur : '+(result.error||''),'e');
+  });
+}
+function appliquerSauvegardeRestauree(jsonContent,sourceLabel){
+  var data;
+  try{data=JSON.parse(jsonContent);}catch(e){toast('Fichier de sauvegarde invalide','e');return;}
+  if(!data||typeof data!=='object'){toast('Fichier de sauvegarde invalide','e');return;}
+  if(!window.fssApplyState){toast('Fonction indisponible','e');return;}
+  window.fssApplyState(data);
+  // Propage l'état restauré à tous les postes connectés
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('Sauvegarde restaurée'+(sourceLabel?' ('+sourceLabel+')':''),'s');
+  renderHistoriqueSauvegardes();
+}
+function restaurerBackup(filename){
+  if(!confirm("Restaurer cette sauvegarde va REMPLACER toutes les données actuelles (articles, ventes, clients, tout) sur TOUS les postes connectés.\n\nCette action est irréversible. Continuer ?"))return;
+  window.electronAPI.readBackup(filename).then(function(result){
+    if(!result.success){toast('Erreur : '+(result.error||''),'e');return;}
+    appliquerSauvegardeRestauree(result.content,filename);
+  });
+}
+function restaurerDepuisFichier(){
+  if(!window.electronAPI||!window.electronAPI.openBackupFileDialog){toast('Fonction indisponible','e');return;}
+  window.electronAPI.openBackupFileDialog().then(function(result){
+    if(result.canceled)return;
+    if(!result.success){toast('Erreur : '+(result.error||''),'e');return;}
+    if(!confirm("Restaurer ce fichier va REMPLACER toutes les données actuelles (articles, ventes, clients, tout) sur TOUS les postes connectés.\n\nCette action est irréversible. Continuer ?"))return;
+    appliquerSauvegardeRestauree(result.content,result.filePath);
+  });
+}
+// Sauvegarde automatique : une fois au démarrage (si la dernière sauvegarde
+// auto date de plus de 6h ou n'existe pas), puis toutes les 6h — uniquement
+// depuis le poste Serveur, pour éviter les doublons entre postes clients.
+function verifierSauvegardeAuto(){
+  if(!window.FSS_IS_SERVER||!window.electronAPI||!window.electronAPI.listBackups)return;
+  window.electronAPI.listBackups().then(function(result){
+    var backups=(result&&result.backups)||[];
+    var derniereAuto=backups.find(function(b){return b.type==='Auto';});
+    var doitSauvegarder=!derniereAuto||(Date.now()-new Date(derniereAuto.date).getTime())>6*60*60*1000;
+    if(doitSauvegarder&&window.fssFullState){
+      window.electronAPI.createBackup(JSON.stringify(window.fssFullState()),'auto').then(function(){
+        renderHistoriqueSauvegardes();
+      });
+    }
+  });
+}
+
+function exporterSauvegarde(){
+  if(!window.fssFullState){toast('Fonction indisponible','e');return;}
+  var state=window.fssFullState();
+  var content=JSON.stringify(state,null,2);
+  var fileName='fss-caisse-sauvegarde_'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.json';
+  if(window.electronAPI&&window.electronAPI.saveFileDialog){
+    window.electronAPI.saveFileDialog(fileName,content).then(function(result){
+      if(result.canceled)return;
+      if(result.success)toast('Sauvegarde exportée : '+result.filePath,'s');
+      else toast("Erreur lors de l'export : "+(result.error||''),'e');
+    });
+  }else{
+    var b=new Blob([content],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(b);a.download=fileName;a.click();
+    toast('Sauvegarde téléchargée','s');
+  }
+}
+
 function exportT(id,name){
   var rows=[].slice.call(document.querySelectorAll('#'+id+' tr'));
   var csv=rows.map(function(r){return [].slice.call(r.querySelectorAll('th,td')).map(function(c){return '"'+c.textContent.replace(/"/g,'').trim()+'"';}).join(',');}).join('\n');
@@ -3305,6 +3573,8 @@ document.addEventListener('DOMContentLoaded',function(){
   renderTkList();renderDV();renderLV();renderReg();renderRegG();renderTopV();renderTotCat();
   renderRap();initCloture();initTables();initServers();initCaisses();initCategories();initOpts();renderEmp();renderPtgLive();renderPaie();
   loadAppVersion();
+  setTimeout(verifierSauvegardeAuto,5000);
+  setInterval(verifierSauvegardeAuto,6*60*60*1000);
   document.querySelectorAll('.ov').forEach(function(o){o.addEventListener('click',function(e){if(e.target===o)o.classList.remove('on');});});
   var td=new Date().toISOString().split('T')[0];
   document.querySelectorAll('input[type=date]').forEach(function(e){if(!e.value)e.value=td;});

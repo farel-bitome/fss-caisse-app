@@ -5,7 +5,16 @@
   var socket = (typeof io === 'function') ? io() : null;
   var API = '/api/state';
   var applying = false;
+  // Empêche tout envoi vers le serveur (syncPush) tant que ce poste n'a pas
+  // reçu au moins une fois les vraies données du serveur. Sans ce verrou, un
+  // poste client pouvait — dans une petite fenêtre au tout premier chargement,
+  // surtout si le réseau est un peu lent — renvoyer ses données locales par
+  // défaut (celles intégrées dans le fichier, avant toute synchronisation) et
+  // écraser silencieusement le vrai catalogue enregistré sur le serveur
+  // (articles, catégories, etc. semblent alors "disparaître" pour tout le monde).
+  var initialStateLoaded = false;
   var prevBatchIds = null;
+  var prevClotureIds = null;
   var prevTxIds = null;
   window.FSS_IS_SERVER = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '');
   window.users = window.users || [];
@@ -18,6 +27,7 @@
   window.categories = window.categories || [];
   window.fondsOuverture = window.fondsOuverture || {};
   window.printBatches = window.printBatches || [];
+  window.clotureBatches = window.clotureBatches || [];
   window.employes = window.employes || [];
   window.pointages = window.pointages || [];
   window.paieEntries = window.paieEntries || [];
@@ -27,6 +37,7 @@
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
       users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches,
+      clotureBatches: clotureBatches,
       employes: employes, pointages: pointages, paieEntries: paieEntries
     };
   }
@@ -47,6 +58,7 @@
   function applyState(s) {
     if (!s) return;
     applying = true;
+    initialStateLoaded = true;
     arts = s.arts || [];
     clis = s.clis || [];
     fours = s.fours || [];
@@ -69,6 +81,15 @@
       });
     }
     prevBatchIds = printBatches.map(function (bt) { return bt.batchId; });
+
+    clotureBatches = s.clotureBatches || [];
+    if (window.FSS_IS_SERVER && prevClotureIds !== null) {
+      var nouvellesClotures = clotureBatches.filter(function (bt) { return prevClotureIds.indexOf(bt.batchId) === -1; });
+      nouvellesClotures.forEach(function (batch) {
+        safe(function () { if (window.imprimerBilanClotureAuto) window.imprimerBilanClotureAuto(batch.snapshot); });
+      });
+    }
+    prevClotureIds = clotureBatches.map(function (bt) { return bt.batchId; });
     nextTk = s.nextTk || 1;
     attenteSeq = s.attenteSeq || 1;
     users = s.users || [];
@@ -133,6 +154,7 @@
   var pushTimer = null;
   function syncPush() {
     if (applying) return; // ne pas renvoyer ce qu'on vient de recevoir
+    if (!initialStateLoaded) return; // ne pas écraser le serveur avec des données locales pas encore synchronisées
     clearTimeout(pushTimer);
     pushTimer = setTimeout(function () {
       fetch(API, {
@@ -146,6 +168,8 @@
   }
 
   window.fssSyncPush = syncPush;
+  window.fssFullState = fullState;
+  window.fssApplyState = applyState;
 
   function wrap(name) {
     var orig = window[name];
