@@ -12,14 +12,32 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
     const airtelConfigFile = path.join(userDataDir, 'airtel-config.json');
 
     function loadState() {
+      let state;
       try {
         if (fs.existsSync(dataFile)) {
-          return JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+          state = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
         }
       } catch (e) {
         console.error('Erreur de lecture des données, chargement des données par défaut :', e.message);
       }
-      return JSON.parse(fs.readFileSync(defaultFile, 'utf8'));
+      if (!state) {
+        return JSON.parse(fs.readFileSync(defaultFile, 'utf8'));
+      }
+      // Migration unique : remplace le catalogue d'articles par le nouveau menu,
+      // sans toucher au reste des données déjà enregistrées (clients, ventes,
+      // personnel, etc.) — ne s'exécute qu'une seule fois grâce au marqueur.
+      if (!state.menuMigratedV2) {
+        try {
+          const defaults = JSON.parse(fs.readFileSync(defaultFile, 'utf8'));
+          state.arts = defaults.arts;
+          state.menuMigratedV2 = true;
+          saveState(state);
+          console.log('Migration : catalogue d\'articles mis à jour (' + defaults.arts.length + ' articles).');
+        } catch (e) {
+          console.error('Erreur pendant la migration du catalogue d\'articles :', e.message);
+        }
+      }
+      return state;
     }
 
     function saveState(state) {

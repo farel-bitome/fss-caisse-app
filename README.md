@@ -219,3 +219,58 @@ bouton pour réimprimer n'importe quel bulletin passé à tout moment.
 **Testé** : la logique de calcul des jours restants/dépassés a été vérifiée
 isolément sur plusieurs cas (renouvellement proche, dépassé, CDD proche de la fin,
 CDI sans alerte) — tous corrects.
+
+## Import / vidage du catalogue d'articles
+
+Dans **Articles → Fichier Articles**, deux nouveaux boutons :
+
+- **📥 Importer** : ouvre une fenêtre pour importer une liste d'articles depuis un
+  fichier CSV (ou en collant directement le texte). Format des colonnes :
+  `Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,Stock min,Emoji,TVA`
+  — seuls Nom, Catégorie et Prix vente sont obligatoires. Une case à cocher permet
+  de **remplacer** tout le catalogue existant, ou d'**ajouter** les nouveaux
+  articles à la suite de ceux déjà présents.
+- **🗑️ Vider tout** : supprime tous les articles du catalogue (avec confirmation),
+  pour repartir de zéro — via import ou saisie manuelle ensuite.
+
+**Testé** : le parseur CSV gère correctement les en-têtes, les champs entre
+guillemets, et ignore automatiquement les lignes invalides (nom, catégorie ou
+prix manquant).
+
+Ces deux actions sont synchronisées en temps réel sur tous les postes, comme le
+reste de l'application.
+
+## Restriction serveur/serveuse : plus d'accès à l'addition
+
+Les comptes "serveur uniquement" ne pouvaient déjà pas encaisser (Espèces/Carte/
+Airtel Money étaient bloqués), mais pouvaient encore imprimer l'aperçu de
+l'addition (bouton 🧾 dans la barre "Commandes en attente"). C'est corrigé : ce
+bouton est maintenant masqué pour ces comptes, avec une double sécurité (le
+bouton disparaît de l'affichage, et la fonction elle-même refuse l'action si
+jamais elle était déclenchée autrement).
+
+## Impression cuisine désactivée — un seul ticket, au paiement
+
+Suite à votre retour, l'impression automatique du bon de commande cuisine (au
+moment d'envoyer une commande) a été **désactivée**. Désormais, une seule
+impression a lieu : le **ticket de caisse final**, en 2 exemplaires, au moment
+du paiement.
+
+Le suivi "Commandes en attente" continue de fonctionner normalement pour
+organiser le service (envoyer, reprendre, payer) — seule l'impression
+automatique associée à l'envoi a été retirée.
+
+Si vous souhaitez un jour la réactiver, tout le code reste en place (juste
+désactivé) — il suffira de me le redemander.
+
+## Impression cuisine — comportement final
+
+Après plusieurs allers-retours, voici le comportement définitif :
+
+- **Envoyer une commande** (bouton "Envoyer"/"En attente") → le **bon de commande
+  cuisine s'imprime**, comme d'origine (avec le système "envoi incrémental" qui
+  ne réimprime que les nouveaux articles à chaque ajout)
+- **Payer / imprimer le ticket final** → **seul le ticket de caisse s'imprime**,
+  en 2 exemplaires — le bon de commande cuisine ne ressort jamais à ce moment,
+  car ces deux impressions sont deux mécanismes entièrement séparés dans le code
+  (payer n'appelle jamais la fonction d'impression du bon de commande)

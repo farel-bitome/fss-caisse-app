@@ -354,6 +354,8 @@ td{padding:8px 11px;vertical-align:middle}
         <input class="si" style="max-width:200px" placeholder="🔍" oninput="filtT('tArt',this.value)">
         <select class="ms" id="artCatF" onchange="filtArtCat()"><option value="">Toutes catégories</option></select>
         <button class="btn btn-r" onclick="openArtModal()">+ Nouvel article</button>
+        <button class="btn btn-o sm" onclick="openImportModal()">📥 Importer</button>
+        <button class="btn btn-o sm" style="color:#FF6666;border-color:#FF6666" onclick="viderArticlesConfirm()">🗑️ Vider tout</button>
         <button class="btn btn-o sm" onclick="exportT('tArt','articles')">⬇️ Export</button>
         <button class="btn btn-o sm" onclick="prtT('tArt')">🖨️</button>
       </div>
@@ -878,6 +880,27 @@ td{padding:8px 11px;vertical-align:middle}
     <div class="fg"><label class="fl">Marge brute</label><div class="fi" id="aMg" style="background:#111">0 FCFA (0%)</div></div>
   </div></div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovArt')">Annuler</button><button class="btn btn-r" onclick="saveArt()">Enregistrer</button></div>
+</div></div>
+<div class="ov" id="ovImportArt"><div class="md lg"><div class="mh"><span class="mt">Importer une liste d'articles</span><button class="mc" onclick="closeM('ovImportArt')">✕</button></div>
+  <div class="mb">
+    <p style="font-size:12px;color:#999;margin-bottom:10px;line-height:1.5">
+      Fichier CSV avec en-têtes, colonnes dans cet ordre :<br>
+      <code style="color:#eee">Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,Stock min,Emoji,TVA</code><br>
+      Seuls <strong>Nom</strong>, <strong>Catégorie</strong> et <strong>Prix vente</strong> sont obligatoires — le reste peut rester vide.
+    </p>
+    <div class="fg"><label class="fl">Choisir un fichier CSV</label><input class="fi" type="file" id="importFile" accept=".csv,text/csv"></div>
+    <div class="fg"><label class="fl">— ou collez directement le contenu CSV ici —</label>
+      <textarea class="fi" id="importText" rows="8" placeholder="Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,Stock min,Emoji,TVA
+ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺,18"></textarea>
+    </div>
+    <div class="fg">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#eee;cursor:pointer">
+        <input type="checkbox" id="importReplace"> Remplacer entièrement le catalogue actuel (au lieu d'ajouter à la suite)
+      </label>
+    </div>
+    <p id="importPreview" style="font-size:12px;color:#44FF88;min-height:16px"></p>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovImportArt')">Annuler</button><button class="btn btn-r" onclick="lancerImportArticles()">Importer</button></div>
 </div></div>
 <div class="ov" id="ovStk"><div class="md"><div class="mh"><span class="mt" id="stkMT">Entrée de Stock</span><button class="mc" onclick="closeM('ovStk')">✕</button></div>
   <div class="mb">
@@ -1562,6 +1585,7 @@ function imprimerTicketAttente(batch){
   imprimerSilencieux(html);
 }
 function imprimerAddition(attId){
+  if(window.isWaiterOnly&&window.isWaiterOnly()){toast("Ce compte ne peut pas sortir l'addition","e");return;}
   var c=cmdAttente.find(function(x){return x.id===attId;});
   if(!c){toast('Commande introuvable','e');return;}
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
@@ -1682,6 +1706,10 @@ function mettreEnAttente(){
     deltaItems=tkt.map(function(i){return{nom:i.nom,qty:i.qty||i.qt||1};});
   }
   cmdAttente.push({id:id,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),sentQty:qtyMapNow,total:total,heure:heure});
+  // Le bon de commande cuisine s'imprime bien à l'envoi (comme d'habitude).
+  // Il ne s'imprime PAS au moment du paiement — ces deux impressions sont
+  // deux mécanismes totalement indépendants dans le code : payer une commande
+  // (valPay/imprimerRecu) n'appelle jamais cette fonction ni printBatches.
   if(deltaItems.length){
     printBatches.push({batchId:id+'-'+Date.now(),attenteId:id,tableNom:tableNom,srv:srv,heure:heure,items:deltaItems,ajout:!!resumingAttenteId});
   }
@@ -1745,6 +1773,9 @@ function renderAttenteBar(){
     var btnA=document.createElement('button');
     btnA.textContent='🧾';btnA.title='Imprimer l\'addition (aperçu, non définitif)';btnA.style.cssText='background:#1144CC;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer;font-weight:700';
     btnA.onclick=(function(id){return function(){imprimerAddition(id);};})(c.id);
+    // Un compte "serveur uniquement" ne doit pas pouvoir sortir l'addition — seuls
+    // caissiers/gérants/admins peuvent la générer (même logique que l'encaissement).
+    if(window.isWaiterOnly&&window.isWaiterOnly())btnA.style.display='none';
     var info=document.createElement('span');
     info.innerHTML='<span style="color:#FFCC00;font-weight:700">'+c.id+'</span> '+
       '<span style="color:#FF6666">'+(c.srv&&c.srv!=='—'?c.srv:c.tableNom)+'</span> '+
@@ -1825,6 +1856,7 @@ function applyWaiterUI(){
   if(g('btnPayEsp'))g('btnPayEsp').style.display=isW?'none':'';
   if(g('btnPayCarte'))g('btnPayCarte').style.display=isW?'none':'';
   if(g('btnEnAttente'))g('btnEnAttente').textContent=isW?'📨 Envoyer la commande':'⏸ En attente';
+  renderAttenteBar();
   var u=window.currentUser;
   if(u&&u.caisseAssignee&&g('selCaisse')){
     g('selCaisse').value=u.caisseAssignee;
@@ -2157,6 +2189,86 @@ function saveArt(){
 }
 function togArt(id){var a=arts.find(function(x){return x.id===id;});if(a){a.actif=!a.actif;renderArt();renderProds('');}}
 function delArt(id){if(!confirm('Supprimer ?'))return;arts=arts.filter(function(a){return a.id!==id;});renderArt();buildCats();renderProds('');toast('Supprimé','i');}
+
+// ---------- Import / vidage du catalogue d'articles ----------
+function openImportModal(){
+  g('importFile').value='';g('importText').value='';g('importReplace').checked=false;g('importPreview').textContent='';
+  g('importFile').onchange=function(){
+    var file=this.files[0];if(!file)return;
+    var reader=new FileReader();
+    reader.onload=function(e){g('importText').value=e.target.result;};
+    reader.readAsText(file,'UTF-8');
+  };
+  g('ovImportArt').classList.add('on');
+}
+// Analyseur CSV simple (gère les champs entre guillemets contenant des virgules)
+function parseCSVLine(line){
+  var out=[],cur='',inQ=false;
+  for(var i=0;i<line.length;i++){
+    var c=line[i];
+    if(c==='"'){ if(inQ&&line[i+1]==='"'){cur+='"';i++;} else inQ=!inQ; }
+    else if(c===','&&!inQ){out.push(cur);cur='';}
+    else cur+=c;
+  }
+  out.push(cur);
+  return out.map(function(s){return s.trim();});
+}
+function parseCSVArticles(text){
+  var lines=text.split(/\r?\n/).map(function(l){return l.trim();}).filter(function(l){return l.length;});
+  if(!lines.length)return[];
+  // On ignore la 1ère ligne si elle ressemble à un en-tête (contient "nom" ou "référence")
+  var start=0;
+  if(/r[ée]f[ée]rence|nom/i.test(lines[0]))start=1;
+  var result=[];
+  for(var i=start;i<lines.length;i++){
+    var f=parseCSVLine(lines[i]);
+    var nom=(f[1]||'').trim();
+    var cat=(f[2]||'').trim();
+    var pv=parseInt((f[4]||'').replace(/[^\d]/g,''))||0;
+    if(!nom||!cat||!pv)continue; // ligne invalide, ignorée
+    result.push({
+      ref:(f[0]||'').trim()||('ART-'+Date.now()+'-'+i),
+      nom:nom,
+      cat:cat,
+      un:(f[3]||'Unité').trim()||'Unité',
+      pv:pv,
+      pa:parseInt((f[5]||'').replace(/[^\d]/g,''))||0,
+      stk:parseInt(f[6])||0,
+      smin:parseInt(f[7])||5,
+      emo:(f[8]||'🍽️').trim()||'🍽️',
+      tva:parseInt(f[9])||18,
+      actif:true
+    });
+  }
+  return result;
+}
+function lancerImportArticles(){
+  var text=g('importText').value;
+  if(!text.trim()){toast('Aucune donnée à importer — choisissez un fichier ou collez du texte','e');return;}
+  var parsed=parseCSVArticles(text);
+  if(!parsed.length){toast('Aucun article valide trouvé dans ce fichier','e');return;}
+  var replace=g('importReplace').checked;
+  if(replace&&!confirm(parsed.length+' article(s) vont remplacer TOUT le catalogue actuel ('+arts.length+' article(s) existants seront supprimés). Continuer ?'))return;
+  importArticles(parsed,replace);
+  closeM('ovImportArt');
+  toast(parsed.length+' article(s) importé(s)','s');
+}
+function importArticles(newArts,replace){
+  var withIds=newArts.map(function(a,idx){return Object.assign({id:Date.now()+idx},a);});
+  if(replace){arts=withIds;}
+  else{arts=arts.concat(withIds);}
+  renderArt();buildCats();renderProds('');renderStk();
+}
+function viderArticlesConfirm(){
+  if(!arts.length){toast('Le catalogue est déjà vide','i');return;}
+  if(!confirm('Supprimer TOUS les '+arts.length+' articles du catalogue ? Cette action est irréversible — vous pourrez ensuite importer une nouvelle liste ou saisir les articles un par un.'))return;
+  viderArticles();
+  toast('Catalogue vidé','i');
+}
+function viderArticles(){
+  arts=[];
+  renderArt();buildCats();renderProds('');renderStk();
+}
 function filtArtCat(){var v=g('artCatF').value;filtT('tArt',v);}
 function renderEti(){
   var w1=g('etiW1'),w2=g('etiW2');if(!w1)return;w1.innerHTML='';w2.innerHTML='';
