@@ -423,3 +423,17 @@ l'appareil utilisé pour la valider. Le ticket indique aussi depuis quel poste
 **Testé** : la logique de détection des nouvelles demandes de clôture a été
 vérifiée (aucune impression au premier chargement, chaque demande imprimée une
 seule fois, pas de doublon en cas de resynchronisation).
+
+## Ticket de prélèvement — détail des ventes ajouté
+
+Le ticket imprimé à chaque prélèvement affiche maintenant, comme celui de la
+clôture, la section **"DÉTAIL DES VENTES"** avec tous les articles vendus et
+leurs quantités depuis la dernière clôture.
+
+## Compte Serveur/Serveuse — plus besoin de préciser son propre nom
+
+Quand un compte "serveur uniquement" se connecte, le champ **Serveur** de la
+Caisse se remplit automatiquement avec son propre nom et se verrouille — il n'a
+plus qu'à choisir la **table**, comme demandé. (Les autres comptes — admin,
+caissier — gardent le champ Serveur modifiable normalement, utile s'ils
+enregistrent une commande pour quelqu'un d'autre.)

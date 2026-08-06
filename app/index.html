@@ -1866,6 +1866,17 @@ function applyWaiterUI(){
   if(g('btnEnAttente'))g('btnEnAttente').textContent=isW?'📨 Envoyer la commande':'⏸ En attente';
   renderAttenteBar();
   var u=window.currentUser;
+  // Un compte "serveur uniquement" est déjà identifié par sa connexion : plus
+  // besoin de sélectionner son propre nom dans la liste, seule la table compte.
+  if(u&&isW&&u.nom&&g('selSrv')){
+    renderServerSelect();
+    g('selSrv').value=u.nom;
+    g('selSrv').disabled=true;
+    g('selSrv').title='Connecté en tant que : '+u.nom;
+  }else if(g('selSrv')){
+    g('selSrv').disabled=false;
+    g('selSrv').title='';
+  }
   if(u&&u.caisseAssignee&&g('selCaisse')){
     g('selCaisse').value=u.caisseAssignee;
     g('selCaisse').disabled=true;
@@ -2901,6 +2912,18 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
   var caissier=(window.currentUser&&window.currentUser.nom)?window.currentUser.nom:'—';
   var cxLbl=(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses';
+  var tl=txsCloture();
+  var parArticle={};
+  tl.forEach(function(t){
+    (t.items||[]).forEach(function(it){
+      if(!parArticle[it.nom])parArticle[it.nom]={qty:0,total:0};
+      parArticle[it.nom].qty+=it.qty;
+      parArticle[it.nom].total+=it.qty*it.pv;
+    });
+  });
+  var articlesTries=Object.keys(parArticle).map(function(nom){
+    return {nom:nom,qty:parArticle[nom].qty,total:parArticle[nom].total};
+  }).sort(function(a,b){return b.qty-a.qty;});
   var css='@page{size:80mm auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
     'html,body{width:80mm}'+
@@ -2909,7 +2932,8 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
     'td{padding:2px 0}'+
     'td.r{text-align:right}'+
     '.sep{border-top:1px dashed #000;margin:6px 0}'+
-    '.c{text-align:center}';
+    '.c{text-align:center}'+
+    '.stit{font-size:13px;font-weight:900;margin-top:6px}';
   function ligne(l,v){return '<table><tr><td>'+l+'</td><td class="r">'+v+'</td></tr></table>';}
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
   html+='<div class="c" style="font-size:16px">'+etab+'</div>';
@@ -2923,6 +2947,18 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
   html+='<div style="font-size:16px">'+ligne('MONTANT','-'+fmt(mnt))+'</div>';
   html+='<div class="sep"></div>';
   html+=ligne('Solde restant',fmt(Math.max(0,nouveauSolde)));
+  // Détail de tout ce qui a été vendu depuis la dernière clôture, avec quantités
+  // (même présentation que le ticket de clôture).
+  html+='<div class="sep"></div>';
+  html+='<div class="stit">DÉTAIL DES VENTES</div>';
+  html+='<div class="sep"></div>';
+  if(articlesTries.length){
+    articlesTries.forEach(function(a){
+      html+=ligne(a.qty+'x '+a.nom,a.total.toLocaleString('fr-FR')+' F');
+    });
+  }else{
+    html+='<div class="c">Aucune vente</div>';
+  }
   html+='<div class="sep"></div>';
   html+='<div class="c" style="font-size:11px">Édité le '+new Date().toLocaleString('fr-FR')+'</div>';
   html+='</body></html>';
