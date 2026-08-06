@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isLicensed: () => ipcRenderer.invoke('is-licensed'),
   activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
   getTrialStatus: () => ipcRenderer.invoke('get-trial-status'),
-  saveFileDialog: (defaultName, content) => ipcRenderer.invoke('save-file-dialog', defaultName, content),
+  saveFileDialog: (defaultName, content, isBase64) => ipcRenderer.invoke('save-file-dialog', defaultName, content, isBase64),
   listBackups: () => ipcRenderer.invoke('list-backups'),
   createBackup: (stateJson, type) => ipcRenderer.invoke('create-backup', stateJson, type),
   readBackup: (filename) => ipcRenderer.invoke('read-backup', filename),

@@ -110,6 +110,36 @@ function createWindow() {
     }
   });
 
+  // Récupération automatique en cas de plantage de la page (processus de rendu
+  // interrompu — écran blanc ou figé). Auparavant il fallait recharger
+  // manuellement via le menu (Alt → Recharger) ; désormais c'est automatique,
+  // avec une courte pause pour éviter une boucle de plantages en rafale.
+  let crashRecoveryCount = 0;
+  win.webContents.on('render-process-gone', (event, details) => {
+    if (details.reason === 'clean-exit') return;
+    console.error('Processus de rendu interrompu (' + details.reason + '), rechargement automatique...');
+    crashRecoveryCount++;
+    const delay = Math.min(5000, 1000 * crashRecoveryCount);
+    setTimeout(() => {
+      if (!win || win.isDestroyed()) return;
+      boot();
+    }, delay);
+  });
+
+  // Récupération automatique si la page reste figée (JavaScript bloqué) trop
+  // longtemps sans jamais redevenir réactive.
+  let unresponsiveTimer = null;
+  win.webContents.on('unresponsive', () => {
+    console.error('Application non réactive, tentative de rechargement dans 8s si ça persiste...');
+    unresponsiveTimer = setTimeout(() => {
+      if (!win || win.isDestroyed()) return;
+      boot();
+    }, 8000);
+  });
+  win.webContents.on('responsive', () => {
+    if (unresponsiveTimer) { clearTimeout(unresponsiveTimer); unresponsiveTimer = null; }
+  });
+
   if (licensing.isBlocked()) {
     win.loadFile(path.join(__dirname, 'activation.html'));
     return;
@@ -277,11 +307,12 @@ ipcMain.handle('is-licensed', () => licensing.isLicensed());
 ipcMain.handle('activate-license', (event, key) => licensing.activate(key));
 ipcMain.handle('get-trial-status', () => licensing.getTrialStatus());
 
-ipcMain.handle('save-file-dialog', async (event, defaultName, content) => {
+ipcMain.handle('save-file-dialog', async (event, defaultName, content, isBase64) => {
   const ext = (defaultName.split('.').pop() || 'csv').toLowerCase();
   const filterByExt = {
     csv: { name: 'Fichiers CSV', extensions: ['csv'] },
-    json: { name: 'Fichiers de sauvegarde JSON', extensions: ['json'] }
+    json: { name: 'Fichiers de sauvegarde JSON', extensions: ['json'] },
+    xlsx: { name: 'Classeur Excel', extensions: ['xlsx'] }
   };
   const mainFilter = filterByExt[ext] || { name: 'Fichier', extensions: [ext] };
   const result = await dialog.showSaveDialog(win, {
@@ -293,7 +324,11 @@ ipcMain.handle('save-file-dialog', async (event, defaultName, content) => {
     return { success: false, canceled: true };
   }
   try {
-    fs.writeFileSync(result.filePath, content, 'utf-8');
+    if (isBase64) {
+      fs.writeFileSync(result.filePath, Buffer.from(content, 'base64'));
+    } else {
+      fs.writeFileSync(result.filePath, content, 'utf-8');
+    }
     return { success: true, filePath: result.filePath };
   } catch (e) {
     return { success: false, error: e.message };

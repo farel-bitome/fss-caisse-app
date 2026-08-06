@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // IMPORTANT : doit rester identique à LICENSE_SECRET dans FSS-CAISSE-SALON
 // (src/main/licensing.js) et dans tous les générateurs de licence.
@@ -23,25 +24,35 @@ function init(userDataPath) {
     trialPath = path.join(userDataPath, 'trial.json');
 }
 
-function getMachineId() {
-    const nets = os.networkInterfaces();
-    let mac = '';
-    for (const name of Object.keys(nets)) {
-        for (const net of nets[name]) {
-            if (!net.internal && net.mac && net.mac !== '00:00:00:00:00:00') {
-                mac = net.mac;
-                break;
-            }
-        }
-        if (mac) break;
+// Identifiant Windows unique et stable, attribué une seule fois à
+// l'installation de Windows — ne change jamais tant que Windows n'est pas
+// réinstallé (contrairement à l'adresse MAC, que Windows change
+// régulièrement de lui-même par défaut pour le Wi-Fi, ce qui invalidait la
+// licence à chaque fois).
+function getWindowsMachineGuid() {
+    try {
+        const out = execSync('reg query "HKLM\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid', { windowsHide: true }).toString();
+        const m = out.match(/MachineGuid\s+REG_SZ\s+([0-9a-fA-F-]+)/);
+        return m ? m[1].trim() : null;
+    } catch (e) {
+        return null;
     }
-    const raw = [os.hostname(), os.cpus()?.[0]?.model || '', os.totalmem(), mac].join('|');
+}
+
+function getMachineId() {
+    const guid = getWindowsMachineGuid();
+    // Identifiant stable basé sur le GUID Windows si disponible (cas normal
+    // sur un PC Windows), sinon repli sur nom d'ordinateur + CPU + mémoire —
+    // volontairement SANS adresse MAC, qui n'est plus fiable pour ça.
+    const raw = guid
+        ? ('WINGUID|' + guid)
+        : [os.hostname(), os.cpus()?.[0]?.model || '', os.totalmem()].join('|');
     const hash = crypto.createHash('sha256').update(raw).digest('hex').toUpperCase();
     return hash.slice(0, 16).match(/.{1,4}/g).join('-');
 }
 
 function isValidKey(machineId, key) {
-    if (!key) return false;
+    if (!key || !machineId) return false;
     const expected = crypto.createHmac('sha256', LICENSE_SECRET).update(machineId).digest('hex').toUpperCase();
     const expectedFormatted = expected.slice(0, 16).match(/.{1,4}/g).join('-');
     return key.trim().toUpperCase() === expectedFormatted;

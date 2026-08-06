@@ -322,14 +322,14 @@ td{padding:8px 11px;vertical-align:middle}
     </div>
     <div id="tkItems"><div class="tkempty"><div style="font-size:36px;opacity:.25">🛒</div><div>Aucun article</div></div></div>
     <div id="tkFoot">
-      <div class="fr"><span>Sous-total HT</span><span id="fSub">0 FCFA</span></div>
+      <div class="fr"><span>Sous-total</span><span id="fSub">0 FCFA</span></div>
       <div class="remr">
         <input class="ri" type="number" placeholder="Remise FCFA" id="remF" oninput="updTotal()" min="0">
         <input class="ri" style="max-width:55px" type="number" placeholder="%" id="remP" oninput="applyPct()" min="0" max="100">
       </div>
       <div class="fr"><span>Remise</span><span id="fRem" style="color:#FF4444">0 FCFA</span></div>
-      <div class="fr" id="frTVA"><span id="fTVALbl">TVA 18%</span><span id="fTVA">0 FCFA</span></div>
-      <div class="totr"><span>TOTAL TTC</span><span style="color:#CC0000" id="fTot">0 FCFA</span></div>
+      <div class="fr" id="frTVA" style="display:none"><span id="fTVALbl"></span><span id="fTVA">0 FCFA</span></div>
+      <div class="totr"><span>TOTAL</span><span style="color:#CC0000" id="fTot">0 FCFA</span></div>
       <div class="pbts">
         <button class="pbt pbt-e" id="btnPayEsp" onclick="openPay('esp')">💵 Espèces</button>
         <button class="pbt pbt-c" id="btnPayCarte" onclick="openPay('cart')">💳 Carte</button>
@@ -360,7 +360,7 @@ td{padding:8px 11px;vertical-align:middle}
         <button class="btn btn-r" onclick="openArtModal()">+ Nouvel article</button>
         <button class="btn btn-o sm" onclick="openImportModal()">📥 Importer</button>
         <button class="btn btn-o sm" style="color:#FF6666;border-color:#FF6666" onclick="viderArticlesConfirm()">🗑️ Vider tout</button>
-        <button class="btn btn-o sm" onclick="exportT('tArt','articles')">⬇️ Export</button>
+        <button class="btn btn-o sm" onclick="exportArticlesXlsx()">⬇️ Export Excel</button>
         <button class="btn btn-o sm" onclick="prtT('tArt')">🖨️</button>
       </div>
       <div class="tw"><table id="tArt">
@@ -621,9 +621,7 @@ td{padding:8px 11px;vertical-align:middle}
         <div class="cln"><span>Nombre de tickets</span><span id="cn1">0</span></div>
         <div class="cln"><span>Articles vendus</span><span id="cn2">0</span></div>
         <div class="cln"><span>Panier moyen</span><span id="cn3">0 FCFA</span></div>
-        <div class="cln"><span>CA HT</span><span id="cn4">0 FCFA</span></div>
-        <div class="cln"><span>TVA 18%</span><span id="cn5">0 FCFA</span></div>
-        <div class="cln" style="font-weight:700;color:#CC0000;font-size:14px;padding-top:8px"><span>CA TTC</span><span id="cn6">0 FCFA</span></div>
+        <div class="cln" style="font-weight:700;color:#CC0000;font-size:14px;padding-top:8px"><span>CA total</span><span id="cn6">0 FCFA</span></div>
       </div>
       <div class="ccard"><div class="ccti">💸 Prélèvements</div>
         <div id="prelList" style="min-height:40px;margin-bottom:10px;font-size:12px"><span style="color:#444">Aucun prélèvement</span></div>
@@ -655,7 +653,6 @@ td{padding:8px 11px;vertical-align:middle}
     <div class="itabs">
       <button class="btn btn-o sm" onclick="goPage('caisse',document.querySelector('.nb'))" style="margin-right:8px">← Retour</button>
       <button class="it on" onclick="goSub('params','gen',this)">🏪 Établissement</button>
-      <button class="it" onclick="goSub('params','tva',this)">💰 TVA &amp; Prix</button>
       <button class="it" onclick="goSub('params','users',this)">👤 Utilisateurs</button>
       <button class="it" onclick="goSub('params','tables',this)">🪑 Tables</button>
       <button class="it" onclick="goSub('params','caisses',this)">💰 Caisses</button>
@@ -699,31 +696,6 @@ td{padding:8px 11px;vertical-align:middle}
         <div style="display:flex;gap:10px"><button class="btn btn-r" onclick="saveEtabInfo()">💾 Enregistrer</button><button class="btn btn-o">Réinitialiser</button></div>
       </div>
     </div>
-    <div class="sub" id="sub-params-tva">
-      <div class="slay">
-        <div class="ssect"><div class="ssti">Configuration TVA &amp; Prix</div>
-          <div class="sg">
-            <div class="fg" style="grid-column:1/-1">
-              <label class="fl">TVA activée</label>
-              <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
-                <label style="position:relative;display:inline-block;width:52px;height:28px;flex-shrink:0">
-                  <input type="checkbox" id="settTVAOn" checked onchange="saveTVASettings()" style="opacity:0;width:0;height:0">
-                  <span id="tvaToggleTrack" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#CC0000;border-radius:28px;transition:.3s">
-                    <span id="tvaToggleThumb" style="position:absolute;content:'';height:22px;width:22px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s"></span>
-                  </span>
-                </label>
-                <span id="tvaToggleLbl" style="font-size:13px;color:#44FF88;font-weight:700">TVA active (18%)</span>
-              </div>
-            </div>
-            <div class="fg"><label class="fl">Taux TVA (%)</label><input class="fi" type="number" value="18" id="settTVA" onchange="saveTVASettings()"></div>
-            <div class="fg"><label class="fl">Stock min. alerte</label><input class="fi" type="number" value="5" id="settSMin"></div>
-            <div class="fg"><label class="fl">Nb de tables</label><input class="fi" type="number" value="12"></div>
-          </div>
-        </div>
-        <div class="ssect"><div class="ssti">TVA par catégorie</div><div id="tvaCatG" style="display:grid;grid-template-columns:repeat(3,1fr);gap:11px"></div></div>
-        <button class="btn btn-r" onclick="saveTVASettings();toast('TVA enregistrée','s')">💾 Enregistrer</button>
-      </div>
-    </div>
     <div class="sub" id="sub-params-users">
       <div class="slay"><div class="ssect" style="text-align:center;padding:40px 20px">
         <div style="font-size:36px;margin-bottom:12px">👥</div>
@@ -746,7 +718,12 @@ td{padding:8px 11px;vertical-align:middle}
     </div>
     <div class="sub" id="sub-params-cats">
       <div class="stb"><span class="stit">Catégories d'articles</span><button class="btn btn-r sm" onclick="openCatModal()">➕ Ajouter une catégorie</button></div>
-      <div class="tw"><table id="tCats"><thead><tr><th>Nom</th><th>Actions</th></tr></thead><tbody id="bCats"></tbody></table></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#ccc;padding:0 14px 10px;cursor:pointer">
+        <input type="checkbox" id="chkGestionSeuilCat" onchange="toggleGestionSeuilCat()" style="width:15px;height:15px">
+        Activer la gestion du seuil d'alerte stock par catégorie
+      </label>
+      <p id="seuilCatDesc" style="font-size:11px;color:#666;padding:0 14px 8px">Le seuil d'alerte définit à partir de quelle quantité de stock un article de cette catégorie est signalé comme "stock faible". "Appliquer" l'écrit sur tous les articles déjà existants dans cette catégorie (les nouveaux articles utilisent aussi ce seuil par défaut).</p>
+      <div class="tw" id="wrapTabCats"><table id="tCats"><thead><tr><th>Nom</th><th id="thSeuilCat">Seuil d'alerte stock</th><th>Actions</th></tr></thead><tbody id="bCats"></tbody></table></div>
     </div>
     <div class="sub" id="sub-params-airtel">
       <div class="slay"><div class="ssect">
@@ -863,7 +840,7 @@ td{padding:8px 11px;vertical-align:middle}
   <div class="mb"><div class="sg">
     <div class="fg"><label class="fl">Référence</label><input class="fi" id="aRef" placeholder="ART-001"></div>
     <div class="fg"><label class="fl">Désignation *</label><input class="fi" id="aNom" placeholder="Nom"></div>
-    <div class="fg"><label class="fl">Catégorie *</label><div style="display:flex;gap:6px"><select class="fi" id="aCat" style="flex:1"></select><button type="button" class="btn btn-o sm" onclick="openCatModal()">➕</button></div></div>
+    <div class="fg"><label class="fl">Catégorie *</label><div style="display:flex;gap:6px"><select class="fi" id="aCat" style="flex:1" onchange="appliquerSeuilParDefaut()"></select><button type="button" class="btn btn-o sm" onclick="openCatModal()">➕</button></div></div>
     <div class="fg"><label class="fl">Unité</label><select class="fi" id="aUn"><option>Unité</option><option>Bouteille</option><option>Verre</option><option>Litre</option><option>cl</option><option>kg</option><option>g</option><option>Portion</option><option>Carton</option></select></div>
     <div class="fg"><label class="fl">Prix vente (FCFA) *</label><input class="fi" type="number" id="aPV" placeholder="0" oninput="calcMg()"></div>
     <div class="fg"><label class="fl">Prix achat (FCFA)</label><input class="fi" type="number" id="aPA" placeholder="0" oninput="calcMg()"></div>
@@ -886,13 +863,14 @@ td{padding:8px 11px;vertical-align:middle}
 <div class="ov" id="ovImportArt"><div class="md lg"><div class="mh"><span class="mt">Importer une liste d'articles</span><button class="mc" onclick="closeM('ovImportArt')">✕</button></div>
   <div class="mb">
     <p style="font-size:12px;color:#999;margin-bottom:10px;line-height:1.5">
-      Fichier CSV avec en-têtes, colonnes dans cet ordre :<br>
+      Fichier <strong>Excel (.xlsx)</strong> ou CSV, avec en-têtes, colonnes dans cet ordre :<br>
       <code style="color:#eee">Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,Stock min,Emoji,TVA</code><br>
       Seuls <strong>Nom</strong>, <strong>Catégorie</strong> et <strong>Prix vente</strong> sont obligatoires — le reste peut rester vide.
     </p>
-    <div class="fg"><label class="fl">Choisir un fichier CSV</label><input class="fi" type="file" id="importFile" accept=".csv,text/csv"></div>
-    <div class="fg"><label class="fl">— ou collez directement le contenu CSV ici —</label>
-      <textarea class="fi" id="importText" rows="8" placeholder="Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,Stock min,Emoji,TVA
+    <div class="fg"><label class="fl">Choisir un fichier Excel (.xlsx) ou CSV</label><input class="fi" type="file" id="importFile" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
+    <p id="importFileStatus" style="font-size:12px;color:#4488FF;min-height:16px"></p>
+    <div class="fg"><label class="fl">— ou collez directement du texte CSV ici (pas pour l'Excel) —</label>
+      <textarea class="fi" id="importText" rows="6" placeholder="Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,Stock min,Emoji,TVA
 ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺,18"></textarea>
     </div>
     <div class="fg">
@@ -1444,43 +1422,12 @@ function applyPct(){
   var pct=parseFloat(g('remP').value)||0;
   g('remF').value=Math.round(sub*pct/100)||'';updTotal();
 }
-// ---- TVA SETTINGS ----
-var tvaActif=true;
-var tvaRate=0.18;
-function applyTVAToggleUI(){
-  var lbl=g('tvaToggleLbl'),track=g('tvaToggleTrack'),thumb=g('tvaToggleThumb');
-  if(!lbl||!track||!thumb)return;
-  if(g('settTVAOn'))g('settTVAOn').checked=tvaActif;
-  if(g('settTVA'))g('settTVA').value=Math.round(tvaRate*100);
-  if(tvaActif){
-    track.style.background='#CC0000';thumb.style.left='3px';
-    lbl.textContent='TVA active ('+Math.round(tvaRate*100)+'%)';lbl.style.color='#44FF88';
-    if(g('frTVA'))g('frTVA').style.display='';
-  } else {
-    track.style.background='#444';thumb.style.left='27px';
-    lbl.textContent='TVA désactivée';lbl.style.color='#888';
-    if(g('frTVA'))g('frTVA').style.display='none';
-  }
-}
-// Appelée par network.js à chaque chargement/synchronisation de l'état, pour que
-// le réglage TVA enregistré soit bien celui affiché — plus de retour automatique
-// à "activée" après un rechargement de page.
-window.applyTVAFromEtab=function(){
-  if(window.etabInfo&&typeof window.etabInfo.tvaActif==='boolean')tvaActif=window.etabInfo.tvaActif;
-  if(window.etabInfo&&typeof window.etabInfo.tvaRate==='number')tvaRate=window.etabInfo.tvaRate;
-  applyTVAToggleUI();
-  if(typeof updTotal==='function')updTotal();
-};
-function saveTVASettings(){
-  tvaActif=g('settTVAOn').checked;
-  tvaRate=(parseFloat(g('settTVA').value)||18)/100;
-  applyTVAToggleUI();
-  // Sauvegarde permanente : sans ceci, le réglage n'existait qu'en mémoire pour
-  // la session en cours et repartait sur "activée" au prochain chargement.
-  if(window.etabInfo){window.etabInfo.tvaActif=tvaActif;window.etabInfo.tvaRate=tvaRate;}
-  if(window.fssSyncPush)window.fssSyncPush();
-  updTotal();
-}
+// ---- TVA : entièrement retirée du logiciel sur demande — toujours désactivée ----
+var tvaActif=false;
+var tvaRate=0;
+function applyTVAToggleUI(){}
+window.applyTVAFromEtab=function(){};
+function saveTVASettings(){}
 function updTotal(){
   var sub=tkt.reduce(function(s,it){return s+it.pv*it.qty;},0);
   var rem=parseFloat(g('remF').value)||0,base=Math.max(0,sub-rem);
@@ -1521,9 +1468,6 @@ function onTableChange(){
 function libererTable(){
   var sel=g('selTable');
   sel.value='0';sel.style.background='';sel.style.color='';sel.style.fontWeight='';
-  if(g('chkMultiFacture')){g('chkMultiFacture').checked=false;}
-  if(g('selSousFacture')){g('selSousFacture').style.display='none';}
-  renderSousFactureSelect();
   updBadge();
   updateTableOptions();
 }
@@ -1842,11 +1786,6 @@ function reprendreAttente(id){
   // sous-facture n'apparaisse pas comme "déjà occupée" lors de la reprise.
   var parts=String(c.tableVal).split('-');
   var sel=g('selTable');sel.value=parts[0];onTableChange();
-  if(parts[1]){
-    if(g('chkMultiFacture'))g('chkMultiFacture').checked=true;
-    toggleSousFactureUI();
-    if(g('selSousFacture'))g('selSousFacture').value=parts[1];
-  }
   var selS=g('selSrv');
   for(var j=0;j<selS.options.length;j++){if(selS.options[j].text===c.srv){selS.value=selS.options[j].value;break;}}
   renderTkt();updTotal();renderAttenteBar();updateTableOptions();
@@ -2290,8 +2229,18 @@ function renderArt(){
 function openArtModal(id){
   editArtId=id||null;g('artMT').textContent=id?'Modifier article':'Nouvel article';
   if(id){var a=arts.find(function(x){return x.id===id;});g('aRef').value=a.ref;g('aNom').value=a.nom;g('aCat').value=a.cat;g('aUn').value=a.un;g('aPV').value=a.pv;g('aPA').value=a.pa;g('aStk').value=a.stk;g('aSMin').value=a.smin;g('aEmo').value=a.emo;g('aTVA').value=a.tva;g('aCB').value=a.cb||'';g('aAlerte').checked=a.alerte!==false;}
-  else{['aRef','aNom','aPV','aPA','aStk','aSMin','aCB'].forEach(function(i){g(i).value='';});g('aEmo').value='🍽️';g('aTVA').value='18';g('aAlerte').checked=true;}
+  else{['aRef','aNom','aPV','aPA','aStk','aSMin','aCB'].forEach(function(i){g(i).value='';});g('aEmo').value='🍽️';g('aTVA').value='18';g('aAlerte').checked=true;appliquerSeuilParDefaut();}
   calcMg();g('ovArt').classList.add('on');
+}
+// Pré-remplit le seuil d'alerte stock avec celui défini pour la catégorie
+// sélectionnée (Paramètres → Catégories) — seulement pour un nouvel article,
+// jamais en modification d'un article existant.
+function appliquerSeuilParDefaut(){
+  if(editArtId)return;
+  if(!gestionSeuilCatActif){if(g('aSMin'))g('aSMin').value=5;return;}
+  var cat=g('aCat')?g('aCat').value:'';
+  var seuil=categorySeuils[cat];
+  if(g('aSMin'))g('aSMin').value=seuil!=null?seuil:5;
 }
 function calcMg(){var pv=parseInt(g('aPV').value)||0,pa=parseInt(g('aPA').value)||0,m=pv-pa,pct=pv?Math.round(m/pv*100):0;g('aMg').textContent=fmt(m)+' ('+pct+'%)';g('aMg').style.color=pct>30?'#4488FF':pct>15?'#CC0000':'#FF4444';}
 // ---- CODE-BARRES : génération EAN-13 + rendu SVG + impression (sans dépendance externe) ----
@@ -2388,15 +2337,87 @@ function delArt(id){
 }
 
 // ---------- Import / vidage du catalogue d'articles ----------
+// Export d'un vrai fichier Excel (.xlsx) des articles — pas du CSV.
+function exportArticlesXlsx(){
+  var headers=['Référence','Nom','Catégorie','Unité','Prix vente','Prix achat','Stock','Stock min','Emoji','TVA'];
+  var rows=arts.map(function(a){
+    return [a.ref||'',a.nom||'',a.cat||'',a.un||'',a.pv||0,a.pa||0,a.stk||0,a.smin||0,a.emo||'',a.tva||0];
+  });
+  var numericCols=[4,5,6,7,9];
+  var bytes=buildXlsx(headers,rows,numericCols);
+  var fileName='fss-articles_'+new Date().toISOString().split('T')[0]+'.xlsx';
+  if(window.electronAPI&&window.electronAPI.saveFileDialog){
+    window.electronAPI.saveFileDialog(fileName,uint8ToBase64(bytes),true).then(function(result){
+      if(result.canceled)return;
+      if(result.success)toast('Fichier Excel enregistré : '+result.filePath,'s');
+      else toast("Erreur lors de l'enregistrement : "+(result.error||''),'e');
+    });
+  }else{
+    var blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=fileName;a.click();
+    toast('Fichier Excel téléchargé','s');
+  }
+}
+var importedXlsxRows=null;
 function openImportModal(){
-  g('importFile').value='';g('importText').value='';g('importReplace').checked=false;g('importPreview').textContent='';
+  g('importFile').value='';g('importText').value='';g('importReplace').checked=false;g('importPreview').textContent='';g('importFileStatus').textContent='';
+  importedXlsxRows=null;
   g('importFile').onchange=function(){
     var file=this.files[0];if(!file)return;
-    var reader=new FileReader();
-    reader.onload=function(e){g('importText').value=e.target.result;};
-    reader.readAsText(file,'UTF-8');
+    importedXlsxRows=null;g('importText').value='';
+    var estXlsx=/\.xlsx$/i.test(file.name)||file.type.indexOf('spreadsheetml')!==-1;
+    if(estXlsx){
+      g('importFileStatus').textContent='Lecture du fichier Excel...';
+      var reader=new FileReader();
+      reader.onload=function(e){
+        readXlsxRows(new Uint8Array(e.target.result)).then(function(rows){
+          importedXlsxRows=rows;
+          g('importFileStatus').textContent='✓ Fichier Excel chargé : '+Math.max(0,rows.length-1)+' ligne(s) de données détectée(s).';
+        }).catch(function(err){
+          g('importFileStatus').textContent='';
+          toast('Impossible de lire ce fichier Excel : '+err.message,'e');
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    }else{
+      var reader2=new FileReader();
+      reader2.onload=function(e){g('importText').value=e.target.result;g('importFileStatus').textContent='✓ Fichier CSV chargé.';};
+      reader2.readAsText(file,'UTF-8');
+    }
   };
   g('ovImportArt').classList.add('on');
+}
+// Convertit un tableau de lignes (chacune un tableau de valeurs de colonnes,
+// dans l'ordre Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,
+// Stock min,Emoji,TVA) en articles — utilisé pour le CSV et pour l'Excel.
+function rowsToArticles(rows){
+  if(!rows.length)return[];
+  var start=0;
+  var f0=(rows[0][1]||'')+''+(rows[0][0]||'');
+  if(/r[ée]f[ée]rence|nom/i.test(f0))start=1;
+  var result=[];
+  for(var i=start;i<rows.length;i++){
+    var f=rows[i];
+    var nom=(f[1]||'').toString().trim();
+    var cat=(f[2]||'').toString().trim();
+    var pv=parseInt((f[4]||'').toString().replace(/[^\d]/g,''))||0;
+    if(!nom||!cat||!pv)continue;
+    result.push({
+      ref:(f[0]||'').toString().trim()||('ART-'+Date.now()+'-'+i),
+      nom:nom,
+      cat:cat,
+      un:(f[3]||'Unité').toString().trim()||'Unité',
+      pv:pv,
+      pa:parseInt((f[5]||'').toString().replace(/[^\d]/g,''))||0,
+      stk:parseInt(f[6])||0,
+      smin:parseInt(f[7])||5,
+      emo:(f[8]||'🍽️').toString().trim()||'🍽️',
+      tva:parseInt(f[9])||18,
+      actif:true
+    });
+  }
+  return result;
 }
 // Analyseur CSV simple (gère les champs entre guillemets contenant des virgules)
 function parseCSVLine(line){
@@ -2413,36 +2434,18 @@ function parseCSVLine(line){
 function parseCSVArticles(text){
   var lines=text.split(/\r?\n/).map(function(l){return l.trim();}).filter(function(l){return l.length;});
   if(!lines.length)return[];
-  // On ignore la 1ère ligne si elle ressemble à un en-tête (contient "nom" ou "référence")
-  var start=0;
-  if(/r[ée]f[ée]rence|nom/i.test(lines[0]))start=1;
-  var result=[];
-  for(var i=start;i<lines.length;i++){
-    var f=parseCSVLine(lines[i]);
-    var nom=(f[1]||'').trim();
-    var cat=(f[2]||'').trim();
-    var pv=parseInt((f[4]||'').replace(/[^\d]/g,''))||0;
-    if(!nom||!cat||!pv)continue; // ligne invalide, ignorée
-    result.push({
-      ref:(f[0]||'').trim()||('ART-'+Date.now()+'-'+i),
-      nom:nom,
-      cat:cat,
-      un:(f[3]||'Unité').trim()||'Unité',
-      pv:pv,
-      pa:parseInt((f[5]||'').replace(/[^\d]/g,''))||0,
-      stk:parseInt(f[6])||0,
-      smin:parseInt(f[7])||5,
-      emo:(f[8]||'🍽️').trim()||'🍽️',
-      tva:parseInt(f[9])||18,
-      actif:true
-    });
-  }
-  return result;
+  var rows=lines.map(parseCSVLine);
+  return rowsToArticles(rows);
 }
 function lancerImportArticles(){
-  var text=g('importText').value;
-  if(!text.trim()){toast('Aucune donnée à importer — choisissez un fichier ou collez du texte','e');return;}
-  var parsed=parseCSVArticles(text);
+  var parsed;
+  if(importedXlsxRows&&importedXlsxRows.length){
+    parsed=rowsToArticles(importedXlsxRows);
+  }else{
+    var text=g('importText').value;
+    if(!text.trim()){toast('Aucune donnée à importer — choisissez un fichier ou collez du texte','e');return;}
+    parsed=parseCSVArticles(text);
+  }
   if(!parsed.length){toast('Aucun article valide trouvé dans ce fichier','e');return;}
   var replace=g('importReplace').checked;
   if(replace&&!confirm(parsed.length+' article(s) vont remplacer TOUT le catalogue actuel ('+arts.length+' article(s) existants seront supprimés). Continuer ?'))return;
@@ -3066,7 +3069,7 @@ function initCloture(){
   var tp=prls.reduce(function(s,p){return s+p.mnt;},0);
   if(g('clFondsOuv'))g('clFondsOuv').textContent=fmt(fonds);
   g('cl2').textContent=fmt(ttc);g('cl3').textContent=fmt(esp);g('cl4').textContent=fmt(cart);g('cl5').textContent=fmt(tp);g('cl6').textContent=fmt(fonds+ttc-tp);
-  g('cn1').textContent=tl.length;g('cn2').textContent=nb;g('cn3').textContent=tl.length?fmt(Math.round(ttc/tl.length)):fmt(0);g('cn4').textContent=fmt(ht);g('cn5').textContent=fmt(tva);g('cn6').textContent=fmt(ttc);
+  g('cn1').textContent=tl.length;g('cn2').textContent=nb;g('cn3').textContent=tl.length?fmt(Math.round(ttc/tl.length)):fmt(0);g('cn6').textContent=fmt(ttc);
   if(g('clDate'))g('clDate').textContent=new Date().toLocaleDateString('fr-FR');
   renderPrls();calcCpt();
 }
@@ -3451,6 +3454,7 @@ function delCaisse(nom){
   toast('Caisse supprimée','i');
 }
 var categories=['Boissons','Bières','Alcools','Apéritifs','Digestifs','Entrées','Plats','Viandes','Poissons','Salades','Desserts','Accompagnements','Sauces','Fromages','Fruits'];
+var categorySeuils={};
 var editCatNom=null;
 function renderCatSelect(){
   var sel=g('aCat');if(!sel)return;
@@ -3592,21 +3596,63 @@ function saveAirtelConfig(){
     })
     .catch(function(){toast('Erreur lors de l\'enregistrement','e');});
 }
+var gestionSeuilCatActif=false;
+function toggleGestionSeuilCat(){
+  var chk=g('chkGestionSeuilCat');if(!chk)return;
+  gestionSeuilCatActif=chk.checked;
+  if(window.etabInfo)window.etabInfo.gestionSeuilCatActif=gestionSeuilCatActif;
+  if(window.fssSyncPush)window.fssSyncPush();
+  initCategories();
+}
 function initCategories(){
   var b=g('bCats');if(!b)return;b.innerHTML='';
+  if(g('chkGestionSeuilCat'))g('chkGestionSeuilCat').checked=gestionSeuilCatActif;
+  if(g('thSeuilCat'))g('thSeuilCat').style.display=gestionSeuilCatActif?'':'none';
+  if(g('seuilCatDesc'))g('seuilCatDesc').style.display=gestionSeuilCatActif?'':'none';
   categories.slice().sort().forEach(function(c){
     var tr=document.createElement('tr');
     var tdNom=document.createElement('td');tdNom.textContent=c;
+    var nbArts=arts.filter(function(a){return a.cat===c;}).length;
+    if(nbArts)tdNom.innerHTML=c+' <span style="font-size:10px;color:#666">('+nbArts+' article'+(nbArts>1?'s':'')+')</span>';
+    tr.appendChild(tdNom);
+
+    if(gestionSeuilCatActif){
+      var tdSeuil=document.createElement('td');
+      var inpSeuil=document.createElement('input');
+      inpSeuil.className='fi';inpSeuil.type='number';inpSeuil.min='0';
+      inpSeuil.style.cssText='width:70px;padding:4px 6px;display:inline-block';
+      inpSeuil.value=categorySeuils[c]!=null?categorySeuils[c]:5;
+      var btnAppliquer=document.createElement('button');
+      btnAppliquer.className='btn btn-o sm';btnAppliquer.style.marginLeft='8px';
+      btnAppliquer.textContent='Appliquer aux articles';
+      btnAppliquer.onclick=(function(cat,input){return function(){appliquerSeuilCategorie(cat,input.value);};})(c,inpSeuil);
+      tdSeuil.appendChild(inpSeuil);tdSeuil.appendChild(btnAppliquer);
+      tr.appendChild(tdSeuil);
+    }
+
     var tdAct=document.createElement('td');
     var btnEdit=document.createElement('button');btnEdit.className='ibt';btnEdit.textContent='✏️';
     btnEdit.addEventListener('click',function(){openCatModal(c);});
     var btnDel=document.createElement('button');btnDel.className='ibt';btnDel.textContent='🗑️';
     btnDel.addEventListener('click',function(){delCat(c);});
     tdAct.appendChild(btnEdit);tdAct.appendChild(btnDel);
-    tr.appendChild(tdNom);tr.appendChild(tdAct);
+    tr.appendChild(tdAct);
+
     b.appendChild(tr);
   });
   renderCatSelect();
+}
+// Enregistre le seuil par défaut de la catégorie, et l'écrit sur tous les
+// articles déjà existants dans cette catégorie (stock minimum = smin).
+function appliquerSeuilCategorie(cat,valeur){
+  var seuil=parseInt(valeur);
+  if(isNaN(seuil)||seuil<0){toast('Seuil invalide','e');return;}
+  categorySeuils[cat]=seuil;
+  var nb=0;
+  arts.forEach(function(a){if(a.cat===cat){a.smin=seuil;nb++;}});
+  renderArt();renderStk();
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('Seuil appliqué à '+nb+' article(s) de "'+cat+'"','s');
 }
 function openCatModal(nom){
   editCatNom=nom||null;
@@ -3622,6 +3668,7 @@ function saveCat(){
     var idx=categories.indexOf(editCatNom);
     if(idx>=0)categories[idx]=nom;
     arts.forEach(function(a){if(a.cat===editCatNom)a.cat=nom;});
+    if(categorySeuils[editCatNom]!=null){categorySeuils[nom]=categorySeuils[editCatNom];delete categorySeuils[editCatNom];}
   }else{
     categories.push(nom);
   }
@@ -3632,9 +3679,31 @@ function saveCat(){
 }
 function delCat(nom){
   if(categories.length<=1){toast('Il doit rester au moins une catégorie','e');return;}
-  if(arts.some(function(a){return a.cat===nom;})){toast('Impossible : des articles utilisent encore cette catégorie','e');return;}
-  if(!confirm('Supprimer la catégorie "'+nom+'" ?'))return;
+  var nbArts=arts.filter(function(a){return a.cat===nom;}).length;
+  if(nbArts){
+    // Plutôt que de bloquer, on propose de réaffecter les articles concernés
+    // vers une autre catégorie avant de supprimer celle-ci.
+    var autres=categories.filter(function(c){return c!==nom;});
+    var choix=prompt(
+      nbArts+' article(s) utilisent encore "'+nom+'".\n'+
+      'Vers quelle catégorie les déplacer avant suppression ?\n\n'+
+      'Catégories disponibles :\n'+autres.join(', '),
+      autres[0]||''
+    );
+    if(choix===null)return; // annulé
+    choix=choix.trim();
+    if(!autres.some(function(c){return c.toLowerCase()===choix.toLowerCase();})){
+      toast('Catégorie de destination invalide — suppression annulée','e');return;
+    }
+    var vraiNomCible=autres.find(function(c){return c.toLowerCase()===choix.toLowerCase();});
+    arts.forEach(function(a){if(a.cat===nom)a.cat=vraiNomCible;});
+    toast(nbArts+' article(s) déplacé(s) vers "'+vraiNomCible+'"','i');
+  }else{
+    if(!confirm('Supprimer la catégorie "'+nom+'" ?'))return;
+  }
   categories=categories.filter(function(c){return c!==nom;});
+  delete categorySeuils[nom];
+  renderArt();buildCats();renderProds('');
   initCategories();
   if(window.fssSyncPush)window.fssSyncPush();
   toast('Catégorie supprimée','i');
@@ -3754,6 +3823,145 @@ function exporterSauvegarde(){
     a.href=URL.createObjectURL(b);a.download=fileName;a.click();
     toast('Sauvegarde téléchargée','s');
   }
+}
+
+// ============================================================
+// Mini-bibliothèque XLSX en JavaScript pur (aucune dépendance externe,
+// fonctionne hors-ligne) — écrit et lit de vrais fichiers .xlsx (format
+// ZIP + OOXML), testée en profondeur avant intégration (round-trip avec
+// accents, guillemets, apostrophes, et vérifiée avec openpyxl).
+// ============================================================
+var CRC_TABLE=(function(){var t=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+function crc32(bytes){var crc=0xFFFFFFFF;for(var i=0;i<bytes.length;i++)crc=CRC_TABLE[(crc^bytes[i])&0xFF]^(crc>>>8);return (crc^0xFFFFFFFF)>>>0;}
+function buildZip(files){
+  var localParts=[],centralParts=[],offset=0;
+  files.forEach(function(f){
+    var nameBytes=new TextEncoder().encode(f.name),data=f.data,crc=crc32(data);
+    var local=new Uint8Array(30+nameBytes.length),dv=new DataView(local.buffer);
+    dv.setUint32(0,0x04034b50,true);dv.setUint16(4,20,true);dv.setUint16(6,0,true);dv.setUint16(8,0,true);
+    dv.setUint16(10,0,true);dv.setUint16(12,0x21,true);dv.setUint32(14,crc,true);
+    dv.setUint32(18,data.length,true);dv.setUint32(22,data.length,true);
+    dv.setUint16(26,nameBytes.length,true);dv.setUint16(28,0,true);
+    local.set(nameBytes,30);
+    localParts.push(local,data);
+    var central=new Uint8Array(46+nameBytes.length),dvc=new DataView(central.buffer);
+    dvc.setUint32(0,0x02014b50,true);dvc.setUint16(4,20,true);dvc.setUint16(6,20,true);dvc.setUint16(8,0,true);
+    dvc.setUint16(10,0,true);dvc.setUint16(12,0,true);dvc.setUint16(14,0x21,true);dvc.setUint32(16,crc,true);
+    dvc.setUint32(20,data.length,true);dvc.setUint32(24,data.length,true);
+    dvc.setUint16(28,nameBytes.length,true);dvc.setUint16(30,0,true);dvc.setUint16(32,0,true);
+    dvc.setUint16(34,0,true);dvc.setUint16(36,0,true);dvc.setUint32(38,0,true);dvc.setUint32(42,offset,true);
+    central.set(nameBytes,46);
+    centralParts.push(central);
+    offset+=local.length+data.length;
+  });
+  var centralStart=offset,centralSize=centralParts.reduce(function(s,p){return s+p.length;},0);
+  var eocd=new Uint8Array(22),dve=new DataView(eocd.buffer);
+  dve.setUint32(0,0x06054b50,true);dve.setUint16(8,files.length,true);dve.setUint16(10,files.length,true);
+  dve.setUint32(12,centralSize,true);dve.setUint32(16,centralStart,true);
+  var allParts=localParts.concat(centralParts,[eocd]);
+  var totalLen=allParts.reduce(function(s,p){return s+p.length;},0);
+  var out=new Uint8Array(totalLen),pos=0;
+  allParts.forEach(function(p){out.set(p,pos);pos+=p.length;});
+  return out;
+}
+async function readZip(bytes){
+  var eocdOffset=-1;
+  for(var i=bytes.length-22;i>=0&&i>=bytes.length-66000;i--){
+    if(bytes[i]===0x50&&bytes[i+1]===0x4b&&bytes[i+2]===0x05&&bytes[i+3]===0x06){eocdOffset=i;break;}
+  }
+  if(eocdOffset===-1)throw new Error('Fichier ZIP/XLSX invalide');
+  var dv=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  var entryCount=dv.getUint16(eocdOffset+10,true),centralOffset=dv.getUint32(eocdOffset+16,true);
+  var files={},pos=centralOffset;
+  for(var e=0;e<entryCount;e++){
+    if(dv.getUint32(pos,true)!==0x02014b50)throw new Error('Entrée ZIP invalide');
+    var method=dv.getUint16(pos+10,true),compSize=dv.getUint32(pos+20,true);
+    var nameLen=dv.getUint16(pos+28,true),extraLen=dv.getUint16(pos+30,true),commentLen=dv.getUint16(pos+32,true);
+    var localOffset=dv.getUint32(pos+42,true);
+    var name=new TextDecoder().decode(bytes.subarray(pos+46,pos+46+nameLen));
+    var lNameLen=dv.getUint16(localOffset+26,true),lExtraLen=dv.getUint16(localOffset+28,true);
+    var dataStart=localOffset+30+lNameLen+lExtraLen;
+    var compData=bytes.subarray(dataStart,dataStart+compSize);
+    files[name]=method===0?compData:(method===8?await inflateRaw(compData):(function(){throw new Error('Compression ZIP non gérée');})());
+    pos+=46+nameLen+extraLen+commentLen;
+  }
+  return files;
+}
+async function inflateRaw(compData){
+  var ds=new DecompressionStream('deflate-raw'),writer=ds.writable.getWriter();
+  writer.write(compData);writer.close();
+  var reader=ds.readable.getReader(),chunks=[],total=0;
+  while(true){var r=await reader.read();if(r.done)break;chunks.push(r.value);total+=r.value.length;}
+  var out=new Uint8Array(total),off=0;
+  chunks.forEach(function(c){out.set(c,off);off+=c.length;});
+  return out;
+}
+function xlsxColLetter(n){var s='';n=n+1;while(n>0){var rem=(n-1)%26;s=String.fromCharCode(65+rem)+s;n=Math.floor((n-1)/26);}return s;}
+function xlsxColToIndex(letters){var n=0;for(var i=0;i<letters.length;i++)n=n*26+(letters.charCodeAt(i)-64);return n-1;}
+function xmlEscapeXlsx(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
+function xmlUnescapeXlsx(s){return String(s).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');}
+function buildXlsx(headers,rows,numericCols){
+  numericCols=numericCols||[];
+  var sheetRows=[];
+  var headerCells=headers.map(function(h,ci){return '<c r="'+xlsxColLetter(ci)+'1" t="inlineStr"><is><t>'+xmlEscapeXlsx(h)+'</t></is></c>';}).join('');
+  sheetRows.push('<row r="1">'+headerCells+'</row>');
+  rows.forEach(function(row,ri){
+    var cells=row.map(function(val,ci){
+      var ref=xlsxColLetter(ci)+(ri+2);
+      if(numericCols.indexOf(ci)!==-1&&val!==''&&val!=null&&!isNaN(val))return '<c r="'+ref+'"><v>'+Number(val)+'</v></c>';
+      return '<c r="'+ref+'" t="inlineStr"><is><t>'+xmlEscapeXlsx(val)+'</t></is></c>';
+    }).join('');
+    sheetRows.push('<row r="'+(ri+2)+'">'+cells+'</row>');
+  });
+  var sheetXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+sheetRows.join('')+'</sheetData></worksheet>';
+  var contentTypes='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>';
+  var rootRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  var workbookXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Articles" sheetId="1" r:id="rId1"/></sheets></workbook>';
+  var workbookRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
+  var enc=new TextEncoder();
+  return buildZip([
+    {name:'[Content_Types].xml',data:enc.encode(contentTypes)},
+    {name:'_rels/.rels',data:enc.encode(rootRels)},
+    {name:'xl/workbook.xml',data:enc.encode(workbookXml)},
+    {name:'xl/_rels/workbook.xml.rels',data:enc.encode(workbookRels)},
+    {name:'xl/worksheets/sheet1.xml',data:enc.encode(sheetXml)}
+  ]);
+}
+async function readXlsxRows(bytes){
+  var files=await readZip(bytes);
+  var sheetXml=new TextDecoder('utf-8').decode(files['xl/worksheets/sheet1.xml']);
+  var sharedStrings=[];
+  if(files['xl/sharedStrings.xml']){
+    var ssXml=new TextDecoder('utf-8').decode(files['xl/sharedStrings.xml']);
+    var siRe=/<si>([\s\S]*?)<\/si>/g,m;
+    while((m=siRe.exec(ssXml))){
+      var tMatches=m[1].match(/<t[^>]*>([\s\S]*?)<\/t>/g)||[];
+      sharedStrings.push(xmlUnescapeXlsx(tMatches.map(function(t){return t.replace(/<[^>]+>/g,'');}).join('')));
+    }
+  }
+  var rows=[];
+  var rowRe=/<row[^>]*>([\s\S]*?)<\/row>/g,rm;
+  while((rm=rowRe.exec(sheetXml))){
+    var cellRe=/<c\b([^>]*)>([\s\S]*?)<\/c>|<c\b([^>]*)\/>/g,cm,cells=[];
+    while((cm=cellRe.exec(rm[1]))){
+      var attrs=cm[1]||cm[3]||'',inner=cm[2]||'';
+      var refMatch=attrs.match(/r="([A-Z]+)(\d+)"/);
+      var colIdx=refMatch?xlsxColToIndex(refMatch[1]):cells.length;
+      var typeMatch=attrs.match(/t="([^"]+)"/),type=typeMatch?typeMatch[1]:null;
+      var value='';
+      if(type==='s'){var vM=inner.match(/<v>([\s\S]*?)<\/v>/);value=sharedStrings[vM?parseInt(vM[1]):-1]||'';}
+      else if(type==='inlineStr'){var tM=inner.match(/<t[^>]*>([\s\S]*?)<\/t>/);value=tM?xmlUnescapeXlsx(tM[1]):'';}
+      else{var vM2=inner.match(/<v>([\s\S]*?)<\/v>/);value=vM2?vM2[1]:'';}
+      while(cells.length<colIdx)cells.push('');
+      cells[colIdx]=value;
+    }
+    rows.push(cells);
+  }
+  return rows;
+}
+function uint8ToBase64(bytes){
+  var binary='';for(var i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 
 function exportT(id,name){

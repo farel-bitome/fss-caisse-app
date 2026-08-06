@@ -547,3 +547,115 @@ Les bulletins de paie s'impriment maintenant en **A4** (au lieu du format ticket
 80mm), avec une présentation professionnelle : en-tête établissement, bloc
 informations employé, tableau détaillé des retenues, net à payer mis en
 évidence, et zones de signature employeur/employé.
+
+## Avertissement adresse réseau invalide (169.254.x.x)
+
+Quand le PC Serveur détecte une adresse commençant par **169.254.** (adresse de
+secours attribuée automatiquement par Windows quand il n'arrive à joindre
+aucun routeur), un message d'avertissement s'affiche maintenant clairement sur
+l'écran "Adresse du serveur" — au lieu de montrer cette adresse comme si elle
+était utilisable.
+
+**Si vous voyez ce message** : ce n'est pas un bug de l'application — ça veut
+dire que ce PC n'est en réalité pas connecté au réseau (câble Ethernet
+débranché, ou Wi-Fi déconnecté/mal configuré). Vérifiez la connexion réseau du
+PC Serveur (icône réseau dans la barre des tâches Windows), reconnectez-le, puis
+cliquez sur "↺ Revenir à la détection automatique".
+
+## Plantages — rechargement désormais automatique
+
+Avant, quand l'application plantait ou se figeait (écran blanc/gelé), il
+fallait recharger manuellement via Alt → Recharger. C'est corrigé :
+
+- **Plantage du processus de rendu** (crash) → rechargement automatique
+  immédiat (avec une petite pause croissante si ça plante plusieurs fois
+  d'affilée, pour éviter une boucle infinie)
+- **Application figée** (JavaScript bloqué, ne répond plus) → si ça persiste
+  plus de 8 secondes, rechargement automatique aussi
+
+Vous ne devriez plus avoir besoin d'intervenir manuellement dans ces cas. Si
+l'app plante encore malgré ça, ouvrez la console développeur (touche F12) pour
+voir s'il y a un message d'erreur, qui aidera à identifier la vraie cause.
+
+## Seuil d'alerte stock par catégorie + suppression de catégorie améliorée
+
+Dans **Paramètres → Catégories**, chaque catégorie a maintenant :
+
+- Un **seuil d'alerte stock** réglable, avec un bouton **"Appliquer aux
+  articles"** qui l'écrit d'un coup sur tous les articles déjà existants de
+  cette catégorie. Tout nouvel article créé dans cette catégorie utilise aussi
+  ce seuil par défaut automatiquement.
+- Le nombre d'articles de la catégorie s'affiche à côté du nom.
+
+**Suppression de catégorie** : elle existait déjà mais était bloquée si des
+articles l'utilisaient encore. Maintenant, dans ce cas, l'app propose de
+**déplacer automatiquement** les articles concernés vers une autre catégorie de
+votre choix avant de supprimer — plus besoin de le faire à la main article par
+article au préalable.
+
+## Trois corrections importantes
+
+**1. Droits d'accès enfin vraiment indépendants** — trouvé et corrigé le vrai
+bug : la "migration" que j'avais ajoutée pour la séparation Réimpression/
+Annulation se relançait à *chaque* ouverture de la fiche d'un compte (pas
+qu'une seule fois comme prévu), recochant "Annulation" à chaque fois que
+"Réimpression" était cochée. Complètement retirée — les deux cases sont
+maintenant 100% indépendantes, sans aucun couplage automatique.
+
+**2. TVA entièrement retirée** — l'onglet "TVA & Prix" a disparu de
+Paramètres, la TVA est désactivée en permanence dans le calcul (impossible à
+réactiver), et toutes les lignes "Sous-total HT" / "TVA X%" / "CA HT" ont été
+retirées de la Caisse et du rapport de clôture. Il ne reste plus qu'un
+"TOTAL" simple partout.
+
+**3. Gestion du seuil d'alerte par catégorie — désormais activable/
+désactivable** — nouvelle case à cocher "Activer la gestion du seuil d'alerte
+stock par catégorie" en haut de Paramètres → Catégories. Désactivée par
+défaut : la colonne et le bouton "Appliquer aux articles" restent masqués tant
+qu'elle n'est pas cochée.
+
+## Import/Export Articles — vrai format Excel (.xlsx)
+
+Le bouton **⬇️ Export Excel** (Articles) génère maintenant un **vrai fichier
+.xlsx** — pas du CSV — directement ouvrable dans Microsoft Excel, LibreOffice
+Calc, Google Sheets, etc. avec les bonnes colonnes (texte/nombres correctement
+typés).
+
+Le bouton **📥 Importer** accepte maintenant aussi bien un fichier **.xlsx**
+qu'un fichier CSV — l'app détecte automatiquement le format.
+
+Tout est fait en JavaScript pur, **sans aucune dépendance ni connexion
+internet nécessaire** (aucune bibliothèque externe téléchargée) — ça fonctionne
+même hors ligne, comme le reste de l'application.
+
+**Testé en profondeur avant l'envoi** :
+- Cycle complet écriture → lecture avec accents, guillemets, apostrophes,
+  emojis et nombres — vérifié bit par bit
+- Fichier généré validé avec **Python zipfile** (intégrité ZIP confirmée) et
+  **openpyxl** (bibliothèque Excel dédiée — ouverture et lecture des données
+  réussies, avec les bons types texte/nombre)
+- Lecture d'un fichier compressé en DEFLATE (comme le ferait un vrai export
+  Excel) vérifiée et fonctionnelle
+- Test de bout en bout avec le code réellement intégré dans le fichier livré
+  (pas juste un prototype séparé)
+
+## Correction : licence qui redemandait une réactivation, adresse qui changeait
+
+**Cause trouvée** : l'identifiant unique de chaque PC incluait l'adresse MAC de
+la carte Wi-Fi. Or Windows **change automatiquement cette adresse** par défaut
+(fonctionnalité de confidentialité "Adresse matérielle aléatoire", activée par
+défaut sur la plupart des PC récents) — ce qui changeait l'identifiant du PC de
+temps en temps, invalidant la licence déjà activée.
+
+**Corrigé** : l'identifiant utilise maintenant le **GUID Windows**
+(`HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid`), un identifiant unique
+attribué une seule fois à l'installation de Windows, qui ne change **jamais**
+tant que Windows n'est pas réinstallé — ni avec le Wi-Fi, ni au redémarrage, ni
+en changeant de réseau.
+
+⚠️ Sur demande, **aucune compatibilité n'a été gardée** avec l'ancien calcul —
+les PC déjà activés avant ce correctif devront demander une **nouvelle clé**
+(nouvel identifiant affiché sur leur écran d'activation).
+
+**Testé avant envoi** : génération du nouvel identifiant stable + activation
+réussie sur un système sans registre Windows (repli automatique testé).

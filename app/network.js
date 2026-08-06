@@ -24,6 +24,7 @@
   window.servers = window.servers || [];
   window.caisses = window.caisses || [];
   window.categories = window.categories || [];
+  window.categorySeuils = window.categorySeuils || {};
   window.fondsOuverture = window.fondsOuverture || {};
   window.printBatches = window.printBatches || [];
   window.employes = window.employes || [];
@@ -35,6 +36,7 @@
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
       users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches,
+      categorySeuils: categorySeuils,
       employes: employes, pointages: pointages, paieEntries: paieEntries
     };
   }
@@ -46,10 +48,11 @@
     if (g('etabRCCM')) g('etabRCCM').value = etabInfo.rccm || '';
     if (g('etabNIF')) g('etabNIF').value = etabInfo.nif || '';
     if (g('etabMsgFin')) g('etabMsgFin').value = etabInfo.msgFin || 'Merci pour votre visite !';
-    // TVA : restaure l'état activé/désactivé et le taux, tels qu'enregistrés —
-    // sans ça, ils repartaient toujours sur les valeurs par défaut (activée, 18%)
-    // à chaque rechargement de la page, même après une désactivation explicite.
-    if (typeof window.applyTVAFromEtab === 'function') window.applyTVAFromEtab();
+    // Gestion du seuil d'alerte stock par catégorie : réglage activable/désactivable, mémorisé.
+    if (typeof window.gestionSeuilCatActif !== 'undefined') {
+      window.gestionSeuilCatActif = !!etabInfo.gestionSeuilCatActif;
+      if (typeof window.initCategories === 'function') safe(function () { window.initCategories(); });
+    }
   }
 
   function applyState(s) {
@@ -103,6 +106,8 @@
     window.caisses = caisses;
     if (s.categories && s.categories.length) categories = s.categories;
     window.categories = categories;
+    categorySeuils = s.categorySeuils || {};
+    window.categorySeuils = categorySeuils;
     if (s.fondsOuverture) fondsOuverture = s.fondsOuverture;
     window.fondsOuverture = fondsOuverture;
     employes = s.employes || [];

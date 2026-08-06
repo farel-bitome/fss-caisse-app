@@ -95,6 +95,12 @@
     <b id="detectedIp">...</b>
     <span class="badge" id="modeBadge"></span>
   </div>
+  <div class="err" id="apipaWarning" style="display:none">
+    ⚠️ Ce PC ne semble pas connecté au réseau (Wi-Fi/Ethernet) — l'adresse
+    169.254.x.x affichée est une adresse de secours de Windows, elle ne
+    fonctionnera sur aucun autre poste. Vérifiez le câble réseau ou la
+    connexion Wi-Fi de ce PC, puis cliquez sur "↺ Revenir à la détection".
+  </div>
 
   <div class="sep"></div>
 
@@ -122,6 +128,8 @@
       document.getElementById('detectedIp').textContent = info.detected
         ? info.detected + ':' + info.port
         : 'Non détectée';
+      var apipaWarning = document.getElementById('apipaWarning');
+      apipaWarning.style.display = (info.detected && info.detected.indexOf('169.254.') === 0) ? 'block' : 'none';
       var badge = document.getElementById('modeBadge');
       if (info.manual) {
         badge.className = 'badge on';
