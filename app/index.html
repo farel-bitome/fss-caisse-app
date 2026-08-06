@@ -44,6 +44,9 @@ body{font-family:Arial,sans-serif;background:#111;color:#fff;height:100vh;max-wi
 .pc:hover{border-color:#CC0000;background:#222;transform:translateY(-1px);box-shadow:0 4px 12px rgba(204,0,0,.2)}
 .pc.oos{opacity:.4;cursor:not-allowed}
 .pe{font-size:28px;line-height:1}
+#prodGrid.compact .pe{font-size:15px}
+#prodGrid.compact .pc{padding:6px}
+#prodGrid.compact .pn{font-size:10px}
 .pn{font-size:11px;font-weight:700;text-align:center;color:#fff;line-height:1.3}
 .pp{font-size:12px;font-weight:700;color:#CC0000}
 .ps{font-size:10px;color:#555}
@@ -301,6 +304,7 @@ td{padding:8px 11px;vertical-align:middle}
       <select class="ms" id="selSrv"><option value="">— Serveur —</option></select>
       <select class="ms" id="selCaisse" onchange="onCaisseChange()"><option value="">— Caisse —</option></select>
       <button class="btn btn-o sm" onclick="openTableModal()">＋ Table</button>
+      <button class="btn btn-o sm" id="btnCompactIcons" onclick="toggleCompactIcons()" title="Réduire la taille des icônes des articles">🔎− Icônes</button>
     </div>
     <div id="attenteBar" style="display:none;background:#111;border-bottom:1px solid #333;padding:6px 10px">
       <div style="font-size:11px;color:#FFCC00;font-weight:700;margin-bottom:4px">⏸ Commandes en attente</div>
@@ -1355,6 +1359,20 @@ function renderProds(search){
   });
 }
 function filterProd(v){renderProds(v);}
+// ---- Mode icônes réduites (mémorisé sur ce PC) ----
+function toggleCompactIcons(){
+  var grid=g('prodGrid');if(!grid)return;
+  var actif=grid.classList.toggle('compact');
+  localStorage.setItem('fss-compact-icons',actif?'1':'0');
+  if(g('btnCompactIcons'))g('btnCompactIcons').textContent=actif?'🔍+ Icônes':'🔎− Icônes';
+}
+function appliquerCompactIconsInitial(){
+  var grid=g('prodGrid');if(!grid)return;
+  if(localStorage.getItem('fss-compact-icons')==='1'){
+    grid.classList.add('compact');
+    if(g('btnCompactIcons'))g('btnCompactIcons').textContent='🔍+ Icônes';
+  }
+}
 function fixAzertyDigits(str){
   // Certaines douchettes code-barres envoient les touches en QWERTY : sur un clavier
   // AZERTY français, cela tape les symboles de la rangée du haut au lieu des chiffres.
@@ -3747,6 +3765,7 @@ document.addEventListener('DOMContentLoaded',function(){
   renderTkList();renderDV();renderLV();renderReg();renderRegG();renderTopV();renderTotCat();
   renderRap();initCloture();initTables();initServers();initCaisses();initCategories();initOpts();renderEmp();renderPtgLive();renderPaie();
   loadAppVersion();
+  appliquerCompactIconsInitial();
   setTimeout(verifierSauvegardeAuto,5000);
   setInterval(verifierSauvegardeAuto,6*60*60*1000);
   document.querySelectorAll('.ov').forEach(function(o){o.addEventListener('click',function(e){if(e.target===o)o.classList.remove('on');});});
