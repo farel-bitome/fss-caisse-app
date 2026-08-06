@@ -86,7 +86,11 @@
     if (window.FSS_IS_SERVER && prevClotureIds !== null) {
       var nouvellesClotures = clotureBatches.filter(function (bt) { return prevClotureIds.indexOf(bt.batchId) === -1; });
       nouvellesClotures.forEach(function (batch) {
-        safe(function () { if (window.imprimerBilanClotureAuto) window.imprimerBilanClotureAuto(batch.snapshot); });
+        try {
+          if (window.imprimerBilanClotureAuto) window.imprimerBilanClotureAuto(batch.snapshot);
+        } catch (e) {
+          console.error('Échec de l\'impression automatique du bilan de clôture :', e);
+        }
       });
     }
     prevClotureIds = clotureBatches.map(function (bt) { return bt.batchId; });

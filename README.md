@@ -461,3 +461,21 @@ déclenchée autrement.
 Comme pour les autres droits, les comptes Super Admin et accès complet
 l'ont automatiquement — à cocher manuellement pour les autres comptes qui en
 ont besoin.
+
+## Correction : ticket de clôture qui ne sortait pas depuis un téléphone
+
+**Cause trouvée** : l'impression du bilan de clôture (côté Serveur, quand elle
+est déclenchée depuis un téléphone ou un poste client) utilisait une fenêtre
+popup + `window.print()` classique. Ce mécanisme fonctionne bien pour un clic
+direct de l'utilisateur, mais **échoue silencieusement** quand il est déclenché
+automatiquement (ici, via l'événement réseau reçu suite à une clôture lancée
+ailleurs) — ce n'est pas un vrai clic de l'utilisateur sur ce poste précis.
+
+Le bon de commande cuisine, lui, n'avait jamais ce problème car il utilisait
+déjà un mécanisme différent et fiable (`imprimerSilencieux`, impression Electron
+native invisible, sans fenêtre popup).
+
+**Corrigé** : le ticket de clôture utilise maintenant ce même mécanisme fiable.
+Une trace d'erreur apparaît aussi désormais dans la console développeur en cas
+de nouvel échec, pour faciliter le diagnostic si le problème venait à se
+reproduire pour une autre raison.
