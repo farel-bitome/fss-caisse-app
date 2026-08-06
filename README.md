@@ -497,3 +497,51 @@ le délai reste utile).
 sur le poste **Serveur** (Ctrl+Maj+I dans l'app) pendant qu'un téléphone fait une
 clôture — une erreur détaillée s'affichera maintenant si l'impression échoue
 encore, ce qui permettra d'identifier précisément la cause restante.
+
+## Clôture — fusionnée avec le circuit des bons de commande
+
+Sur votre demande, la clôture n'utilise plus un mécanisme séparé : elle passe
+maintenant par **exactement le même tableau synchronisé et le même écouteur**
+que les bons de commande cuisine (dont vous confirmez qu'ils fonctionnent bien
+depuis un téléphone) — juste avec une étiquette `type:'cloture'` pour distinguer
+laquelle des deux fonctions d'impression appeler. Aucune différence de circuit
+ne subsiste entre les deux.
+
+**Testé** : simulation de l'aiguillage avec un mélange de bons de commande et
+d'un ticket de clôture dans le même tableau — chacun déclenche bien la bonne
+fonction d'impression.
+
+## Ticket de clôture et prélèvement — police réduite, plus de débordement
+
+Après l'avoir agrandie précédemment, la police du ticket de clôture (et du
+ticket de prélèvement, qui affiche le même détail des ventes) était devenue trop
+grande pour la largeur du papier 80mm, risquant de faire déborder certains
+montants. Réduite à une taille intermédiaire (toujours en gras, plus lisible que
+l'original, mais qui tient correctement sur le papier) :
+
+- Les **montants** ne se coupent/retournent jamais à la ligne (`white-space:nowrap`)
+- Les **noms d'articles longs** peuvent revenir à la ligne proprement si besoin,
+  sans pousser le montant hors du ticket
+
+
+
+## Diviser l'addition en plusieurs tickets
+
+Revu selon votre dernier retour : l'option apparaît maintenant **au moment de
+régler l'addition**, pas pendant la prise de commande.
+
+Dans la fenêtre de paiement (Espèces/Carte), sous le sélecteur "Nombre de
+tickets à imprimer" :
+- Choisissez le nombre de tickets voulu (2, 3, 4...)
+- Cochez **"Diviser l'addition entre ces tickets"**
+- Un aperçu affiche immédiatement le montant par part
+
+Une fois validé, chaque ticket imprimé affiche sa propre part (ex : "PART 2/3 :
+5 000 F") au lieu d'être une copie identique du total — utile quand plusieurs
+personnes à la même table veulent payer chacune leur part séparément.
+
+Si la case n'est pas cochée, le comportement reste inchangé (copies identiques
+du ticket complet, comme avant).
+
+**Testé** : calcul de répartition vérifié (15 000 FCFA ÷ 3 parts = 5 000 FCFA
+chacune, total exact retrouvé).

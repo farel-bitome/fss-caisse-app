@@ -92,6 +92,14 @@ function createWindow() {
 
   buildMenu();
 
+  // F12 ouvre directement les outils de développement, sans avoir besoin
+  // d'afficher le menu au préalable (la barre de menu est masquée par défaut).
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' && input.type === 'keyDown') {
+      win.webContents.toggleDevTools();
+    }
+  });
+
   win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     if (errorCode !== -3) {
       dialog.showErrorBox(
@@ -180,6 +188,10 @@ function buildMenu() {
         {
           label: 'Licence / Activation',
           click: () => win.loadFile(path.join(__dirname, 'activation.html'))
+        },
+        {
+          label: 'Outils de développement (diagnostic)',
+          click: () => win.webContents.openDevTools({ mode: 'detach' })
         },
         { role: 'quit', label: 'Quitter' }
       ]

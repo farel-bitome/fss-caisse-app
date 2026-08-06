@@ -1000,6 +1000,13 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺,18"></textarea>
         <button type="button" class="btn btn-o sm" style="width:30px;padding:0" onclick="ajusterNbTickets(1)">+</button>
       </div>
     </div>
+    <div id="diviserAdditionWrap" style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid #222" title="Partage le montant total entre les tickets (au lieu d'imprimer des copies identiques) — pratique quand plusieurs personnes à la même table veulent payer chacune leur part">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#999;cursor:pointer">
+        <input type="checkbox" id="chkDiviserAddition" onchange="majApercuDivision()" style="width:14px;height:14px">
+        Diviser l'addition entre ces tickets
+      </label>
+      <span id="apercuDivision" style="font-size:11px;color:#4488FF"></span>
+    </div>
   </div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovPay')">Annuler</button><button class="btn btn-r" onclick="valPay()" style="min-width:130px">✅ Valider</button></div>
 </div></div>
@@ -1475,11 +1482,15 @@ function onTableChange(){
   } else {
     sel.style.background='';sel.style.color='';sel.style.fontWeight='';
   }
+  renderSousFactureSelect();
   updBadge();
 }
 function libererTable(){
   var sel=g('selTable');
   sel.value='0';sel.style.background='';sel.style.color='';sel.style.fontWeight='';
+  if(g('chkMultiFacture')){g('chkMultiFacture').checked=false;}
+  if(g('selSousFacture')){g('selSousFacture').style.display='none';}
+  renderSousFactureSelect();
   updBadge();
   updateTableOptions();
 }
@@ -1541,23 +1552,24 @@ function getFondsOuverture(caisseFiltre){
 }
 function updateTableOptions(){
   var sel=g('selTable');if(!sel)return;
-  var tablesOccupees=cmdAttente.map(function(c){return c.tableVal;});
+  // Une table avec une commande "sans sous-facture" en cours reste sélectionnable
+  // (juste indiquée 🔴) — on ne bloque plus l'accès complet à la table, pour
+  // permettre d'y ouvrir une sous-facture séparée si besoin.
+  var tablesOccupeesSansSousFacture=cmdAttente.filter(function(c){return String(c.tableVal).indexOf('-')===-1;}).map(function(c){return c.tableVal;});
   for(var i=0;i<sel.options.length;i++){
     var opt=sel.options[i];
-    if(tablesOccupees.indexOf(opt.value)>=0){
-      opt.disabled=true;
+    if(tablesOccupeesSansSousFacture.indexOf(opt.value)>=0){
       opt.text=opt.text.replace(/ 🔴$/,'')+' 🔴';
     } else {
-      opt.disabled=false;
       opt.text=opt.text.replace(/ 🔴$/,'');
     }
   }
+  renderSousFactureSelect();
 }
 // (ajout de table géré via le formulaire modal openTableModal / saveTable)
 // ---- COMMANDES EN ATTENTE ----
 var cmdAttente=[];var attenteSeq=1;
 var printBatches=[];
-var clotureBatches=[];
 var resumingAttenteId=null,resumingBaseItems=null,resumingSentQty=null;
 function imprimerTicketAttente(batch){
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
@@ -1694,9 +1706,8 @@ function imprimerTicketCommande(tx){
 }
 function mettreEnAttente(){
   if(!tkt.length){toast('Ticket vide','e');return;}
-  var sel=g('selTable');
-  var tableNom=sel.options[sel.selectedIndex]?sel.options[sel.selectedIndex].text:'—';
-  var tableVal=sel.value;
+  var tableNom=tableNomAffiche();
+  var tableVal=tableValCombine();
   var srv=g('selSrv').value||'—';
   var total=tkt.reduce(function(s,i){return s+i.pv*(i.qty||i.qt||1);},0);
   var heure=new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'});
@@ -1755,10 +1766,20 @@ function reprendreAttente(id){
     resumingSentQty={};
     c.items.forEach(function(it){resumingSentQty[it.id]=(resumingSentQty[it.id]||0)+(it.qty||it.qt||1);});
   }
-  var sel=g('selTable');sel.value=c.tableVal;onTableChange();
+  cmdAttente.splice(idx,1);
+  // c.tableVal peut être "5" (table seule) ou "5-B" (table + sous-facture) :
+  // on décompose pour sélectionner correctement les deux champs. On retire
+  // d'abord la commande de la liste (ligne au-dessus) pour que sa propre
+  // sous-facture n'apparaisse pas comme "déjà occupée" lors de la reprise.
+  var parts=String(c.tableVal).split('-');
+  var sel=g('selTable');sel.value=parts[0];onTableChange();
+  if(parts[1]){
+    if(g('chkMultiFacture'))g('chkMultiFacture').checked=true;
+    toggleSousFactureUI();
+    if(g('selSousFacture'))g('selSousFacture').value=parts[1];
+  }
   var selS=g('selSrv');
   for(var j=0;j<selS.options.length;j++){if(selS.options[j].text===c.srv){selS.value=selS.options[j].value;break;}}
-  cmdAttente.splice(idx,1);
   renderTkt();updTotal();renderAttenteBar();updateTableOptions();
   toast('Commande '+c.id+' reprise ▶ — ajoutez vos articles puis "Envoyer" ou payez directement','s');
 }
@@ -1846,6 +1867,41 @@ function tblN(v){
   var opt=g('selTable')?g('selTable').querySelector('option[value="'+v+'"]'):null;
   return opt?opt.text.replace(/ 🔴$/,''):'—';
 }
+// ---- SOUS-FACTURES ----
+// Ne se gère plus au moment de la commande (voir plus bas : la division en
+// plusieurs tickets se choisit désormais au moment de régler l'addition).
+function sousFactureVal(){
+  return '';
+}
+function toggleSousFactureUI(){}
+// Identifiant complet utilisé pour le suivi (table seule, ou "table-lettre" si sous-facture)
+function tableValCombine(){
+  var tv=g('selTable')?g('selTable').value:'0';
+  var sf=sousFactureVal();
+  return sf?(tv+'-'+sf):tv;
+}
+// Nom affiché sur les tickets/commandes (ex: "Table 5 (B)")
+function tableNomAffiche(){
+  var nom=tblN(g('selTable')?g('selTable').value:'0');
+  var sf=sousFactureVal();
+  return sf?(nom+' ('+sf+')'):nom;
+}
+function renderSousFactureSelect(){
+  var sel=g('selSousFacture');if(!sel)return;
+  var tv=g('selTable')?g('selTable').value:'0';
+  var prev=sel.value;
+  sel.innerHTML='<option value="">Sous-facture —</option>';
+  if(!tv||tv==='0'){sel.disabled=true;return;}
+  sel.disabled=false;
+  var occupees=cmdAttente.filter(function(c){return String(c.tableVal).indexOf(tv+'-')===0;}).map(function(c){return String(c.tableVal).split('-')[1];});
+  LETTRES_SOUS_FACTURE.forEach(function(l){
+    var opt=document.createElement('option');
+    opt.value=l;opt.text=occupees.indexOf(l)>=0?(l+' 🔴 (occupée)'):l;
+    if(occupees.indexOf(l)>=0)opt.disabled=true;
+    sel.appendChild(opt);
+  });
+  if(sel.querySelector('option[value="'+prev+'"]'))sel.value=prev;
+}
 function renderTableSelect(){
   var sel=g('selTable');if(!sel)return;
   var prev=sel.value;
@@ -1858,7 +1914,7 @@ function renderTableSelect(){
   if(sel.querySelector('option[value="'+prev+'"]'))sel.value=prev;
   updateTableOptions();
 }
-function updBadge(){g('tblBadge').textContent=tblN(g('selTable').value);}
+function updBadge(){g('tblBadge').textContent=tableNomAffiche();}
 
 function applyWaiterUI(){
   var isW=window.isWaiterOnly&&window.isWaiterOnly();
@@ -1912,6 +1968,15 @@ function ajusterNbTickets(delta){
   nbTickets=Math.max(1,Math.min(5,nbTickets+delta));
   if(g('nbTicketsVal'))g('nbTicketsVal').textContent=nbTickets;
   localStorage.setItem('fss-nb-tickets',nbTickets);
+  majApercuDivision();
+}
+function majApercuDivision(){
+  var el=g('apercuDivision');if(!el)return;
+  var chk=g('chkDiviserAddition');
+  if(!chk||!chk.checked||nbTickets<2){el.textContent='';return;}
+  var total=getTotal();
+  var part=Math.round(total/nbTickets);
+  el.textContent=nbTickets+' × '+fmt(part)+' (environ)';
 }
 function openPay(mode){
   if(window.isWaiterOnly&&window.isWaiterOnly()){toast('Ce compte ne peut pas encaisser — utilisez "En attente"','e');return;}
@@ -1925,6 +1990,8 @@ function openPay(mode){
   if(mode==='airtel'){ouvrirAirtelModal();return;}
   payMode=mode;recAmt=0;
   if(g('nbTicketsVal'))g('nbTicketsVal').textContent=nbTickets;
+  if(g('chkDiviserAddition'))g('chkDiviserAddition').checked=false;
+  majApercuDivision();
   g('payMT').textContent='Paiement — '+(mode==='esp'?'Espèces':'Carte');
   g('payAmt').textContent=fmt(getTotal());
   g('numWrap').style.display=mode==='cart'?'none':'block';
@@ -1963,7 +2030,7 @@ function valPay(){
   var rendu=payMode==='esp'?Math.max(0,recAmt-tot):0;
   var caissier=(window.currentUser&&window.currentUser.nom)?window.currentUser.nom:'—';
   var caisseNom=g('selCaisse')?g('selCaisse').value:'';
-  txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tblN(g('selTable').value),srv:g('selSrv').value,caissier:caissier,caisse:caisseNom,arts:nb,items:itemsSnapshot,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':(payMode==='airtel'?'Airtel Money':'Carte'),recu:recu,rendu:rendu,stat:'Validé'});
+  txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tableNomAffiche(),srv:g('selSrv').value,caissier:caissier,caisse:caisseNom,arts:nb,items:itemsSnapshot,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':(payMode==='airtel'?'Airtel Money':'Carte'),recu:recu,rendu:rendu,stat:'Validé'});
   nextTk++;g('tkNum').textContent='TK-#'+('000'+nextTk).slice(-4);
   closeM('ovPay');clearTk(true);libererTable();renderProds('');renderStk();renderTkList();renderRap();initCloture();
   afficherRecu(txs[0]);
@@ -2054,54 +2121,70 @@ function imprimerRecu(){
     cls=cls||'';
     return '<table class="'+cls+'"><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';
   }
-  var body='<div class="c">';
-  if(logoData)body+='<img src="'+logoData+'" style="height:100px;object-fit:contain;margin-bottom:8px"><br>';
-  body+='<strong style="font-size:19px">'+etab+'</strong><br>';
-  if(adr)body+='<span style="font-size:12px">'+adr+'</span><br>';
-  if(tel)body+='<span style="font-size:12px">Tél: '+tel+'</span><br>';
-  if(rccm)body+='<span style="font-size:12px">RCCM: '+rccm+'</span><br>';
-  if(nif)body+='<span style="font-size:12px">NIF: '+nif+'</span><br>';
-  body+='</div><div class="sep"></div>';
-  body+=ligne('N° Ticket','<strong>'+tk.id+'</strong>');
-  body+=ligne('Date',dateStr);
-  body+=ligne('Heure',heureStr);
-  body+=ligne('Table',tk.tbl);
-  if(tk.srv&&tk.srv!=='—')body+=ligne('Serveur',tk.srv);
-  if(tk.caissier&&tk.caissier!=='—')body+=ligne('Caissier','<strong>'+tk.caissier+'</strong>');
-  if(tk.caisse)body+=ligne('Caisse',tk.caisse);
-  body+='<div class="sep"></div>';
-  if(tk.items&&tk.items.length){
-    tk.items.forEach(function(it){
-      body+=ligne(it.qty+'x '+it.nom,(it.pv*it.qty).toLocaleString('fr-FR')+' F');
-    });
-  }else{
-    body+='<div>'+tk.arts+' article(s)</div>';
-  }
-  body+='<div class="sep"></div>';
-  if(tvaActif){
-    body+=ligne('Sous-total HT',tk.ht.toLocaleString('fr-FR')+' F');
-    body+=ligne('TVA '+Math.round(tvaRate*100)+'%',tk.tva.toLocaleString('fr-FR')+' F');
+  // Si la case "Diviser l'addition" est cochée, chaque exemplaire affiche sa
+  // part du total (ex: Part 1/3 : 5 000 F) au lieu du total complet répété —
+  // pratique quand plusieurs personnes à la même table paient séparément.
+  var diviser=g('chkDiviserAddition')&&g('chkDiviserAddition').checked&&nbTickets>1;
+  function buildBody(numeroPart,totalParts){
+    var body='<div class="c">';
+    if(logoData)body+='<img src="'+logoData+'" style="height:100px;object-fit:contain;margin-bottom:8px"><br>';
+    body+='<strong style="font-size:19px">'+etab+'</strong><br>';
+    if(adr)body+='<span style="font-size:12px">'+adr+'</span><br>';
+    if(tel)body+='<span style="font-size:12px">Tél: '+tel+'</span><br>';
+    if(rccm)body+='<span style="font-size:12px">RCCM: '+rccm+'</span><br>';
+    if(nif)body+='<span style="font-size:12px">NIF: '+nif+'</span><br>';
+    body+='</div><div class="sep"></div>';
+    body+=ligne('N° Ticket','<strong>'+tk.id+'</strong>');
+    body+=ligne('Date',dateStr);
+    body+=ligne('Heure',heureStr);
+    body+=ligne('Table',tk.tbl);
+    if(tk.srv&&tk.srv!=='—')body+=ligne('Serveur',tk.srv);
+    if(tk.caissier&&tk.caissier!=='—')body+=ligne('Caissier','<strong>'+tk.caissier+'</strong>');
+    if(tk.caisse)body+=ligne('Caisse',tk.caisse);
     body+='<div class="sep"></div>';
+    if(tk.items&&tk.items.length){
+      tk.items.forEach(function(it){
+        body+=ligne(it.qty+'x '+it.nom,(it.pv*it.qty).toLocaleString('fr-FR')+' F');
+      });
+    }else{
+      body+='<div>'+tk.arts+' article(s)</div>';
+    }
+    body+='<div class="sep"></div>';
+    if(!diviser&&tvaActif){
+      body+=ligne('Sous-total HT',tk.ht.toLocaleString('fr-FR')+' F');
+      body+=ligne('TVA '+Math.round(tvaRate*100)+'%',tk.tva.toLocaleString('fr-FR')+' F');
+      body+='<div class="sep"></div>';
+    }
+    if(diviser){
+      var part=Math.round(tk.ttc/totalParts);
+      body+=ligne('Total de la table','<span class="b">'+tk.ttc.toLocaleString('fr-FR')+' F</span>');
+      body+=ligne('Divisé en',totalParts+' parts');
+      body+='<div class="sep"></div>';
+      body+='<div style="font-size:15px">'+ligne('<span class="b">PART '+numeroPart+'/'+totalParts+'</span>','<span class="b">'+part.toLocaleString('fr-FR')+' F</span>')+'</div>';
+    }else{
+      body+=ligne('<span class="b">TOTAL TTC</span>','<span class="b">'+tk.ttc.toLocaleString('fr-FR')+' F</span>');
+    }
+    body+='<div class="sep"></div>';
+    body+='<div style="font-size:14px">'+ligne('<span class="b">Paiement</span>','<span class="b">'+tk.pay+'</span>')+'</div>';
+    if(!diviser&&tk.pay==='Espèces'&&tk.recu){
+      body+=ligne('Montant reçu',tk.recu.toLocaleString('fr-FR')+' F');
+      body+=ligne('Monnaie rendue',(tk.rendu||0).toLocaleString('fr-FR')+' F');
+    }
+    body+='<div class="sep"></div><div class="c" style="font-size:11px">'+msgFin+'</div>';
+    return body;
   }
-  body+=ligne('<span class="b">TOTAL TTC</span>','<span class="b">'+tk.ttc.toLocaleString('fr-FR')+' F</span>');
-  body+='<div class="sep"></div>';
-  body+='<div style="font-size:14px">'+ligne('<span class="b">Paiement</span>','<span class="b">'+tk.pay+'</span>')+'</div>';
-  if(tk.pay==='Espèces'&&tk.recu){
-    body+=ligne('Montant reçu',tk.recu.toLocaleString('fr-FR')+' F');
-    body+=ligne('Monnaie rendue',(tk.rendu||0).toLocaleString('fr-FR')+' F');
-  }
-  body+='<div class="sep"></div><div class="c" style="font-size:11px">'+msgFin+'</div>';
   // Répète le contenu autant de fois que demandé (Paiement → nombre de tickets),
-  // séparé par une ligne de coupe — un seul travail d'impression.
+  // séparé par une ligne de coupe — un seul travail d'impression. Si la division
+  // est activée, chaque exemplaire affiche sa part au lieu d'être identique.
   var n=Math.max(1,nbTickets||1);
   var copies=[];
   for(var ci=0;ci<n;ci++){
-    var prefix=n>1?('<div class="c" style="font-size:10px;margin-bottom:4px">— EXEMPLAIRE '+(ci+1)+' —</div>'):'';
+    var prefix=(n>1&&!diviser)?('<div class="c" style="font-size:10px;margin-bottom:4px">— EXEMPLAIRE '+(ci+1)+' —</div>'):'';
     // page-break-after force la coupe papier entre chaque exemplaire — la plupart
     // des pilotes d'imprimantes thermiques coupent à chaque saut de page. On ne
     // l'applique pas après le tout dernier exemplaire (pas de page vide inutile).
     var cls=ci<n-1?'pgbreak':'';
-    copies.push('<div class="'+cls+'">'+prefix+body+'</div>');
+    copies.push('<div class="'+cls+'">'+prefix+buildBody(ci+1,n)+'</div>');
   }
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+copies.join('')+'</body></html>';
   w.document.write(html);w.document.close();
@@ -2928,24 +3011,24 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
   var css='@page{size:80mm auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
     'html,body{width:80mm}'+
-    'body{font-family:"Courier New",monospace;font-size:13px;font-weight:700;padding:3mm 4mm}'+
-    'table{width:100%;border-collapse:collapse;margin:2px 0}'+
-    'td{padding:2px 0}'+
-    'td.r{text-align:right}'+
-    '.sep{border-top:1px dashed #000;margin:6px 0}'+
+    'body{font-family:"Courier New",monospace;font-size:11px;font-weight:700;padding:2mm 3mm}'+
+    'table{width:100%;border-collapse:collapse;margin:1px 0;table-layout:fixed}'+
+    'td{padding:1px 0;overflow-wrap:break-word;word-break:break-word}'+
+    'td.r{text-align:right;white-space:nowrap}'+
+    '.sep{border-top:1px dashed #000;margin:5px 0}'+
     '.c{text-align:center}'+
-    '.stit{font-size:13px;font-weight:900;margin-top:6px}';
-  function ligne(l,v){return '<table><tr><td>'+l+'</td><td class="r">'+v+'</td></tr></table>';}
+    '.stit{font-size:11px;font-weight:900;margin-top:5px}';
+  function ligne(l,v){return '<table><tr><td style="overflow-wrap:break-word;word-break:break-word">'+l+'</td><td class="r" style="white-space:nowrap">'+v+'</td></tr></table>';}
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
-  html+='<div class="c" style="font-size:16px">'+etab+'</div>';
-  html+='<div class="c" style="font-size:13px;margin:4px 0">💸 PRÉLÈVEMENT</div>';
+  html+='<div class="c" style="font-size:13px">'+etab+'</div>';
+  html+='<div class="c" style="font-size:11px;margin:3px 0">💸 PRÉLÈVEMENT</div>';
   html+='<div class="sep"></div>';
   html+=ligne('Caisse',cxLbl);
   html+=ligne('Heure',heure);
   html+=ligne('Caissier',caissier);
   html+=ligne('Motif',motif);
   html+='<div class="sep"></div>';
-  html+='<div style="font-size:16px">'+ligne('MONTANT','-'+fmt(mnt))+'</div>';
+  html+='<div style="font-size:13px">'+ligne('MONTANT','-'+fmt(mnt))+'</div>';
   html+='<div class="sep"></div>';
   html+=ligne('Solde restant',fmt(Math.max(0,nouveauSolde)));
   // Détail de tout ce qui a été vendu depuis la dernière clôture, avec quantités
@@ -2983,7 +3066,7 @@ function doCloture(){
   if(window.FSS_IS_SERVER){
     print80();
   }else{
-    clotureBatches.push({batchId:'CLO-'+Date.now(),snapshot:construireInstantaneCloture()});
+    printBatches.push({batchId:'CLO-'+Date.now(),type:'cloture',snapshot:construireInstantaneCloture()});
     if(window.fssSyncPushImmediate)window.fssSyncPushImmediate();
     else if(window.fssSyncPush)window.fssSyncPush();
     toast('Ticket de clôture envoyé à l\'imprimante du serveur','i');
@@ -3048,21 +3131,21 @@ function buildBilanClotureHTML(snapshot){
   var css='@page{size:80mm auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
     'html,body{width:80mm}'+
-    'body{font-family:"Courier New",monospace;font-size:14px;font-weight:700;padding:3mm 4mm}'+
-    'h2{text-align:center;font-size:18px;font-weight:900}'+
-    '.sep{border-top:2px dashed #000;margin:6px 0}'+
-    'table{width:100%;border-collapse:collapse}'+
-    'td{padding:2px 0}'+
-    '.r{text-align:right}'+
-    '.tot{font-weight:900;font-size:16px}'+
+    'body{font-family:"Courier New",monospace;font-size:9px;font-weight:700;padding:2mm 3mm}'+
+    'h2{text-align:center;font-size:12px;font-weight:900}'+
+    '.sep{border-top:1px dashed #000;margin:4px 0}'+
+    'table{width:100%;border-collapse:collapse;table-layout:fixed}'+
+    'td{padding:1px 0;overflow-wrap:break-word;word-break:break-word;font-size:9px}'+
+    '.r{text-align:right;white-space:nowrap;width:42%;font-size:9px}'+
+    '.tot{font-weight:900;font-size:11px}'+
     '.center{text-align:center}'+
-    '.stit{font-size:14px;font-weight:900;margin-top:8px}';
+    '.stit{font-size:9px;font-weight:900;margin-top:5px}';
 
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
   html+='<h2>FSS-CAISSE</h2>';
-  html+='<div class="center" style="font-size:12px">CLÔTURE — '+cxLbl+'</div>';
-  html+='<div class="center" style="font-size:12px">'+now+'</div>';
-  if(snapshot.origine)html+='<div class="center" style="font-size:11px">Clôturé depuis : '+snapshot.origine+'</div>';
+  html+='<div class="center" style="font-size:10px">CLÔTURE — '+cxLbl+'</div>';
+  html+='<div class="center" style="font-size:10px">'+now+'</div>';
+  if(snapshot.origine)html+='<div class="center" style="font-size:9px">Clôturé depuis : '+snapshot.origine+'</div>';
   html+='<div class="sep"></div>';
 
   html+='<table>';
@@ -3091,7 +3174,7 @@ function buildBilanClotureHTML(snapshot){
   html+='<tr><td>SOLDE</td><td class="r">'+(ttc-tp).toLocaleString('fr-FR')+' F</td></tr>';
   html+='</table>';
   html+='<div class="sep"></div>';
-  html+='<div class="center" style="font-size:12px;margin-top:4px">Merci</div>';
+  html+='<div class="center" style="font-size:10px;margin-top:3px">Merci</div>';
   html+='</body></html>';
   return html;
 }

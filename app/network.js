@@ -14,7 +14,6 @@
   // (articles, catégories, etc. semblent alors "disparaître" pour tout le monde).
   var initialStateLoaded = false;
   var prevBatchIds = null;
-  var prevClotureIds = null;
   var prevTxIds = null;
   window.FSS_IS_SERVER = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '');
   window.users = window.users || [];
@@ -27,7 +26,6 @@
   window.categories = window.categories || [];
   window.fondsOuverture = window.fondsOuverture || {};
   window.printBatches = window.printBatches || [];
-  window.clotureBatches = window.clotureBatches || [];
   window.employes = window.employes || [];
   window.pointages = window.pointages || [];
   window.paieEntries = window.paieEntries || [];
@@ -37,7 +35,6 @@
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
       users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches,
-      clotureBatches: clotureBatches,
       employes: employes, pointages: pointages, paieEntries: paieEntries
     };
   }
@@ -77,23 +74,21 @@
     if (window.FSS_IS_SERVER && prevBatchIds !== null) {
       var nouveauxLots = printBatches.filter(function (bt) { return prevBatchIds.indexOf(bt.batchId) === -1; });
       nouveauxLots.forEach(function (batch) {
-        safe(function () { if (window.imprimerTicketAttente) window.imprimerTicketAttente(batch); });
+        safe(function () {
+          // Même circuit, même écouteur pour tout ce qui doit s'imprimer côté
+          // Serveur : bon de commande cuisine ET bilan de clôture — aucune
+          // différence de traitement entre les deux, pour garantir que la
+          // clôture fonctionne exactement aussi bien depuis un téléphone que
+          // les bons de commande, dont on sait qu'ils fonctionnent déjà.
+          if (batch.type === 'cloture') {
+            if (window.imprimerBilanClotureAuto) window.imprimerBilanClotureAuto(batch.snapshot);
+          } else {
+            if (window.imprimerTicketAttente) window.imprimerTicketAttente(batch);
+          }
+        });
       });
     }
     prevBatchIds = printBatches.map(function (bt) { return bt.batchId; });
-
-    clotureBatches = s.clotureBatches || [];
-    if (window.FSS_IS_SERVER && prevClotureIds !== null) {
-      var nouvellesClotures = clotureBatches.filter(function (bt) { return prevClotureIds.indexOf(bt.batchId) === -1; });
-      nouvellesClotures.forEach(function (batch) {
-        try {
-          if (window.imprimerBilanClotureAuto) window.imprimerBilanClotureAuto(batch.snapshot);
-        } catch (e) {
-          console.error('Échec de l\'impression automatique du bilan de clôture :', e);
-        }
-      });
-    }
-    prevClotureIds = clotureBatches.map(function (bt) { return bt.batchId; });
     nextTk = s.nextTk || 1;
     attenteSeq = s.attenteSeq || 1;
     users = s.users || [];
