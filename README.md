@@ -525,23 +525,18 @@ l'original, mais qui tient correctement sur le papier) :
 
 
 
-## Diviser l'addition en plusieurs tickets
 
-Revu selon votre dernier retour : l'option apparaît maintenant **au moment de
-régler l'addition**, pas pendant la prise de commande.
+## Diviser l'addition — au bon endroit cette fois
 
-Dans la fenêtre de paiement (Espèces/Carte), sous le sélecteur "Nombre de
-tickets à imprimer" :
-- Choisissez le nombre de tickets voulu (2, 3, 4...)
-- Cochez **"Diviser l'addition entre ces tickets"**
-- Un aperçu affiche immédiatement le montant par part
+Corrigé définitivement : l'option apparaît maintenant exactement là où vous la
+cherchiez, sur le bouton **🧾** de "Commandes en attente" (l'aperçu de
+l'addition, avant paiement).
 
-Une fois validé, chaque ticket imprimé affiche sa propre part (ex : "PART 2/3 :
-5 000 F") au lieu d'être une copie identique du total — utile quand plusieurs
-personnes à la même table veulent payer chacune leur part séparément.
+En cliquant sur 🧾, une petite fenêtre s'ouvre désormais et demande "Combien de
+parts ?" avant d'imprimer :
+- **1 part** (par défaut) : aperçu classique, comme avant
+- **Plus de 1** : imprime autant de tickets que de parts choisies, chacun
+  affichant sa portion du total (ex : 321 000 F ÷ 4 = 80 250 F par ticket)
 
-Si la case n'est pas cochée, le comportement reste inchangé (copies identiques
-du ticket complet, comme avant).
-
-**Testé** : calcul de répartition vérifié (15 000 FCFA ÷ 3 parts = 5 000 FCFA
-chacune, total exact retrouvé).
+**Testé** : calcul de répartition vérifié avec les mêmes montants que votre
+capture d'écran (321 000 FCFA ÷ 4 parts = 80 250 FCFA chacune, total exact).

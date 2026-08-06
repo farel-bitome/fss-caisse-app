@@ -979,6 +979,21 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺,18"></textarea>
   </div></div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovCmd')">Annuler</button><button class="btn btn-r" onclick="saveCmd()">Enregistrer</button></div>
 </div></div>
+<div class="ov" id="ovAdditionSplit"><div class="md"><div class="mh"><span class="mt">🧾 Aperçu de l'addition</span><button class="mc" onclick="closeM('ovAdditionSplit')">✕</button></div>
+  <div class="mb">
+    <p style="font-size:12px;color:#999;margin-bottom:14px">Combien de personnes/groupes veulent payer séparément ?</p>
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:10px 0">
+      <button type="button" class="btn btn-o" style="width:44px" onclick="ajusterAdditionSplit(-1)">−</button>
+      <div style="text-align:center">
+        <div id="additionSplitVal" style="font-size:32px;font-weight:900;color:#CC0000">1</div>
+        <div style="font-size:11px;color:#666">part(s)</div>
+      </div>
+      <button type="button" class="btn btn-o" style="width:44px" onclick="ajusterAdditionSplit(1)">+</button>
+    </div>
+    <p style="font-size:11px;color:#666;text-align:center;margin-top:10px">1 part = addition classique. Plus de 1 = un ticket séparé par part, chacun avec sa portion du total.</p>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovAdditionSplit')">Annuler</button><button class="btn btn-r" onclick="confirmerImpressionAddition()">🖨️ Imprimer</button></div>
+</div></div>
 <div class="ov" id="ovPay"><div class="md"><div class="mh"><span class="mt" id="payMT">Paiement</span><button class="mc" onclick="closeM('ovPay')">✕</button></div>
   <div class="mb">
     <div style="text-align:center;font-size:11px;color:#666;margin-bottom:4px">Montant à régler</div>
@@ -1605,7 +1620,25 @@ function imprimerTicketAttente(batch){
   html+='</body></html>';
   imprimerSilencieux(html);
 }
-function imprimerAddition(attId){
+var additionSplitAttId=null;
+function ouvrirModaleAddition(attId){
+  if(window.isWaiterOnly&&window.isWaiterOnly()){toast("Ce compte ne peut pas sortir l'addition","e");return;}
+  additionSplitAttId=attId;
+  additionSplitN=1;
+  if(g('additionSplitVal'))g('additionSplitVal').textContent='1';
+  g('ovAdditionSplit').classList.add('on');
+}
+var additionSplitN=1;
+function ajusterAdditionSplit(delta){
+  additionSplitN=Math.max(1,Math.min(6,additionSplitN+delta));
+  if(g('additionSplitVal'))g('additionSplitVal').textContent=additionSplitN;
+}
+function confirmerImpressionAddition(){
+  closeM('ovAdditionSplit');
+  imprimerAddition(additionSplitAttId,additionSplitN);
+}
+function imprimerAddition(attId,nbParts){
+  nbParts=Math.max(1,nbParts||1);
   if(window.isWaiterOnly&&window.isWaiterOnly()){toast("Ce compte ne peut pas sortir l'addition","e");return;}
   var c=cmdAttente.find(function(x){return x.id===attId;});
   if(!c){toast('Commande introuvable','e');return;}
@@ -1624,33 +1657,51 @@ function imprimerAddition(attId){
     'td.l{text-align:left}'+
     'td.r{text-align:right;padding-left:10px}'+
     '.sep{border-top:1px dashed #000;margin:6px 0}'+
-    '.c{text-align:center}';
+    '.c{text-align:center}'+
+    '.pgbreak{page-break-after:always;break-after:page}';
   function ligne(label,val){
     return '<table><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';
   }
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
-  html+='<div class="c" style="font-size:16px">'+etab+'</div>';
-  html+='<div class="c" style="font-size:13px;margin:4px 0;border:1.5px solid #000;padding:3px">🧾 ADDITION — APERÇU</div>';
-  html+='<div class="c" style="font-size:10px">Document non définitif, non fiscal</div>';
-  html+='<div class="sep"></div>';
-  html+=ligne('Table',c.tableNom||'—');
-  if(c.srv&&c.srv!=='—')html+=ligne('Serveur',c.srv);
-  html+=ligne('Heure commande',c.heure||'');
-  html+='<div class="sep"></div>';
-  (c.items||[]).forEach(function(it){
-    var qty=it.qty||it.qt||1;
-    html+=ligne(qty+'x '+it.nom,(it.pv*qty).toLocaleString('fr-FR')+' F');
-  });
-  html+='<div class="sep"></div>';
-  if(tvaOn){
-    html+=ligne('Sous-total HT',ht.toLocaleString('fr-FR')+' F');
-    html+=ligne('TVA '+tvaPct+'%',tva.toLocaleString('fr-FR')+' F');
+  function buildAdditionBody(numeroPart){
+    var html='<div class="c" style="font-size:16px">'+etab+'</div>';
+    html+='<div class="c" style="font-size:13px;margin:4px 0;border:1.5px solid #000;padding:3px">🧾 ADDITION — APERÇU</div>';
+    html+='<div class="c" style="font-size:10px">Document non définitif, non fiscal</div>';
     html+='<div class="sep"></div>';
+    html+=ligne('Table',c.tableNom||'—');
+    if(c.srv&&c.srv!=='—')html+=ligne('Serveur',c.srv);
+    html+=ligne('Heure commande',c.heure||'');
+    html+='<div class="sep"></div>';
+    if(nbParts<=1){
+      (c.items||[]).forEach(function(it){
+        var qty=it.qty||it.qt||1;
+        html+=ligne(qty+'x '+it.nom,(it.pv*qty).toLocaleString('fr-FR')+' F');
+      });
+      html+='<div class="sep"></div>';
+      if(tvaOn){
+        html+=ligne('Sous-total HT',ht.toLocaleString('fr-FR')+' F');
+        html+=ligne('TVA '+tvaPct+'%',tva.toLocaleString('fr-FR')+' F');
+        html+='<div class="sep"></div>';
+      }
+      html+='<div style="font-size:16px">'+ligne('<strong>TOTAL À PAYER</strong>','<strong>'+ttc.toLocaleString('fr-FR')+' F</strong>')+'</div>';
+    }else{
+      // Addition divisée : chaque exemplaire affiche sa part, pas la liste
+      // complète des articles (chaque groupe paiera sa portion séparément).
+      var part=Math.round(ttc/nbParts);
+      html+=ligne('Total de la table','<strong>'+ttc.toLocaleString('fr-FR')+' F</strong>');
+      html+=ligne('Divisé en',nbParts+' parts');
+      html+='<div class="sep"></div>';
+      html+='<div style="font-size:17px">'+ligne('<strong>PART '+numeroPart+'/'+nbParts+'</strong>','<strong>'+part.toLocaleString('fr-FR')+' F</strong>')+'</div>';
+    }
+    html+='<div class="sep"></div>';
+    html+='<div class="c" style="font-size:10px">Merci de repasser en caisse pour le règlement</div>';
+    return html;
   }
-  html+='<div style="font-size:16px">'+ligne('<strong>TOTAL À PAYER</strong>','<strong>'+ttc.toLocaleString('fr-FR')+' F</strong>')+'</div>';
-  html+='<div class="sep"></div>';
-  html+='<div class="c" style="font-size:10px">Merci de repasser en caisse pour le règlement</div>';
-  html+='</body></html>';
+  var pages=[];
+  for(var pi=0;pi<nbParts;pi++){
+    var cls=pi<nbParts-1?'pgbreak':'';
+    pages.push('<div class="'+cls+'">'+buildAdditionBody(pi+1)+'</div>');
+  }
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+pages.join('')+'</body></html>';
   var w=window.open('','_blank','width=380,height=600');
   w.document.write(html);w.document.close();
   w.onafterprint=function(){w.close();};
@@ -1802,7 +1853,7 @@ function renderAttenteBar(){
     btnR.onclick=(function(id){return function(){reprendreAttente(id);};})(c.id);
     var btnA=document.createElement('button');
     btnA.textContent='🧾';btnA.title='Imprimer l\'addition (aperçu, non définitif)';btnA.style.cssText='background:#1144CC;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer;font-weight:700';
-    btnA.onclick=(function(id){return function(){imprimerAddition(id);};})(c.id);
+    btnA.onclick=(function(id){return function(){ouvrirModaleAddition(id);};})(c.id);
     // Un compte "serveur uniquement" ne doit pas pouvoir sortir l'addition — seuls
     // caissiers/gérants/admins peuvent la générer (même logique que l'encaissement).
     if(window.isWaiterOnly&&window.isWaiterOnly())btnA.style.display='none';
