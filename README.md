@@ -437,3 +437,27 @@ Caisse se remplit automatiquement avec son propre nom et se verrouille — il n'
 plus qu'à choisir la **table**, comme demandé. (Les autres comptes — admin,
 caissier — gardent le champ Serveur modifiable normalement, utile s'ils
 enregistrent une commande pour quelqu'un d'autre.)
+
+## Cumul des articles au ticket de clôture — rendu plus robuste
+
+Le cumul par article (ex : 10 bières vendues sur plusieurs ventes séparées →
+"10x Regab" avec le total) fonctionnait déjà, mais était fragile : une seule
+ligne de vente avec un prix manquant ou mal formé dans l'historique pouvait
+casser le total affiché pour tout cet article (tout en gardant la bonne
+quantité). Rendu robuste — un éventuel article incomplet n'affecte plus les
+autres lignes ni le total.
+
+**Testé** : simulation avec 4 ventes séparées contenant du Regab (dont une avec
+une ligne incomplète) → cumul correct de 10x Regab, total 25 000 FCFA.
+
+## Nouvelle permission : Retirer article (factures / commandes en attente)
+
+Ajoutée dans **Utilisateurs → Droits d'accès** : **➖ Retirer article (factures /
+commandes en attente)**. Sans cette autorisation, la petite croix "✕" qui retire
+un article du ticket en cours (que ce soit une facture en préparation ou une
+commande en attente reprise) est masquée et l'action est bloquée si jamais
+déclenchée autrement.
+
+Comme pour les autres droits, les comptes Super Admin et accès complet
+l'ont automatiquement — à cocher manuellement pour les autres comptes qui en
+ont besoin.

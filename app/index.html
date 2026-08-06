@@ -626,7 +626,7 @@ td{padding:8px 11px;vertical-align:middle}
         <div style="display:flex;gap:6px">
           <input class="fi" type="number" id="prelMnt" placeholder="Montant FCFA" style="flex:1;font-size:11px;padding:5px 8px">
           <input class="fi" id="prelMotif" placeholder="Motif..." style="flex:1;font-size:11px;padding:5px 8px">
-          <button class="btn btn-r sm" onclick="addPrel()">+</button>
+          <button class="btn btn-r sm" onclick="addPrel()">Prélever</button>
         </div>
         <div class="cln" style="margin-top:8px"><span>Total prélèvements</span><span id="clPrel" style="color:#FF4444;font-weight:700">0 FCFA</span></div>
       </div>
@@ -1392,12 +1392,13 @@ function renderTkt(){
     qc.appendChild(bm);qc.appendChild(qn);qc.appendChild(bp);
     var tot=document.createElement('div');tot.className='trt';tot.textContent=fmt(it.pv*it.qty);
     var del=document.createElement('button');del.className='db';del.textContent='✕';del.onclick=function(){delI(i);};
+    if(!(typeof hasRetraitArticlePermission==='function'&&hasRetraitArticlePermission()))del.style.display='none';
     d.appendChild(emo);d.appendChild(nom);d.appendChild(qc);d.appendChild(tot);d.appendChild(del);
     w.appendChild(d);
   });
 }
 function chgQ(i,d){tkt[i].qty+=d;if(tkt[i].qty<=0)tkt.splice(i,1);renderTkt();updTotal();}
-function delI(i){if(!confirm('Retirer cet article du ticket ?'))return;tkt.splice(i,1);renderTkt();updTotal();}
+function delI(i){if(!(typeof hasRetraitArticlePermission==='function'&&hasRetraitArticlePermission())){toast('Vous n\'avez pas le droit de retirer un article','e');return;}if(!confirm('Retirer cet article du ticket ?'))return;tkt.splice(i,1);renderTkt();updTotal();}
 function applyPct(){
   var sub=tkt.reduce(function(s,it){return s+it.pv*it.qty;},0);
   var pct=parseFloat(g('remP').value)||0;
@@ -2917,8 +2918,8 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
   tl.forEach(function(t){
     (t.items||[]).forEach(function(it){
       if(!parArticle[it.nom])parArticle[it.nom]={qty:0,total:0};
-      parArticle[it.nom].qty+=it.qty;
-      parArticle[it.nom].total+=it.qty*it.pv;
+      parArticle[it.nom].qty+=(it.qty||0);
+      parArticle[it.nom].total+=(it.qty||0)*(it.pv||0);
     });
   });
   var articlesTries=Object.keys(parArticle).map(function(nom){
@@ -3035,8 +3036,8 @@ function buildBilanClotureHTML(snapshot){
   tl.forEach(function(t){
     (t.items||[]).forEach(function(it){
       if(!parArticle[it.nom])parArticle[it.nom]={qty:0,total:0};
-      parArticle[it.nom].qty+=it.qty;
-      parArticle[it.nom].total+=it.qty*it.pv;
+      parArticle[it.nom].qty+=(it.qty||0);
+      parArticle[it.nom].total+=(it.qty||0)*(it.pv||0);
     });
   });
   var articlesTries=Object.keys(parArticle).map(function(nom){

@@ -15,7 +15,8 @@
     { key: 'cloture', label: '🔒 Clôture' },
     { key: 'params', label: '⚙️ Paramètres' },
     { key: 'reimpression', label: '🖨️ Réimpression tickets' },
-    { key: 'annulation', label: '🗑️ Annulation tickets' }
+    { key: 'annulation', label: '🗑️ Annulation tickets' },
+    { key: 'retraitArticle', label: '➖ Retirer article (factures / commandes en attente)' }
   ];
 
   document.addEventListener('fss:ready', function () {
@@ -175,6 +176,10 @@
   // Permission distincte pour l'annulation de tickets (séparée de la réimpression).
   window.hasAnnulationPermission = function () {
     return hasAccess(currentUser, 'annulation');
+  };
+
+  window.hasRetraitArticlePermission = function () {
+    return hasAccess(currentUser, 'retraitArticle');
   };
 
   window.isWaiterOnly = function () {
