@@ -540,3 +540,10 @@ parts ?" avant d'imprimer :
 
 **Testé** : calcul de répartition vérifié avec les mêmes montants que votre
 capture d'écran (321 000 FCFA ÷ 4 parts = 80 250 FCFA chacune, total exact).
+
+## Bulletin de paie — format A4
+
+Les bulletins de paie s'impriment maintenant en **A4** (au lieu du format ticket
+80mm), avec une présentation professionnelle : en-tête établissement, bloc
+informations employé, tableau détaillé des retenues, net à payer mis en
+évidence, et zones de signature employeur/employé.

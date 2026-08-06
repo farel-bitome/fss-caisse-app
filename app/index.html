@@ -2842,37 +2842,65 @@ function printBulletinPaie(empId,mois){
   var emp=employes.find(function(e){return e.id===empId;});if(!emp)return;
   var r=computePaieRow(emp,mois);
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
-  var w=window.open('','_blank','width=380,height=600');
-  var css='@page{size:80mm auto;margin:0}'+
+  var adr=g('etabAdr')?g('etabAdr').value:'';
+  var tel=g('etabTel')?g('etabTel').value:'';
+  var rccm=g('etabRCCM')?g('etabRCCM').value:'';
+  var nif=g('etabNIF')?g('etabNIF').value:'';
+  var moisLabel=monthLabelFr(mois).replace(/^./,function(c){return c.toUpperCase();});
+  var w=window.open('','_blank');
+  var css='@page{size:A4;margin:18mm}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
-    'html,body{width:80mm}'+
-    'body{font-family:"Courier New",monospace;font-size:12px;font-weight:700;padding:3mm 4mm}'+
-    'table{width:100%;border-collapse:collapse;margin:2px 0}'+
-    'td{padding:2px 0;vertical-align:top}'+
-    'td.l{text-align:left}'+
-    'td.r{text-align:right;padding-left:10px}'+
-    '.sep{border-top:1px dashed #000;margin:7px 0}'+
-    '.c{text-align:center}.b{font-weight:900}';
-  function ligne(label,val){return '<table><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';}
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#222}'+
+    '.entete{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #CC0000;padding-bottom:12px;margin-bottom:18px}'+
+    '.entete h1{font-size:20px;color:#CC0000;margin-bottom:4px}'+
+    '.entete .infos{font-size:11px;color:#555;line-height:1.5}'+
+    '.titre-doc{text-align:right}'+
+    '.titre-doc .t1{font-size:16px;font-weight:bold}'+
+    '.titre-doc .t2{font-size:13px;color:#555}'+
+    '.bloc-emp{background:#f7f7f7;border:1px solid #ddd;border-radius:6px;padding:12px 16px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:6px 24px}'+
+    '.bloc-emp .lbl{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.03em}'+
+    '.bloc-emp .val{font-size:13px;font-weight:bold;margin-bottom:6px}'+
+    'table.paie{width:100%;border-collapse:collapse;margin-bottom:18px}'+
+    'table.paie th{background:#CC0000;color:#fff;text-align:left;padding:8px 10px;font-size:11px}'+
+    'table.paie td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px}'+
+    'table.paie td.mnt{text-align:right;font-variant-numeric:tabular-nums}'+
+    'table.paie tr.retenue td{color:#CC0000}'+
+    '.total-row{background:#f7f7f7;font-weight:bold}'+
+    '.net{background:#CC0000;color:#fff}'+
+    '.net td{padding:14px 10px;font-size:15px}'+
+    '.footer{margin-top:30px;display:flex;justify-content:space-between;font-size:11px;color:#666}'+
+    '.sign{margin-top:40px;border-top:1px solid #999;padding-top:6px;width:180px;text-align:center}'+
+    '.footer-bas{text-align:center;font-size:10px;color:#999;margin-top:30px;border-top:1px solid #eee;padding-top:10px}';
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
-  html+='<div class="c" style="font-size:17px">'+etab+'</div>';
-  html+='<div class="c" style="font-size:13px;margin:4px 0">📄 BULLETIN DE PAIE</div>';
-  html+='<div class="c" style="font-size:13px">'+monthLabelFr(mois).replace(/^./,function(c){return c.toUpperCase();})+'</div>';
-  html+='<div class="sep"></div>';
-  html+=ligne('Employé','<strong>'+emp.nom+'</strong>');
-  html+=ligne('Poste',emp.poste||'—');
-  html+=ligne('Contrat',contratLabel(emp.typeContrat||'1mois'));
-  html+='<div class="sep"></div>';
-  html+=ligne('Salaire brut',fmt(r.brut));
-  html+=ligne('Absences ('+(r.entry.absences||0)+'j)','-'+fmt(r.retAbs));
-  html+=ligne('Retard ('+(r.entry.retard||0)+'h)','-'+fmt(r.retRetard));
-  html+=ligne('Produits/Facture','-'+fmt(r.entry.produits||0));
-  html+=ligne('Sanction','-'+fmt(r.entry.sanction||0));
-  html+=ligne('Accompte','-'+fmt(r.entry.accompte||0));
-  html+='<div class="sep"></div>';
-  html+='<div style="font-size:15px">'+ligne('<span class="b">NET À PAYER</span>','<span class="b">'+fmt(r.net)+'</span>')+'</div>';
-  html+='<div class="sep"></div>';
-  html+='<div class="c" style="font-size:10px">Édité le '+new Date().toLocaleString('fr-FR')+'</div>';
+  html+='<div class="entete">';
+  html+='<div><h1>'+etab+'</h1><div class="infos">';
+  if(adr)html+=adr+'<br>';
+  if(tel)html+='Tél : '+tel+'<br>';
+  if(rccm)html+='RCCM : '+rccm+' ';
+  if(nif)html+='— NIF : '+nif;
+  html+='</div></div>';
+  html+='<div class="titre-doc"><div class="t1">BULLETIN DE PAIE</div><div class="t2">'+moisLabel+'</div></div>';
+  html+='</div>';
+  html+='<div class="bloc-emp">';
+  html+='<div><div class="lbl">Employé</div><div class="val">'+emp.nom+'</div></div>';
+  html+='<div><div class="lbl">Poste occupé</div><div class="val">'+(emp.poste||'—')+'</div></div>';
+  html+='<div><div class="lbl">Type de contrat</div><div class="val">'+contratLabel(emp.typeContrat||'1mois')+'</div></div>';
+  html+='<div><div class="lbl">Période</div><div class="val">'+moisLabel+'</div></div>';
+  html+='</div>';
+  html+='<table class="paie"><thead><tr><th>Élément</th><th style="text-align:right">Montant (FCFA)</th></tr></thead><tbody>';
+  html+='<tr><td>Salaire de base brut</td><td class="mnt">'+r.brut.toLocaleString('fr-FR')+'</td></tr>';
+  html+='<tr class="retenue"><td>Absences ('+(r.entry.absences||0)+' jour(s))</td><td class="mnt">-'+Math.round(r.retAbs).toLocaleString('fr-FR')+'</td></tr>';
+  html+='<tr class="retenue"><td>Retard ('+(r.entry.retard||0)+' heure(s))</td><td class="mnt">-'+Math.round(r.retRetard).toLocaleString('fr-FR')+'</td></tr>';
+  html+='<tr class="retenue"><td>Produits / Facture</td><td class="mnt">-'+(r.entry.produits||0).toLocaleString('fr-FR')+'</td></tr>';
+  html+='<tr class="retenue"><td>Sanction</td><td class="mnt">-'+(r.entry.sanction||0).toLocaleString('fr-FR')+'</td></tr>';
+  html+='<tr class="retenue"><td>Acompte déjà versé</td><td class="mnt">-'+(r.entry.accompte||0).toLocaleString('fr-FR')+'</td></tr>';
+  html+='<tr class="net"><td><strong>NET À PAYER</strong></td><td class="mnt"><strong>'+Math.round(r.net).toLocaleString('fr-FR')+' FCFA</strong></td></tr>';
+  html+='</tbody></table>';
+  html+='<div class="footer">';
+  html+='<div class="sign">Signature de l\'employeur</div>';
+  html+='<div class="sign">Signature de l\'employé</div>';
+  html+='</div>';
+  html+='<div class="footer-bas">Bulletin édité le '+new Date().toLocaleString('fr-FR')+' — '+etab+'</div>';
   html+='</body></html>';
   w.document.write(html);w.document.close();
   w.onafterprint=function(){w.close();};
