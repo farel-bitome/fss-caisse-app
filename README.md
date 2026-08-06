@@ -479,3 +479,21 @@ native invisible, sans fenêtre popup).
 Une trace d'erreur apparaît aussi désormais dans la console développeur en cas
 de nouvel échec, pour faciliter le diagnostic si le problème venait à se
 reproduire pour une autre raison.
+
+## Clôture depuis téléphone — envoi immédiat (sans délai)
+
+Autre correction possible pour ce même problème : l'envoi vers le serveur avait
+un petit délai (150ms) avant de partir réellement, pour éviter de spammer le
+réseau sur les actions fréquentes. Sur un téléphone, si l'écran se verrouille ou
+que le navigateur passe en arrière-plan juste après avoir confirmé la clôture,
+ce délai peut ne jamais aboutir (les navigateurs mobiles suspendent souvent le
+JavaScript des onglets en arrière-plan).
+
+La clôture utilise maintenant un envoi **immédiat, sans délai**, pour ce cas
+précis (action rare et critique, contrairement aux clics fréquents en caisse où
+le délai reste utile).
+
+**Si le problème persiste après ce correctif**, ouvrez la console développeur
+sur le poste **Serveur** (Ctrl+Maj+I dans l'app) pendant qu'un téléphone fait une
+clôture — une erreur détaillée s'affichera maintenant si l'impression échoue
+encore, ce qui permettra d'identifier précisément la cause restante.

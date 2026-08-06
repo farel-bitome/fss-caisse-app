@@ -170,8 +170,26 @@
       });
     }, 150);
   }
+  // Variante sans délai (pas de debounce de 150ms), pour les actions rares et
+  // critiques comme la clôture de caisse — utile en particulier depuis un
+  // téléphone, où un navigateur mis en arrière-plan juste après l'action
+  // (verrouillage d'écran, changement d'app) peut suspendre l'exécution du
+  // JavaScript avant qu'un envoi différé n'ait eu le temps de se déclencher.
+  function syncPushImmediate() {
+    if (applying) return;
+    if (!initialStateLoaded) return;
+    clearTimeout(pushTimer);
+    return fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fullState())
+    }).catch(function () {
+      safe(function () { toast('⚠️ Synchronisation impossible — vérifiez le serveur', 'e'); });
+    });
+  }
 
   window.fssSyncPush = syncPush;
+  window.fssSyncPushImmediate = syncPushImmediate;
   window.fssFullState = fullState;
   window.fssApplyState = applyState;
 

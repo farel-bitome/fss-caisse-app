@@ -2984,7 +2984,8 @@ function doCloture(){
     print80();
   }else{
     clotureBatches.push({batchId:'CLO-'+Date.now(),snapshot:construireInstantaneCloture()});
-    if(window.fssSyncPush)window.fssSyncPush();
+    if(window.fssSyncPushImmediate)window.fssSyncPushImmediate();
+    else if(window.fssSyncPush)window.fssSyncPush();
     toast('Ticket de clôture envoyé à l\'imprimante du serveur','i');
   }
   toast('Journée clôturée et archivée','s');
