@@ -659,20 +659,6 @@ suppression. Synchronisé en temps réel comme le reste de l'application.
   mise à jour : vX.X.X (build N)"** s'affiche automatiquement — vous savez
   immédiatement qu'une mise à jour vient d'être installée.
 
-## Alerte de stock par catégorie — remplacé par un simple activé/désactivé
-
-Sur votre retour, remplacé le système de seuil chiffré par catégorie par un
-**interrupteur simple** dans Paramètres → Catégories : pour chaque catégorie,
-un bouton **Activée/Désactivée** contrôle si l'alerte de stock faible
-s'applique aux articles de cette catégorie.
-
-Désactiver une catégorie retire ses articles de la liste "stock faible" (Stock
-→ Alertes) et de l'indicateur visuel rouge en Caisse, **peu importe leur stock
-réel** — pratique pour les catégories que vous ne voulez pas surveiller.
-
-**Testé** : vérifié qu'une catégorie désactivée exclut bien ses articles de la
-liste d'alerte, même avec un stock sous le seuil.
-
 ## Correction : version toujours affichée "v1.7.1" sous l'écran de connexion
 
 **Cause trouvée** : il y avait en fait **deux affichages de version séparés** —
@@ -683,3 +669,25 @@ jour au même rythme. D'où le décalage.
 **Corrigé définitivement** : le processus de compilation automatique met
 maintenant à jour **les deux affichages en même temps**, à chaque build — plus
 jamais besoin d'y penser manuellement, ils resteront toujours synchronisés.
+
+
+## Gestion de stock par catégorie — désactivation complète
+
+Sur votre demande, la case dans Paramètres → Catégories (renommée "Gestion de
+stock") va maintenant **bien plus loin** que juste masquer une alerte. Pour une
+catégorie désactivée, ses articles :
+
+- Ne voient **plus leur stock déduit** lors des ventes
+- Se vendent **sans aucune limite**, même si le stock affiché est à 0
+- **N'affichent plus le chiffre de stock** en Caisse (case masquée), dans la
+  liste Articles (tiret "—" à la place), ni dans la page Stock
+- **N'apparaissent plus du tout** dans la page Stock (liste, alertes, ni le
+  sélecteur des mouvements d'entrée/sortie/ajustement — puisqu'il n'y a plus
+  rien à y gérer)
+
+Les catégories avec la gestion de stock **activée** (par défaut) continuent de
+fonctionner exactement comme avant, sans aucun changement.
+
+**Testé** avant envoi : vente d'un article à stock=0 d'une catégorie
+désactivée → autorisée et le stock reste inchangé après-vente ; vente d'un
+article d'une catégorie normale → déduction correcte comme d'habitude.

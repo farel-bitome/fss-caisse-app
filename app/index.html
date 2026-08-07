@@ -718,8 +718,8 @@ td{padding:8px 11px;vertical-align:middle}
     </div>
     <div class="sub" id="sub-params-cats">
       <div class="stb"><span class="stit">Catégories d'articles</span><button class="btn btn-r sm" onclick="openCatModal()">➕ Ajouter une catégorie</button></div>
-      <p style="font-size:11px;color:#666;padding:0 14px 8px">Active ou désactive l'alerte de stock faible pour tous les articles d'une catégorie donnée — pratique pour ignorer certaines catégories (ex: articles qu'on ne suit pas en stock) sans devoir le faire article par article.</p>
-      <div class="tw"><table id="tCats"><thead><tr><th>Nom</th><th>Alerte de stock</th><th>Actions</th></tr></thead><tbody id="bCats"></tbody></table></div>
+      <p style="font-size:11px;color:#666;padding:0 14px 8px">Active ou désactive complètement le suivi de stock pour tous les articles d'une catégorie donnée : quand c'est désactivé, le stock de ces articles n'est plus déduit lors des ventes, plus affiché, et aucune alerte ne les concerne — pratique pour les catégories qu'on ne gère pas en stock (ex: articles préparés à la demande).</p>
+      <div class="tw"><table id="tCats"><thead><tr><th>Nom</th><th>Gestion de stock</th><th>Actions</th></tr></thead><tbody id="bCats"></tbody></table></div>
     </div>
     <div class="sub" id="sub-params-airtel">
       <div class="slay"><div class="ssect">
@@ -1324,12 +1324,15 @@ function renderProds(search){
     var emo=document.createElement('div');emo.className='pe';emo.textContent=a.emo;
     var nom=document.createElement('div');nom.className='pn';nom.textContent=a.nom;
     var prix=document.createElement('div');prix.className='pp';prix.textContent=fmt(a.pv);
-    var stkFaibleVisible=a.stk<=a.smin&&a.alerte!==false&&categoryAlerteActive[a.cat]!==false;
-    var stk=document.createElement('div');stk.className='ps'+(stkFaibleVisible?' low':'');stk.textContent='Stock: '+a.stk;
+    var gestionStockActive=categoryAlerteActive[a.cat]!==false;
+    var stkFaibleVisible=gestionStockActive&&a.stk<=a.smin&&a.alerte!==false;
+    var stk=document.createElement('div');stk.className='ps'+(stkFaibleVisible?' low':'');
+    stk.textContent=gestionStockActive?('Stock: '+a.stk):'';
+    stk.style.display=gestionStockActive?'':'none';
     d.appendChild(emo);d.appendChild(nom);d.appendChild(prix);d.appendChild(stk);
-    if(a.stk>0){d.onclick=function(){addTk(a.id);};}
+    if(!gestionStockActive||a.stk>0){d.onclick=function(){addTk(a.id);};}
     else{d.onclick=function(){toast('Rupture de stock','e');};}
-    d.onmouseenter=function(){if(a.stk>0){d.style.borderColor='#CC0000';d.style.background='#222';}};
+    d.onmouseenter=function(){if(!gestionStockActive||a.stk>0){d.style.borderColor='#CC0000';d.style.background='#222';}};
     d.onmouseleave=function(){d.style.borderColor='#333';d.style.background='#1a1a1a';};
     grid.appendChild(d);
   });
@@ -1384,7 +1387,9 @@ function rechArtKey(e){
 // TICKET
 function addTk(id){
   var a=arts.find(function(x){return x.id===id;});
-  if(!a||a.stk<=0){toast('Stock insuffisant','e');return;}
+  if(!a)return;
+  var gestionStockActive=categoryAlerteActive[a.cat]!==false;
+  if(gestionStockActive&&a.stk<=0){toast('Stock insuffisant','e');return;}
   var ex=tkt.find(function(x){return x.id===id;});
   if(ex){ex.qty++;}else{tkt.push({id:id,nom:a.nom,pv:a.pv,qty:1,emo:a.emo});}
   renderTkt();updTotal();
@@ -2026,7 +2031,7 @@ function numIn(k){
 function valPay(){
   var tot=getTotal();
   if(payMode==='esp'&&recAmt<tot){toast('Montant insuffisant','e');return;}
-  tkt.forEach(function(it){var a=arts.find(function(x){return x.id===it.id;});if(a)a.stk=Math.max(0,a.stk-it.qty);});
+  tkt.forEach(function(it){var a=arts.find(function(x){return x.id===it.id;});if(a&&categoryAlerteActive[a.cat]!==false)a.stk=Math.max(0,a.stk-it.qty);});
   var now=new Date();
   var dd=('0'+now.getDate()).slice(-2),mm=('0'+(now.getMonth()+1)).slice(-2);
   var hh=('0'+now.getHours()).slice(-2),mi=('0'+now.getMinutes()).slice(-2);
@@ -2208,12 +2213,14 @@ function renderArt(){
   arts.forEach(function(a){
     var mg=a.pa?Math.round((a.pv-a.pa)/a.pv*100):0;
     var tr=document.createElement('tr');
+    var gestionStockActive=categoryAlerteActive[a.cat]!==false;
+    var alerteVisible=gestionStockActive&&a.stk<=a.smin&&a.alerte!==false;
     tr.innerHTML='<td><code style="font-size:10px;color:#666">'+a.ref+'</code></td>'+
       '<td>'+a.emo+' <strong>'+a.nom+'</strong></td>'+
       '<td><span class="badge bo">'+a.cat+'</span></td><td>'+a.un+'</td>'+
       '<td><strong>'+fmt(a.pv)+'</strong></td><td>'+(a.pa?fmt(a.pa):'—')+'</td>'+
       '<td style="color:'+(mg>30?'#4488FF':mg>15?'#CC0000':'#FF4444')+'">'+mg+'%</td>'+
-      '<td style="color:'+(a.stk<=a.smin?'#FF4444':'#fff')+'">'+a.stk+'</td>'+
+      '<td style="color:'+(alerteVisible?'#FF4444':'#fff')+'">'+(gestionStockActive?a.stk:'—')+'</td>'+
       '<td>'+a.tva+'%</td><td><span class="badge '+(a.actif?'bg':'br')+'">'+(a.actif?'Actif':'Inactif')+'</span></td>'+
       '<td><div style="display:flex;gap:4px">'+
         '<button class="ibt" onclick="openArtModal('+a.id+')">✏️</button>'+
@@ -2478,10 +2485,11 @@ function renderEti(){
 // STOCK
 function renderStk(){
   var al=g('stkAlert'),b=g('bStk');if(!b)return;
-  var alrts=arts.filter(function(a){return a.stk<=a.smin&&a.actif&&a.alerte!==false&&categoryAlerteActive[a.cat]!==false;});
+  var artsSuivis=arts.filter(function(a){return categoryAlerteActive[a.cat]!==false;});
+  var alrts=artsSuivis.filter(function(a){return a.stk<=a.smin&&a.actif&&a.alerte!==false;});
   al.innerHTML=(alrts.length&&toggles.alerte)?'<div class="salt">⚠️ <strong>'+alrts.length+' critique(s):</strong> '+alrts.map(function(a){return a.nom;}).join(', ')+'</div>':'';
   b.innerHTML='';
-  arts.forEach(function(a){
+  artsSuivis.forEach(function(a){
     var st=a.stk<=0?'Rupture':a.stk<=a.smin?'Critique':'Normal';
     var bc=a.stk>a.smin?'bg':'br';
     var tr=document.createElement('tr');
@@ -2495,7 +2503,7 @@ function renderStk(){
 }
 function openStkModal(typ,id){
   var sel=g('sArt');sel.innerHTML='';
-  arts.forEach(function(a){var o=document.createElement('option');o.value=a.id;o.textContent=a.emo+' '+a.nom+' (stk:'+a.stk+')';sel.appendChild(o);});
+  arts.filter(function(a){return categoryAlerteActive[a.cat]!==false;}).forEach(function(a){var o=document.createElement('option');o.value=a.id;o.textContent=a.emo+' '+a.nom+' (stk:'+a.stk+')';sel.appendChild(o);});
   if(id)sel.value=id;g('sTyp').value=typ;
   var t={in:'Entrée de Stock',out:'Sortie de Stock',adj:'Ajustement'};
   g('stkMT').textContent=t[typ]||'Mouvement';g('sQty').value='';g('sNote').value='';g('sScan').value='';
