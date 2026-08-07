@@ -607,6 +607,7 @@ td{padding:8px 11px;vertical-align:middle}
       <button class="btn btn-o sm" onclick="razCaisse()">🔄 RAZ Caisse</button>
       <button class="btn btn-b sm" onclick="print80()">🖨️ 80mm</button>
       <button class="btn btn-o sm" onclick="printA4()">📄 A4</button>
+      <button class="btn btn-o sm" onclick="ouvrirHistoriqueClotures()">🗂️ Historique</button>
     </div>
     <div class="cgrid">
       <div class="ccard"><div class="ccti">☀️ Récapitulatif Journée</div>
@@ -970,6 +971,21 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
     <p style="font-size:11px;color:#666;text-align:center;margin-top:10px">1 part = addition classique. Plus de 1 = un ticket séparé par part, chacun avec sa portion du total.</p>
   </div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovAdditionSplit')">Annuler</button><button class="btn btn-r" onclick="confirmerImpressionAddition()">🖨️ Imprimer</button></div>
+</div></div>
+<div class="ov" id="ovHistCloture"><div class="md lg"><div class="mh"><span class="mt">🗂️ Historique des clôtures</span><button class="mc" onclick="closeM('ovHistCloture')">✕</button></div>
+  <div class="mb">
+    <div class="sg" style="margin-bottom:14px">
+      <div class="fg"><label class="fl">Du</label><input class="fi" type="date" id="histClDebut" onchange="renderHistoriqueClotures()"></div>
+      <div class="fg"><label class="fl">Au</label><input class="fi" type="date" id="histClFin" onchange="renderHistoriqueClotures()"></div>
+      <div class="fg" style="display:flex;align-items:flex-end;gap:6px">
+        <button class="btn btn-o sm" onclick="periodeHistCloture(0)">Aujourd'hui</button>
+        <button class="btn btn-o sm" onclick="periodeHistCloture(7)">7 derniers jours</button>
+        <button class="btn btn-o sm" onclick="periodeHistCloture(30)">30 derniers jours</button>
+      </div>
+    </div>
+    <div class="tw"><table><thead><tr><th>Date</th><th>Caisse</th><th>Tickets</th><th>CA TTC</th><th>Prélèvements</th><th>Solde</th><th>Actions</th></tr></thead><tbody id="bHistCloture"></tbody></table></div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovHistCloture')" style="width:100%">Fermer</button></div>
 </div></div>
 <div class="ov" id="ovPay"><div class="md"><div class="mh"><span class="mt" id="payMT">Paiement</span><button class="mc" onclick="closeM('ovPay')">✕</button></div>
   <div class="mb">
@@ -1561,6 +1577,7 @@ function updateTableOptions(){
 // ---- COMMANDES EN ATTENTE ----
 var cmdAttente=[];var attenteSeq=1;
 var printBatches=[];
+var clotureHistorique=[];
 var resumingAttenteId=null,resumingBaseItems=null,resumingSentQty=null;
 function imprimerTicketAttente(batch){
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
@@ -3133,13 +3150,18 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
   var parArticle={};
   tl.forEach(function(t){
     (t.items||[]).forEach(function(it){
-      if(!parArticle[it.nom])parArticle[it.nom]={qty:0,total:0};
-      parArticle[it.nom].qty+=(it.qty||0);
-      parArticle[it.nom].total+=(it.qty||0)*(it.pv||0);
+      // Nom normalisé (espaces superflus retirés, casse ignorée) pour que
+      // deux ventes du même article ne finissent jamais sur deux lignes
+      // séparées à cause d'une différence d'espace ou de majuscule.
+      var nomBrut=(it.nom||'').toString();
+      var cle=nomBrut.trim().toLowerCase();
+      if(!parArticle[cle])parArticle[cle]={nom:nomBrut.trim(),qty:0,total:0};
+      parArticle[cle].qty+=(it.qty||0);
+      parArticle[cle].total+=(it.qty||0)*(it.pv||0);
     });
   });
-  var articlesTries=Object.keys(parArticle).map(function(nom){
-    return {nom:nom,qty:parArticle[nom].qty,total:parArticle[nom].total};
+  var articlesTries=Object.keys(parArticle).map(function(cle){
+    return {nom:parArticle[cle].nom,qty:parArticle[cle].qty,total:parArticle[cle].total};
   }).sort(function(a,b){return b.qty-a.qty;});
   var css='@page{size:80mm auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
@@ -3190,6 +3212,20 @@ function doCloture(){
   if(!prls.length){toast('Veuillez effectuer au moins un prélèvement avant de clôturer la caisse','e');return;}
   if(!confirm('Confirmer la clôture ?'))return;
   afficherBilanCloture();
+  // Archive un vrai enregistrement d'historique (avant, "archivée" ne faisait
+  // rien de réel) — permet de retrouver et réimprimer n'importe quelle
+  // clôture passée plus tard, par période.
+  var snapshot=construireInstantaneCloture();
+  clotureHistorique.unshift({
+    id:'HCL-'+Date.now(),
+    date:new Date().toISOString(),
+    caisse:snapshot.cxLbl,
+    nbTickets:snapshot.tl.length,
+    ttc:snapshot.ttc,
+    prelevements:snapshot.tp,
+    solde:snapshot.ttc-snapshot.tp,
+    snapshot:snapshot
+  });
   // Impression automatique du bilan de clôture complet (ticket 80mm) :
   // - Depuis le poste Serveur lui-même : impression directe.
   // - Depuis un téléphone ou un poste client : la demande est transmise au
@@ -3199,12 +3235,60 @@ function doCloture(){
   if(window.FSS_IS_SERVER){
     print80();
   }else{
-    printBatches.push({batchId:'CLO-'+Date.now(),type:'cloture',snapshot:construireInstantaneCloture()});
+    printBatches.push({batchId:'CLO-'+Date.now(),type:'cloture',snapshot:snapshot});
     if(window.fssSyncPushImmediate)window.fssSyncPushImmediate();
     else if(window.fssSyncPush)window.fssSyncPush();
     toast('Ticket de clôture envoyé à l\'imprimante du serveur','i');
   }
+  if(window.fssSyncPush)window.fssSyncPush();
   toast('Journée clôturée et archivée','s');
+}
+
+// ============================================================
+// HISTORIQUE DES CLÔTURES — sélection de période, réimpression
+// ============================================================
+function ouvrirHistoriqueClotures(){
+  var aujourdhui=todayStr();
+  if(!g('histClDebut').value)g('histClDebut').value=aujourdhui;
+  if(!g('histClFin').value)g('histClFin').value=aujourdhui;
+  renderHistoriqueClotures();
+  g('ovHistCloture').classList.add('on');
+}
+function periodeHistCloture(joursAvant){
+  var fin=new Date();
+  var debut=new Date();debut.setDate(debut.getDate()-joursAvant);
+  g('histClFin').value=fin.toISOString().slice(0,10);
+  g('histClDebut').value=debut.toISOString().slice(0,10);
+  renderHistoriqueClotures();
+}
+function renderHistoriqueClotures(){
+  var b=g('bHistCloture');if(!b)return;
+  var debut=g('histClDebut').value,fin=g('histClFin').value;
+  var liste=clotureHistorique.filter(function(h){
+    var d=h.date.slice(0,10);
+    return (!debut||d>=debut)&&(!fin||d<=fin);
+  });
+  if(!liste.length){
+    b.innerHTML='<tr><td colspan="7" style="text-align:center;color:#666;padding:20px">Aucune clôture archivée sur cette période</td></tr>';
+    return;
+  }
+  b.innerHTML='';
+  liste.forEach(function(h){
+    var dt=new Date(h.date);
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+dt.toLocaleDateString('fr-FR')+' '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</td>'+
+      '<td>'+h.caisse+'</td><td>'+h.nbTickets+'</td>'+
+      '<td><strong>'+fmt(h.ttc)+'</strong></td>'+
+      '<td style="color:#FF4444">'+fmt(h.prelevements)+'</td>'+
+      '<td style="color:#4488FF"><strong>'+fmt(h.solde)+'</strong></td>'+
+      '<td><button class="btn btn-o sm" onclick="reimprimerCloture(\''+h.id+'\')">🖨️ Réimprimer</button></td>';
+    b.appendChild(tr);
+  });
+}
+function reimprimerCloture(id){
+  var h=clotureHistorique.find(function(x){return x.id===id;});
+  if(!h){toast('Clôture introuvable','e');return;}
+  ouvrirEtImprimerHTML(buildBilanClotureHTML(h.snapshot));
 }
 function afficherBilanCloture(){
   var b=g('bilanBody');if(!b)return;
@@ -3252,13 +3336,18 @@ function buildBilanClotureHTML(snapshot){
   var parArticle={};
   tl.forEach(function(t){
     (t.items||[]).forEach(function(it){
-      if(!parArticle[it.nom])parArticle[it.nom]={qty:0,total:0};
-      parArticle[it.nom].qty+=(it.qty||0);
-      parArticle[it.nom].total+=(it.qty||0)*(it.pv||0);
+      // Nom normalisé (espaces superflus retirés, casse ignorée) pour que
+      // deux ventes du même article ne finissent jamais sur deux lignes
+      // séparées à cause d'une différence d'espace ou de majuscule.
+      var nomBrut=(it.nom||'').toString();
+      var cle=nomBrut.trim().toLowerCase();
+      if(!parArticle[cle])parArticle[cle]={nom:nomBrut.trim(),qty:0,total:0};
+      parArticle[cle].qty+=(it.qty||0);
+      parArticle[cle].total+=(it.qty||0)*(it.pv||0);
     });
   });
-  var articlesTries=Object.keys(parArticle).map(function(nom){
-    return {nom:nom,qty:parArticle[nom].qty,total:parArticle[nom].total};
+  var articlesTries=Object.keys(parArticle).map(function(cle){
+    return {nom:parArticle[cle].nom,qty:parArticle[cle].qty,total:parArticle[cle].total};
   }).sort(function(a,b){return b.qty-a.qty;});
 
   var css='@page{size:80mm auto;margin:0}'+

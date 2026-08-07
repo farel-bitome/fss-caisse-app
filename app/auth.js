@@ -267,7 +267,24 @@
       });
     }
     document.getElementById('miLogout').addEventListener('click', function () {
-      location.reload();
+      // Important : on force et on attend la fin de toute synchronisation en
+      // cours avant de recharger la page. Sans ça, une commande envoyée juste
+      // avant de se déconnecter pouvait ne jamais atteindre le serveur — la
+      // page se rechargeait plus vite que l'enregistrement, et la commande
+      // "disparaissait" car elle n'avait en fait jamais été sauvegardée.
+      menu.style.display = 'none';
+      var recharger = function () { location.reload(); };
+      if (window.fssSyncPushImmediate) {
+        var p = window.fssSyncPushImmediate();
+        if (p && typeof p.then === 'function') {
+          p.then(recharger).catch(recharger);
+          setTimeout(recharger, 3000); // filet de sécurité si ça traîne
+        } else {
+          setTimeout(recharger, 400);
+        }
+      } else {
+        recharger();
+      }
     });
 
     var fileInput = document.createElement('input');

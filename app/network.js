@@ -27,6 +27,7 @@
   window.categoryAlerteActive = window.categoryAlerteActive || {};
   window.fondsOuverture = window.fondsOuverture || {};
   window.printBatches = window.printBatches || [];
+  window.clotureHistorique = window.clotureHistorique || [];
   window.employes = window.employes || [];
   window.pointages = window.pointages || [];
   window.paieEntries = window.paieEntries || [];
@@ -36,6 +37,7 @@
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
       users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches,
+      clotureHistorique: clotureHistorique,
       categoryAlerteActive: categoryAlerteActive,
       employes: employes, pointages: pointages, paieEntries: paieEntries
     };
@@ -87,6 +89,8 @@
       });
     }
     prevBatchIds = printBatches.map(function (bt) { return bt.batchId; });
+    clotureHistorique = s.clotureHistorique || [];
+    window.clotureHistorique = clotureHistorique;
     nextTk = s.nextTk || 1;
     attenteSeq = s.attenteSeq || 1;
     users = s.users || [];
@@ -185,6 +189,23 @@
 
   window.fssSyncPush = syncPush;
   window.fssSyncPushImmediate = syncPushImmediate;
+  // Si l'app se ferme (fermeture manuelle, redémarrage...), on force
+  // immédiatement l'envoi de tout changement en attente, et on prévient le
+  // processus principal une fois que c'est VRAIMENT terminé (pas juste lancé)
+  // — pour qu'il attende la vraie fin avant de fermer la fenêtre.
+  if (window.electronAPI && window.electronAPI.onFlushAvantFermeture) {
+    window.electronAPI.onFlushAvantFermeture(function () {
+      var p = syncPushImmediate();
+      var confirmer = function () {
+        if (window.electronAPI.confirmerFlushTermine) window.electronAPI.confirmerFlushTermine();
+      };
+      if (p && typeof p.then === 'function') {
+        p.then(confirmer).catch(confirmer);
+      } else {
+        confirmer();
+      }
+    });
+  }
   window.fssFullState = fullState;
   window.fssApplyState = applyState;
 

@@ -92,6 +92,41 @@ function createWindow() {
 
   buildMenu();
 
+  let fermetureAutorisee = false;
+  win.on('close', (event) => {
+    if (fermetureAutorisee) return;
+    event.preventDefault();
+    let repondu = false;
+    const terminerFermeture = () => {
+      if (repondu) return;
+      repondu = true;
+      fermetureAutorisee = true;
+      if (win && !win.isDestroyed()) win.close();
+    };
+    ipcMain.once('flush-termine', terminerFermeture);
+    win.webContents.send('flush-avant-fermeture');
+    // Filet de sécurité : si aucune confirmation n'arrive (réseau down,
+    // page déjà en train de planter...), on ferme quand même après 5s max,
+    // pour ne jamais bloquer complètement la fermeture de l'application.
+    setTimeout(terminerFermeture, 5000);
+  });
+
+  // Même principe que la fermeture ci-dessus, mais pour "Recharger" (menu) :
+  // on attend la vraie confirmation que tout changement en attente a atteint
+  // le serveur avant de recharger la page — sans ça, un changement tout juste
+  // fait (article ajouté, mouvement de stock...) pouvait se perdre.
+  global.rechargerEnAttendantSync = function () {
+    let repondu = false;
+    const suite = () => {
+      if (repondu) return;
+      repondu = true;
+      boot();
+    };
+    ipcMain.once('flush-termine', suite);
+    if (win && !win.isDestroyed()) win.webContents.send('flush-avant-fermeture');
+    setTimeout(suite, 5000);
+  };
+
   // F12 ouvre directement les outils de développement, sans avoir besoin
   // d'afficher le menu au préalable (la barre de menu est masquée par défaut).
   win.webContents.on('before-input-event', (event, input) => {
@@ -214,7 +249,7 @@ function buildMenu() {
             }
           }
         },
-        { label: 'Recharger', click: () => boot() },
+        { label: 'Recharger', click: () => global.rechargerEnAttendantSync ? global.rechargerEnAttendantSync() : boot() },
         {
           label: 'Licence / Activation',
           click: () => win.loadFile(path.join(__dirname, 'activation.html'))

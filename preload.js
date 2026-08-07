@@ -17,5 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listBackups: () => ipcRenderer.invoke('list-backups'),
   createBackup: (stateJson, type) => ipcRenderer.invoke('create-backup', stateJson, type),
   readBackup: (filename) => ipcRenderer.invoke('read-backup', filename),
-  openBackupFileDialog: () => ipcRenderer.invoke('open-backup-file-dialog')
+  openBackupFileDialog: () => ipcRenderer.invoke('open-backup-file-dialog'),
+  onFlushAvantFermeture: (callback) => ipcRenderer.on('flush-avant-fermeture', callback),
+  confirmerFlushTermine: () => ipcRenderer.send('flush-termine')
 });

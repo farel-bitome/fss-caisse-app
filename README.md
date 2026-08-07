@@ -797,3 +797,84 @@ avant).
 
 **Testé** : les 4 cas de figure (avant envoi, après envoi avec/sans
 autorisation, ajout toujours libre) — tous corrects.
+
+## Vraie cause trouvée : cumul cassé par des espaces/majuscules invisibles
+
+**Reproduit exactement votre symptôme** : si un article a un espace en trop ou
+une casse différente entre deux ventes (ex: "Regab" vs "Regab " avec un espace
+en fin, ou "REGAB"), le cumul les traitait comme **deux articles différents**
+— d'où plusieurs lignes séparées au lieu d'une seule ligne cumulée à 19.
+
+**Corrigé** dans le ticket de clôture ET le ticket de prélèvement : le cumul
+ignore maintenant les espaces superflus et la casse — "Regab", "Regab " et
+"REGAB" fusionnent bien en une seule ligne, peu importe d'où vient la petite
+différence de saisie.
+
+**Testé avant envoi** : reproduit le bug exact avec 5+8+6 unités réparties sur
+3 variantes d'écriture du même nom → confirmé cassé avant, puis vérifié 19
+unités cumulées correctement sur une seule ligne après correction.
+
+## Historique des clôtures — réimpression par période
+
+Le bouton **🗂️ Historique** (en haut de la page Clôture) existait déjà dans
+l'interface, mais n'était en réalité relié à rien — il ne faisait strictement
+rien au clic. De même, le message "Journée clôturée et archivée" était
+trompeur : rien n'était réellement conservé pour être retrouvé plus tard.
+
+**Maintenant vraiment fonctionnel** :
+- Chaque clôture est désormais **réellement archivée** (date, caisse, nombre de
+  tickets, CA, prélèvements, solde, et le détail complet des ventes)
+- Le bouton **🗂️ Historique** ouvre une fenêtre où vous choisissez une
+  **période** (du/au, ou raccourcis "Aujourd'hui" / "7 derniers jours" / "30
+  derniers jours")
+- Chaque clôture de la période s'affiche avec un bouton **🖨️ Réimprimer**, qui
+  ressort exactement le même ticket qu'à l'époque (avec le détail des ventes
+  cumulé, comme au moment de la clôture originale)
+
+**Testé** avant envoi : filtrage par période vérifié sur 3 clôtures simulées à
+des dates différentes — les bonnes clôtures ressortent selon la période
+choisie.
+
+## Vraie cause trouvée : commande perdue à la déconnexion/fermeture
+
+**Trouvé le vrai bug** : le bouton "Se déconnecter" rechargeait la page
+**instantanément**, sans jamais attendre qu'une synchronisation en cours ne se
+termine. Si une commande venait d'être envoyée juste avant de se déconnecter
+(fin de service, passage de relais...), la page pouvait se recharger **plus
+vite que l'enregistrement** — la commande n'atteignait alors jamais le
+serveur, et semblait "disparaître" alors qu'elle n'avait en fait jamais été
+sauvegardée.
+
+**Corrigé à deux endroits** :
+- **Déconnexion** : force et attend la fin de la synchronisation avant de
+  recharger la page (avec un filet de sécurité de 3 secondes maximum pour ne
+  jamais bloquer indéfiniment)
+- **Fermeture de l'application** (bouton X, redémarrage) : même principe,
+  attend brièvement (0,6s) qu'une synchronisation en cours se termine avant de
+  fermer réellement la fenêtre
+
+Ces corrections couvrent les deux scénarios que vous mentionniez (changement
+d'utilisateur ET redémarrage du logiciel). Rappel : une commande en attente ne
+disparaît par ailleurs que si quelqu'un avec la permission **🗑️ Supprimer une
+commande en attente** clique explicitement dessus.
+
+## Correction plus robuste : vrai accusé de réception avant fermeture/rechargement
+
+Ma correction précédente (fermeture/déconnexion) utilisait un **délai fixe**
+avant de vraiment fermer — ce qui pouvait encore être trop court sur un réseau
+un peu lent, laissant filer la même perte de données (articles ajoutés,
+mouvements de stock...).
+
+**Remplacé par un vrai accusé de réception** : l'application attend
+maintenant une **confirmation réelle** que la sauvegarde a bien atteint le
+serveur, plutôt qu'un délai fixe deviné à l'avance — avec un filet de sécurité
+de 5 secondes maximum pour ne jamais bloquer indéfiniment si le réseau est
+complètement down.
+
+**Trouvé et corrigé un troisième point** avec la même faille, que je n'avais
+pas encore vu : le bouton **"Recharger"** du menu (Alt → FSS-CAISSE →
+Recharger) rechargeait aussi instantanément, sans jamais attendre — corrigé
+avec le même mécanisme.
+
+Ces trois points (déconnexion, fermeture de l'app, "Recharger") utilisent
+maintenant tous la même protection fiable.
