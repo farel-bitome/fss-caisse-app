@@ -836,13 +836,13 @@ td{padding:8px 11px;vertical-align:middle}
   <div class="mb"><div class="sg">
     <div class="fg"><label class="fl">Référence</label><input class="fi" id="aRef" placeholder="ART-001"></div>
     <div class="fg"><label class="fl">Désignation *</label><input class="fi" id="aNom" placeholder="Nom"></div>
-    <div class="fg"><label class="fl">Catégorie *</label><div style="display:flex;gap:6px"><select class="fi" id="aCat" style="flex:1" onchange="appliquerSeuilParDefaut()"></select><button type="button" class="btn btn-o sm" onclick="openCatModal()">➕</button></div></div>
+    <div class="fg"><label class="fl">Catégorie *</label><div style="display:flex;gap:6px"><select class="fi" id="aCat" style="flex:1" onchange="appliquerSeuilParDefaut();majEtatAlerteArticle();"></select><button type="button" class="btn btn-o sm" onclick="openCatModal()">➕</button></div></div>
     <div class="fg"><label class="fl">Unité</label><select class="fi" id="aUn"><option>Unité</option><option>Bouteille</option><option>Verre</option><option>Litre</option><option>cl</option><option>kg</option><option>g</option><option>Portion</option><option>Carton</option></select></div>
     <div class="fg"><label class="fl">Prix vente (FCFA) *</label><input class="fi" type="number" id="aPV" placeholder="0" oninput="calcMg()"></div>
     <div class="fg"><label class="fl">Prix achat (FCFA)</label><input class="fi" type="number" id="aPA" placeholder="0" oninput="calcMg()"></div>
     <div class="fg"><label class="fl">Stock initial</label><input class="fi" type="number" id="aStk" placeholder="0"></div>
     <div class="fg"><label class="fl">Stock minimum</label><input class="fi" type="number" id="aSMin" placeholder="5"></div>
-    <div class="fg" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#eee;cursor:pointer;padding:8px;background:#0e0e0e;border-radius:6px;border:1px solid #333"><input type="checkbox" id="aAlerte" checked> ⚠️ Activer l'alerte de stock faible pour cet article</label></div>
+    <div class="fg" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#eee;cursor:pointer;padding:8px;background:#0e0e0e;border-radius:6px;border:1px solid #333" id="aAlerteWrap"><input type="checkbox" id="aAlerte" checked> ⚠️ Activer l'alerte de stock faible pour cet article</label><p id="aAlerteNote" style="font-size:10px;color:#FF8844;margin-top:4px;display:none">Gestion de stock désactivée pour la catégorie de cet article (Paramètres → Catégories) — ce réglage n'a donc aucun effet.</p></div>
     <div class="fg"><label class="fl">Émoji</label><input class="fi" id="aEmo" placeholder="🍺" maxlength="2"></div>
     <div class="fg"><label class="fl">TVA (%)</label><input class="fi" type="number" id="aTVA" value="18"></div>
     <div class="fg" style="grid-column:1/-1"><label class="fl">Code-barres</label>
@@ -2235,11 +2235,24 @@ function openArtModal(id){
   editArtId=id||null;g('artMT').textContent=id?'Modifier article':'Nouvel article';
   if(id){var a=arts.find(function(x){return x.id===id;});g('aRef').value=a.ref;g('aNom').value=a.nom;g('aCat').value=a.cat;g('aUn').value=a.un;g('aPV').value=a.pv;g('aPA').value=a.pa;g('aStk').value=a.stk;g('aSMin').value=a.smin;g('aEmo').value=a.emo;g('aTVA').value=a.tva;g('aCB').value=a.cb||'';g('aAlerte').checked=a.alerte!==false;}
   else{['aRef','aNom','aPV','aPA','aStk','aSMin','aCB'].forEach(function(i){g(i).value='';});g('aEmo').value='🍽️';g('aTVA').value='18';g('aAlerte').checked=true;appliquerSeuilParDefaut();}
+  majEtatAlerteArticle();
   calcMg();g('ovArt').classList.add('on');
 }
 // Pré-remplit le seuil d'alerte stock avec celui défini pour la catégorie
 // sélectionnée (Paramètres → Catégories) — seulement pour un nouvel article,
 // jamais en modification d'un article existant.
+// Grise la case "Alerte de stock" et affiche une explication quand la
+// catégorie choisie a la gestion de stock désactivée — pour que la fiche
+// article ne montre plus une case cochée qui n'a en réalité aucun effet.
+function majEtatAlerteArticle(){
+  var cat=g('aCat')?g('aCat').value:'';
+  var gestionActive=categoryAlerteActive[cat]!==false;
+  var chk=g('aAlerte'),wrap=g('aAlerteWrap'),note=g('aAlerteNote');
+  if(!chk)return;
+  chk.disabled=!gestionActive;
+  if(wrap)wrap.style.opacity=gestionActive?'1':'0.5';
+  if(note)note.style.display=gestionActive?'none':'block';
+}
 function appliquerSeuilParDefaut(){
   if(editArtId)return;
   if(g('aSMin'))g('aSMin').value=5;

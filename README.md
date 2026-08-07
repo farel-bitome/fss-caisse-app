@@ -691,3 +691,15 @@ fonctionner exactement comme avant, sans aucun changement.
 **Testé** avant envoi : vente d'un article à stock=0 d'une catégorie
 désactivée → autorisée et le stock reste inchangé après-vente ; vente d'un
 article d'une catégorie normale → déduction correcte comme d'habitude.
+
+## Fiche article — la case "Alerte" reflète maintenant la catégorie
+
+Trouvé la source de la confusion : la case "Activer l'alerte de stock faible
+pour cet article" ne regardait que le réglage propre à l'article, jamais celui
+de sa catégorie — elle restait donc cochée même quand la gestion de stock était
+désactivée pour toute la catégorie (ce qui n'avait plus aucun effet réel, mais
+donnait l'impression que ce n'était pas pris en compte).
+
+**Corrigé** : quand la catégorie de l'article a la gestion de stock
+désactivée, la case apparaît maintenant **grisée et inactive**, avec une note
+explicative ("Gestion de stock désactivée pour la catégorie de cet article").
