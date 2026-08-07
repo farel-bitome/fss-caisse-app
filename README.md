@@ -785,3 +785,15 @@ article) affichait encore "TVA: X%" sous chaque article — c'est ce que vous
 voyiez à la fois pour les articles déjà enregistrés (avec l'ancien 18%) et
 pour tout nouvel article une fois ajouté (puisque cette page affiche tout le
 catalogue). Retiré.
+
+## Réduction de quantité bloquée sur une commande déjà envoyée
+
+Le bouton **"−"** (réduire la quantité d'un article) n'avait jusqu'ici aucune
+restriction. Maintenant : une fois une commande **reprise depuis "Commandes en
+attente"** (donc déjà envoyée), réduire une quantité nécessite la permission
+**➖ Retirer article** — l'ajout (**"+"**) reste toujours libre pour tout le
+monde. Sur un ticket pas encore envoyé, aucune restriction ne s'applique (comme
+avant).
+
+**Testé** : les 4 cas de figure (avant envoi, après envoi avec/sans
+autorisation, ajout toujours libre) — tous corrects.

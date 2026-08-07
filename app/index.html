@@ -1407,6 +1407,8 @@ function renderTkt(){
     var nom=document.createElement('div');nom.className='trn';nom.textContent=it.nom;
     var qc=document.createElement('div');qc.className='qc';
     var bm=document.createElement('button');bm.className='qb';bm.textContent='−';bm.onclick=function(){chgQ(i,-1);};
+    var reductionBloquee=resumingAttenteId&&!(typeof hasRetraitArticlePermission==='function'&&hasRetraitArticlePermission());
+    if(reductionBloquee){bm.style.opacity='0.3';bm.style.cursor='not-allowed';bm.title='Autorisation requise pour réduire une commande envoyée';}
     var qn=document.createElement('span');qn.className='qn';qn.textContent=it.qty;
     var bp=document.createElement('button');bp.className='qb';bp.textContent='+';bp.onclick=function(){chgQ(i,1);};
     qc.appendChild(bm);qc.appendChild(qn);qc.appendChild(bp);
@@ -1417,7 +1419,17 @@ function renderTkt(){
     w.appendChild(d);
   });
 }
-function chgQ(i,d){tkt[i].qty+=d;if(tkt[i].qty<=0)tkt.splice(i,1);renderTkt();updTotal();}
+function chgQ(i,d){
+  // Une fois la commande envoyée (reprise depuis "Commandes en attente"),
+  // réduire une quantité déjà envoyée nécessite la même autorisation que pour
+  // retirer un article — on peut toujours EN AJOUTER librement, mais pas en
+  // retirer sans droit. Sur un ticket pas encore envoyé, aucune restriction.
+  if(d<0&&resumingAttenteId&&!(typeof hasRetraitArticlePermission==='function'&&hasRetraitArticlePermission())){
+    toast('Vous n\'avez pas le droit de réduire une quantité déjà envoyée','e');
+    return;
+  }
+  tkt[i].qty+=d;if(tkt[i].qty<=0)tkt.splice(i,1);renderTkt();updTotal();
+}
 function delI(i){if(!(typeof hasRetraitArticlePermission==='function'&&hasRetraitArticlePermission())){toast('Vous n\'avez pas le droit de retirer un article','e');return;}if(!confirm('Retirer cet article du ticket ?'))return;tkt.splice(i,1);renderTkt();updTotal();}
 function applyPct(){
   var sub=tkt.reduce(function(s,it){return s+it.pv*it.qty;},0);
