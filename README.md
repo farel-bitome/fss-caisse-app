@@ -723,3 +723,65 @@ données (clients, ventes, personnel...).
 **Testé avant envoi** : simulation de la migration avec de fausses données —
 catégories correctement recalculées à partir des vrais articles, données
 existantes préservées, pas de ré-exécution au second chargement.
+
+## Ligne TVA retirée des Articles
+
+Retiré partout où elle traînait encore dans les Articles :
+- Champ "TVA (%)" du formulaire d'ajout/modification d'article
+- Colonne "TVA" de la liste des Articles
+- Colonne "TVA" de l'export/import Excel et CSV des articles
+
+## Correction : la suppression de commande en attente restait possible malgré le retrait de l'accès
+
+**Trouvé** : il n'existait **aucune permission générale** pour "supprimer une
+commande en attente" applicable à un compte normal (admin, caissier...) — seul
+un compte de type "serveur" avait ce contrôle, via sa propre case dédiée à sa
+création. Pour tout autre type de compte, la suppression était donc **toujours
+autorisée**, quoi que vous décochiez ailleurs.
+
+**Corrigé** : nouvelle permission **🗑️ Supprimer une commande en attente**
+dans Utilisateurs → Droits d'accès, qui s'applique à tous les types de comptes.
+Le bouton de suppression (✕) dans "Commandes en attente" est maintenant aussi
+masqué visuellement si le compte n'a pas cette permission — pas juste bloqué au
+clic.
+
+**Testé** avant envoi : vérifié les 4 cas de figure (caissière avec/sans la
+permission, serveur avec/sans sa case dédiée, admin) — tous corrects.
+
+## Connexion parfois bloquée — filet de sécurité ajouté
+
+Je n'ai pas trouvé de cause unique et certaine (le code de synchronisation
+initiale semble déjà bien protégé), mais j'ai renforcé deux points :
+
+- Nettoyé une référence à un ancien réglage supprimé (inoffensive mais du code
+  mort)
+- Protégé une étape interne qui n'était pas entièrement sécurisée contre les
+  erreurs
+
+Surtout, ajouté un **filet de sécurité** : si l'écran de connexion reste
+bloqué (bouton "Chargement..." qui ne devient jamais cliquable) plus de **10
+secondes**, il se débloque maintenant automatiquement avec un message
+d'avertissement — vous ne devriez plus jamais rester coincé sans pouvoir
+entrer vos identifiants, quelle que soit la cause exacte du ralentissement.
+
+Si ça se reproduit malgré ça, notez si un message d'avertissement apparaît
+("Connexion au serveur lente...") — ça confirmera que le filet de sécurité a
+bien fonctionné, et le problème vient probablement du réseau plutôt que de
+l'application elle-même.
+
+## Écran de connexion — ne bloque plus jamais
+
+Retiré complètement le mécanisme qui pouvait faire attendre le bouton "Se
+connecter" (plus de bouton désactivé, plus de délai d'attente). Il est
+maintenant **toujours cliquable** dès l'apparition de l'écran. Si les données
+ne sont pas encore tout à fait chargées à ce moment précis (très bref, sur un
+réseau normal), un message clair invite à réessayer dans l'instant plutôt que
+de bloquer quoi que ce soit.
+
+## Enfin trouvé où la TVA persistait : les Étiquettes articles
+
+**C'était ça** : la page "Étiquettes" (labels de prix imprimables, un par
+article) affichait encore "TVA: X%" sous chaque article — c'est ce que vous
+voyiez à la fois pour les articles déjà enregistrés (avec l'ancien 18%) et
+pour tout nouvel article une fois ajouté (puisque cette page affiche tout le
+catalogue). Retiré.

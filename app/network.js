@@ -48,11 +48,6 @@
     if (g('etabRCCM')) g('etabRCCM').value = etabInfo.rccm || '';
     if (g('etabNIF')) g('etabNIF').value = etabInfo.nif || '';
     if (g('etabMsgFin')) g('etabMsgFin').value = etabInfo.msgFin || 'Merci pour votre visite !';
-    // Gestion du seuil d'alerte stock par catégorie : réglage activable/désactivable, mémorisé.
-    if (typeof window.gestionSeuilCatActif !== 'undefined') {
-      window.gestionSeuilCatActif = !!etabInfo.gestionSeuilCatActif;
-      if (typeof window.initCategories === 'function') safe(function () { window.initCategories(); });
-    }
   }
 
   function applyState(s) {
@@ -117,7 +112,7 @@
     paieEntries = s.paieEntries || [];
     window.paieEntries = paieEntries;
     refreshAllViews();
-    applyEtabToInputs();
+    safe(function () { applyEtabToInputs(); });
     applying = false;
     document.dispatchEvent(new Event('fss:ready'));
   }

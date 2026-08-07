@@ -16,13 +16,12 @@
     { key: 'params', label: '⚙️ Paramètres' },
     { key: 'reimpression', label: '🖨️ Réimpression tickets' },
     { key: 'annulation', label: '🗑️ Annulation tickets' },
-    { key: 'retraitArticle', label: '➖ Retirer article (factures / commandes en attente)' }
+    { key: 'retraitArticle', label: '➖ Retirer article (factures / commandes en attente)' },
+    { key: 'suppressionAttente', label: '🗑️ Supprimer une commande en attente' }
   ];
 
   document.addEventListener('fss:ready', function () {
     dataReady = true;
-    var btn = document.getElementById('authLoginBtn');
-    if (btn) { btn.disabled = false; btn.textContent = 'Se connecter'; }
     var wait = document.getElementById('authWait');
     if (wait) wait.style.display = 'none';
   });
@@ -82,7 +81,7 @@
       '<p id="authWait">Connexion au serveur...</p>' +
       '<input id="authNom" placeholder="Identifiant" autocomplete="username">' +
       '<input id="authMdp" type="password" placeholder="Mot de passe" autocomplete="current-password">' +
-      '<button class="main" id="authLoginBtn" disabled>Chargement...</button>' +
+      '<button class="main" id="authLoginBtn">Se connecter</button>' +
       '<div class="authErr" id="authErr"></div>' +
       '<div style="margin-top:22px;font-size:10px;color:#555;font-weight:700">D\u00e9velopp\u00e9 par FallServices&amp;Solutions \u2014 +241 77 37 86 02</div>' +
       '<div style="margin-top:4px;font-size:9px;color:#444;font-weight:700">v' + (window.FSS_VERSION || '?') + '</div>' +
@@ -108,10 +107,13 @@
   }
 
   function tryLogin() {
-    if (!dataReady) return;
     var nom = document.getElementById('authNom').value.trim();
     var mdp = document.getElementById('authMdp').value.trim();
     var err = document.getElementById('authErr');
+    if (!dataReady || !(window.users || []).length) {
+      err.textContent = 'Connexion en cours, réessayez dans un instant...';
+      return;
+    }
     var u = (window.users || []).find(function (x) {
       return x.nom.toLowerCase() === nom.toLowerCase() && x.mdp === mdp;
     });
@@ -192,6 +194,17 @@
 
   window.waiterCanDeleteAttente = function () {
     return !currentUser || !currentUser.waiterOnly || !!currentUser.waiterCanDeleteAttente;
+  };
+
+  // Permission de suppression d'une commande en attente — applicable à TOUS
+  // les types de comptes (caissier, admin...), pas seulement les comptes
+  // "serveur" (qui ont leur propre case dédiée "Peut supprimer les commandes
+  // en attente" lors de leur création, gérée séparément par
+  // waiterCanDeleteAttente ci-dessus).
+  window.hasSuppressionAttentePermission = function () {
+    if (!currentUser) return false;
+    if (currentUser.waiterOnly) return window.waiterCanDeleteAttente();
+    return hasAccess(currentUser, 'suppressionAttente');
   };
 
   function applyPermissions() {

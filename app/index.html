@@ -364,7 +364,7 @@ td{padding:8px 11px;vertical-align:middle}
         <button class="btn btn-o sm" onclick="prtT('tArt')">🖨️</button>
       </div>
       <div class="tw"><table id="tArt">
-        <thead><tr><th>Réf.</th><th>Désignation</th><th>Catégorie</th><th>Unité</th><th>Prix vente</th><th>Prix achat</th><th>Marge</th><th>Stock</th><th>TVA</th><th>Statut</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Réf.</th><th>Désignation</th><th>Catégorie</th><th>Unité</th><th>Prix vente</th><th>Prix achat</th><th>Marge</th><th>Stock</th><th>Statut</th><th>Actions</th></tr></thead>
         <tbody id="bArt"></tbody>
       </table></div>
     </div>
@@ -844,7 +844,6 @@ td{padding:8px 11px;vertical-align:middle}
     <div class="fg"><label class="fl">Stock minimum</label><input class="fi" type="number" id="aSMin" placeholder="5"></div>
     <div class="fg" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#eee;cursor:pointer;padding:8px;background:#0e0e0e;border-radius:6px;border:1px solid #333" id="aAlerteWrap"><input type="checkbox" id="aAlerte" checked> ⚠️ Activer l'alerte de stock faible pour cet article</label><p id="aAlerteNote" style="font-size:10px;color:#FF8844;margin-top:4px;display:none">Gestion de stock désactivée pour la catégorie de cet article (Paramètres → Catégories) — ce réglage n'a donc aucun effet.</p></div>
     <div class="fg"><label class="fl">Émoji</label><input class="fi" id="aEmo" placeholder="🍺" maxlength="2"></div>
-    <div class="fg"><label class="fl">TVA (%)</label><input class="fi" type="number" id="aTVA" value="18"></div>
     <div class="fg" style="grid-column:1/-1"><label class="fl">Code-barres</label>
       <div style="display:flex;gap:6px">
         <input class="fi" id="aCB" placeholder="EAN13..." style="flex:1" oninput="this.value=fixAzertyDigits(this.value)">
@@ -860,14 +859,14 @@ td{padding:8px 11px;vertical-align:middle}
   <div class="mb">
     <p style="font-size:12px;color:#999;margin-bottom:10px;line-height:1.5">
       Fichier <strong>Excel (.xlsx)</strong> ou CSV, avec en-têtes, colonnes dans cet ordre :<br>
-      <code style="color:#eee">Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,Stock min,Emoji,TVA</code><br>
+      <code style="color:#eee">Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,Stock min,Emoji</code><br>
       Seuls <strong>Nom</strong>, <strong>Catégorie</strong> et <strong>Prix vente</strong> sont obligatoires — le reste peut rester vide.
     </p>
     <div class="fg"><label class="fl">Choisir un fichier Excel (.xlsx) ou CSV</label><input class="fi" type="file" id="importFile" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
     <p id="importFileStatus" style="font-size:12px;color:#4488FF;min-height:16px"></p>
     <div class="fg"><label class="fl">— ou collez directement du texte CSV ici (pas pour l'Excel) —</label>
-      <textarea class="fi" id="importText" rows="6" placeholder="Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,Stock min,Emoji,TVA
-ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺,18"></textarea>
+      <textarea class="fi" id="importText" rows="6" placeholder="Référence,Nom,Catégorie,Unité,Prix vente,Prix achat,Stock,Stock min,Emoji
+ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
     </div>
     <div class="fg">
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#eee;cursor:pointer">
@@ -1795,7 +1794,7 @@ function reprendreAttente(id){
   toast('Commande '+c.id+' reprise ▶ — ajoutez vos articles puis "Envoyer" ou payez directement','s');
 }
 function supprimerAttente(id){
-  if(window.waiterCanDeleteAttente&&!window.waiterCanDeleteAttente()){toast('Vous n\'avez pas le droit de supprimer une commande en attente','e');return;}
+  if(window.hasSuppressionAttentePermission&&!window.hasSuppressionAttentePermission()){toast('Vous n\'avez pas le droit de supprimer une commande en attente','e');return;}
   if(!confirm('Supprimer ?'))return;
   cmdAttente=cmdAttente.filter(function(c){return c.id!==id;});
   renderAttenteBar();updateTableOptions();toast('Supprimé','i');
@@ -1827,6 +1826,7 @@ function renderAttenteBar(){
       var btnS=document.createElement('button');
       btnS.textContent='✕';btnS.style.cssText='background:#FF4444;color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer';
       btnS.onclick=(function(id){return function(){supprimerAttente(id);};})(c.id);
+      if(window.hasSuppressionAttentePermission&&!window.hasSuppressionAttentePermission())btnS.style.display='none';
       div.appendChild(btnS);
     }
     list.appendChild(div);
@@ -2221,7 +2221,7 @@ function renderArt(){
       '<td><strong>'+fmt(a.pv)+'</strong></td><td>'+(a.pa?fmt(a.pa):'—')+'</td>'+
       '<td style="color:'+(mg>30?'#4488FF':mg>15?'#CC0000':'#FF4444')+'">'+mg+'%</td>'+
       '<td style="color:'+(alerteVisible?'#FF4444':'#fff')+'">'+(gestionStockActive?a.stk:'—')+'</td>'+
-      '<td>'+a.tva+'%</td><td><span class="badge '+(a.actif?'bg':'br')+'">'+(a.actif?'Actif':'Inactif')+'</span></td>'+
+      '<td><span class="badge '+(a.actif?'bg':'br')+'">'+(a.actif?'Actif':'Inactif')+'</span></td>'+
       '<td><div style="display:flex;gap:4px">'+
         '<button class="ibt" onclick="openArtModal('+a.id+')">✏️</button>'+
         '<button class="ibt" onclick="togArt('+a.id+')">'+(a.actif?'⛔':'✅')+'</button>'+
@@ -2233,8 +2233,8 @@ function renderArt(){
 }
 function openArtModal(id){
   editArtId=id||null;g('artMT').textContent=id?'Modifier article':'Nouvel article';
-  if(id){var a=arts.find(function(x){return x.id===id;});g('aRef').value=a.ref;g('aNom').value=a.nom;g('aCat').value=a.cat;g('aUn').value=a.un;g('aPV').value=a.pv;g('aPA').value=a.pa;g('aStk').value=a.stk;g('aSMin').value=a.smin;g('aEmo').value=a.emo;g('aTVA').value=a.tva;g('aCB').value=a.cb||'';g('aAlerte').checked=a.alerte!==false;}
-  else{['aRef','aNom','aPV','aPA','aStk','aSMin','aCB'].forEach(function(i){g(i).value='';});g('aEmo').value='🍽️';g('aTVA').value='18';g('aAlerte').checked=true;appliquerSeuilParDefaut();}
+  if(id){var a=arts.find(function(x){return x.id===id;});g('aRef').value=a.ref;g('aNom').value=a.nom;g('aCat').value=a.cat;g('aUn').value=a.un;g('aPV').value=a.pv;g('aPA').value=a.pa;g('aStk').value=a.stk;g('aSMin').value=a.smin;g('aEmo').value=a.emo;g('aCB').value=a.cb||'';g('aAlerte').checked=a.alerte!==false;}
+  else{['aRef','aNom','aPV','aPA','aStk','aSMin','aCB'].forEach(function(i){g(i).value='';});g('aEmo').value='🍽️';g('aAlerte').checked=true;appliquerSeuilParDefaut();}
   majEtatAlerteArticle();
   calcMg();g('ovArt').classList.add('on');
 }
@@ -2336,7 +2336,7 @@ function imprimerCodeBarreArticle(){
 }
 function saveArt(){
   var nom=g('aNom').value.trim();if(!nom){toast('Nom requis','e');return;}
-  var obj={nom:nom,cat:g('aCat').value,un:g('aUn').value,pv:parseInt(g('aPV').value)||0,pa:parseInt(g('aPA').value)||0,stk:parseInt(g('aStk').value)||0,smin:parseInt(g('aSMin').value)||5,emo:g('aEmo').value||'🍽️',tva:parseInt(g('aTVA').value)||18,cb:fixAzertyDigits(g('aCB').value.trim()),alerte:g('aAlerte').checked,ref:g('aRef').value||('ART-'+Date.now()),actif:true};
+  var obj={nom:nom,cat:g('aCat').value,un:g('aUn').value,pv:parseInt(g('aPV').value)||0,pa:parseInt(g('aPA').value)||0,stk:parseInt(g('aStk').value)||0,smin:parseInt(g('aSMin').value)||5,emo:g('aEmo').value||'🍽️',cb:fixAzertyDigits(g('aCB').value.trim()),alerte:g('aAlerte').checked,ref:g('aRef').value||('ART-'+Date.now()),actif:true};
   if(editArtId){var i=arts.findIndex(function(a){return a.id===editArtId;});arts[i]=Object.assign(arts[i],obj);}
   else{arts.push(Object.assign({id:Date.now()},obj));}
   closeM('ovArt');renderArt();buildCats();renderProds('');renderStk();toast(editArtId?'Modifié':'Ajouté','s');
@@ -2354,11 +2354,11 @@ function delArt(id){
 // ---------- Import / vidage du catalogue d'articles ----------
 // Export d'un vrai fichier Excel (.xlsx) des articles — pas du CSV.
 function exportArticlesXlsx(){
-  var headers=['Référence','Nom','Catégorie','Unité','Prix vente','Prix achat','Stock','Stock min','Emoji','TVA'];
+  var headers=['Référence','Nom','Catégorie','Unité','Prix vente','Prix achat','Stock','Stock min','Emoji'];
   var rows=arts.map(function(a){
-    return [a.ref||'',a.nom||'',a.cat||'',a.un||'',a.pv||0,a.pa||0,a.stk||0,a.smin||0,a.emo||'',a.tva||0];
+    return [a.ref||'',a.nom||'',a.cat||'',a.un||'',a.pv||0,a.pa||0,a.stk||0,a.smin||0,a.emo||''];
   });
-  var numericCols=[4,5,6,7,9];
+  var numericCols=[4,5,6,7];
   var bytes=buildXlsx(headers,rows,numericCols);
   var fileName='fss-articles_'+new Date().toISOString().split('T')[0]+'.xlsx';
   if(window.electronAPI&&window.electronAPI.saveFileDialog){
@@ -2428,7 +2428,6 @@ function rowsToArticles(rows){
       stk:parseInt(f[6])||0,
       smin:parseInt(f[7])||5,
       emo:(f[8]||'🍽️').toString().trim()||'🍽️',
-      tva:parseInt(f[9])||18,
       actif:true
     });
   }
@@ -2489,7 +2488,7 @@ function renderEti(){
   var w1=g('etiW1'),w2=g('etiW2');if(!w1)return;w1.innerHTML='';w2.innerHTML='';
   arts.forEach(function(a){
     var e1=document.createElement('div');e1.className='eti';
-    e1.innerHTML='<div style="font-weight:700;font-size:13px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:4px">'+a.nom+'</div><div style="font-size:10px;color:#666">'+a.ref+' — '+a.cat+'</div><div style="font-size:18px;font-weight:700">'+fmt(a.pv)+'</div><div style="font-size:9px;color:#999;margin-top:4px">'+a.un+' | TVA: '+a.tva+'%</div>';
+    e1.innerHTML='<div style="font-weight:700;font-size:13px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:4px">'+a.nom+'</div><div style="font-size:10px;color:#666">'+a.ref+' — '+a.cat+'</div><div style="font-size:18px;font-weight:700">'+fmt(a.pv)+'</div><div style="font-size:9px;color:#999;margin-top:4px">'+a.un+'</div>';
     w1.appendChild(e1);
     var e2=e1.cloneNode(true);w2.appendChild(e2);
   });
