@@ -37,6 +37,25 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
           console.error('Erreur pendant la migration du catalogue d\'articles :', e.message);
         }
       }
+      // Migration unique : corrige la liste des catégories (Paramètres) pour
+      // qu'elle corresponde réellement aux catégories utilisées par les
+      // articles — l'ancienne liste de démonstration ('Boissons', 'Bières'...)
+      // ne correspondait à aucun article réel, ce qui rendait notamment les
+      // réglages "gestion de stock par catégorie" inopérants (aucune
+      // correspondance exacte possible).
+      if (!state.categoriesMigratedV1) {
+        try {
+          const catsReelles = Array.from(new Set((state.arts || []).map(a => a.cat).filter(Boolean))).sort();
+          if (catsReelles.length) {
+            state.categories = catsReelles;
+          }
+          state.categoriesMigratedV1 = true;
+          saveState(state);
+          console.log('Migration : liste des catégories corrigée (' + catsReelles.length + ' catégories).');
+        } catch (e) {
+          console.error('Erreur pendant la migration des catégories :', e.message);
+        }
+      }
       return state;
     }
 

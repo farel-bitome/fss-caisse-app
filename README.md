@@ -703,3 +703,23 @@ donnait l'impression que ce n'était pas pris en compte).
 **Corrigé** : quand la catégorie de l'article a la gestion de stock
 désactivée, la case apparaît maintenant **grisée et inactive**, avec une note
 explicative ("Gestion de stock désactivée pour la catégorie de cet article").
+
+## Vraie cause trouvée : liste de catégories désynchronisée des articles
+
+**C'était la vraie explication de tout** : la liste officielle des catégories
+(Paramètres → Catégories, celle où se règle la gestion de stock) était restée
+l'**ancienne liste de démonstration** ("Boissons", "Bières", "Alcools"...) alors
+que vos vrais articles utilisent des catégories complètement différentes
+("Whisky", "Rhum", "Verre", "Bière" au singulier, etc.) depuis l'import du
+menu. Aucune correspondance exacte n'était possible — désactiver "Bières" dans
+Paramètres n'avait donc **aucun effet réel**, puisqu'aucun article n'a
+exactement cette catégorie.
+
+**Corrigé** : la liste officielle contient maintenant les 15 vraies catégories
+utilisées par vos 119 articles. Une **migration automatique** corrige aussi ce
+même problème sur votre serveur déjà en service, sans toucher au reste de vos
+données (clients, ventes, personnel...).
+
+**Testé avant envoi** : simulation de la migration avec de fausses données —
+catégories correctement recalculées à partir des vrais articles, données
+existantes préservées, pas de ré-exécution au second chargement.
