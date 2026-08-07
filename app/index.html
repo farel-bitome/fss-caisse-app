@@ -718,12 +718,8 @@ td{padding:8px 11px;vertical-align:middle}
     </div>
     <div class="sub" id="sub-params-cats">
       <div class="stb"><span class="stit">Catégories d'articles</span><button class="btn btn-r sm" onclick="openCatModal()">➕ Ajouter une catégorie</button></div>
-      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#ccc;padding:0 14px 10px;cursor:pointer">
-        <input type="checkbox" id="chkGestionSeuilCat" onchange="toggleGestionSeuilCat()" style="width:15px;height:15px">
-        Activer la gestion du seuil d'alerte stock par catégorie
-      </label>
-      <p id="seuilCatDesc" style="font-size:11px;color:#666;padding:0 14px 8px">Le seuil d'alerte définit à partir de quelle quantité de stock un article de cette catégorie est signalé comme "stock faible". "Appliquer" l'écrit sur tous les articles déjà existants dans cette catégorie (les nouveaux articles utilisent aussi ce seuil par défaut).</p>
-      <div class="tw" id="wrapTabCats"><table id="tCats"><thead><tr><th>Nom</th><th id="thSeuilCat">Seuil d'alerte stock</th><th>Actions</th></tr></thead><tbody id="bCats"></tbody></table></div>
+      <p style="font-size:11px;color:#666;padding:0 14px 8px">Active ou désactive l'alerte de stock faible pour tous les articles d'une catégorie donnée — pratique pour ignorer certaines catégories (ex: articles qu'on ne suit pas en stock) sans devoir le faire article par article.</p>
+      <div class="tw"><table id="tCats"><thead><tr><th>Nom</th><th>Alerte de stock</th><th>Actions</th></tr></thead><tbody id="bCats"></tbody></table></div>
     </div>
     <div class="sub" id="sub-params-airtel">
       <div class="slay"><div class="ssect">
@@ -1105,7 +1101,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺,18"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.7.1';
+window.FSS_VERSION='1.7.2';
 var arts=[
   {id:1,ref:'ART-001',nom:'White Horse 75cl',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
   {id:2,ref:'ART-002',nom:'White Horse 75cl (Bouteille)',cat:'Whisky',un:'Bouteille',pv:40000,pa:24000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
@@ -1328,7 +1324,8 @@ function renderProds(search){
     var emo=document.createElement('div');emo.className='pe';emo.textContent=a.emo;
     var nom=document.createElement('div');nom.className='pn';nom.textContent=a.nom;
     var prix=document.createElement('div');prix.className='pp';prix.textContent=fmt(a.pv);
-    var stk=document.createElement('div');stk.className='ps'+(a.stk<=a.smin?' low':'');stk.textContent='Stock: '+a.stk;
+    var stkFaibleVisible=a.stk<=a.smin&&a.alerte!==false&&categoryAlerteActive[a.cat]!==false;
+    var stk=document.createElement('div');stk.className='ps'+(stkFaibleVisible?' low':'');stk.textContent='Stock: '+a.stk;
     d.appendChild(emo);d.appendChild(nom);d.appendChild(prix);d.appendChild(stk);
     if(a.stk>0){d.onclick=function(){addTk(a.id);};}
     else{d.onclick=function(){toast('Rupture de stock','e');};}
@@ -2238,10 +2235,7 @@ function openArtModal(id){
 // jamais en modification d'un article existant.
 function appliquerSeuilParDefaut(){
   if(editArtId)return;
-  if(!gestionSeuilCatActif){if(g('aSMin'))g('aSMin').value=5;return;}
-  var cat=g('aCat')?g('aCat').value:'';
-  var seuil=categorySeuils[cat];
-  if(g('aSMin'))g('aSMin').value=seuil!=null?seuil:5;
+  if(g('aSMin'))g('aSMin').value=5;
 }
 function calcMg(){var pv=parseInt(g('aPV').value)||0,pa=parseInt(g('aPA').value)||0,m=pv-pa,pct=pv?Math.round(m/pv*100):0;g('aMg').textContent=fmt(m)+' ('+pct+'%)';g('aMg').style.color=pct>30?'#4488FF':pct>15?'#CC0000':'#FF4444';}
 // ---- CODE-BARRES : génération EAN-13 + rendu SVG + impression (sans dépendance externe) ----
@@ -2484,7 +2478,7 @@ function renderEti(){
 // STOCK
 function renderStk(){
   var al=g('stkAlert'),b=g('bStk');if(!b)return;
-  var alrts=arts.filter(function(a){return a.stk<=a.smin&&a.actif&&a.alerte!==false;});
+  var alrts=arts.filter(function(a){return a.stk<=a.smin&&a.actif&&a.alerte!==false&&categoryAlerteActive[a.cat]!==false;});
   al.innerHTML=(alrts.length&&toggles.alerte)?'<div class="salt">⚠️ <strong>'+alrts.length+' critique(s):</strong> '+alrts.map(function(a){return a.nom;}).join(', ')+'</div>':'';
   b.innerHTML='';
   arts.forEach(function(a){
@@ -3461,7 +3455,7 @@ function delCaisse(nom){
   toast('Caisse supprimée','i');
 }
 var categories=['Boissons','Bières','Alcools','Apéritifs','Digestifs','Entrées','Plats','Viandes','Poissons','Salades','Desserts','Accompagnements','Sauces','Fromages','Fruits'];
-var categorySeuils={};
+var categoryAlerteActive={};
 var editCatNom=null;
 function renderCatSelect(){
   var sel=g('aCat');if(!sel)return;
@@ -3603,19 +3597,8 @@ function saveAirtelConfig(){
     })
     .catch(function(){toast('Erreur lors de l\'enregistrement','e');});
 }
-var gestionSeuilCatActif=false;
-function toggleGestionSeuilCat(){
-  var chk=g('chkGestionSeuilCat');if(!chk)return;
-  gestionSeuilCatActif=chk.checked;
-  if(window.etabInfo)window.etabInfo.gestionSeuilCatActif=gestionSeuilCatActif;
-  if(window.fssSyncPush)window.fssSyncPush();
-  initCategories();
-}
 function initCategories(){
   var b=g('bCats');if(!b)return;b.innerHTML='';
-  if(g('chkGestionSeuilCat'))g('chkGestionSeuilCat').checked=gestionSeuilCatActif;
-  if(g('thSeuilCat'))g('thSeuilCat').style.display=gestionSeuilCatActif?'':'none';
-  if(g('seuilCatDesc'))g('seuilCatDesc').style.display=gestionSeuilCatActif?'':'none';
   categories.slice().sort().forEach(function(c){
     var tr=document.createElement('tr');
     var tdNom=document.createElement('td');tdNom.textContent=c;
@@ -3623,19 +3606,17 @@ function initCategories(){
     if(nbArts)tdNom.innerHTML=c+' <span style="font-size:10px;color:#666">('+nbArts+' article'+(nbArts>1?'s':'')+')</span>';
     tr.appendChild(tdNom);
 
-    if(gestionSeuilCatActif){
-      var tdSeuil=document.createElement('td');
-      var inpSeuil=document.createElement('input');
-      inpSeuil.className='fi';inpSeuil.type='number';inpSeuil.min='0';
-      inpSeuil.style.cssText='width:70px;padding:4px 6px;display:inline-block';
-      inpSeuil.value=categorySeuils[c]!=null?categorySeuils[c]:5;
-      var btnAppliquer=document.createElement('button');
-      btnAppliquer.className='btn btn-o sm';btnAppliquer.style.marginLeft='8px';
-      btnAppliquer.textContent='Appliquer aux articles';
-      btnAppliquer.onclick=(function(cat,input){return function(){appliquerSeuilCategorie(cat,input.value);};})(c,inpSeuil);
-      tdSeuil.appendChild(inpSeuil);tdSeuil.appendChild(btnAppliquer);
-      tr.appendChild(tdSeuil);
-    }
+    var tdAlerte=document.createElement('td');
+    var actif=categoryAlerteActive[c]!==false; // activée par défaut
+    var lbl=document.createElement('label');
+    lbl.style.cssText='display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:'+(actif?'#44FF88':'#888');
+    var chk=document.createElement('input');
+    chk.type='checkbox';chk.checked=actif;chk.style.cssText='width:15px;height:15px';
+    chk.onchange=(function(cat){return function(){toggleAlerteCategorie(cat,this.checked);};})(c);
+    lbl.appendChild(chk);
+    lbl.appendChild(document.createTextNode(actif?'Activée':'Désactivée'));
+    tdAlerte.appendChild(lbl);
+    tr.appendChild(tdAlerte);
 
     var tdAct=document.createElement('td');
     var btnEdit=document.createElement('button');btnEdit.className='ibt';btnEdit.textContent='✏️';
@@ -3649,17 +3630,16 @@ function initCategories(){
   });
   renderCatSelect();
 }
-// Enregistre le seuil par défaut de la catégorie, et l'écrit sur tous les
-// articles déjà existants dans cette catégorie (stock minimum = smin).
-function appliquerSeuilCategorie(cat,valeur){
-  var seuil=parseInt(valeur);
-  if(isNaN(seuil)||seuil<0){toast('Seuil invalide','e');return;}
-  categorySeuils[cat]=seuil;
-  var nb=0;
-  arts.forEach(function(a){if(a.cat===cat){a.smin=seuil;nb++;}});
-  renderArt();renderStk();
+// Active ou désactive l'alerte de stock faible pour tous les articles de
+// cette catégorie (au lieu de gérer un seuil chiffré) — les articles
+// concernés ne remonteront plus dans la liste "stock faible" tant que c'est
+// désactivé, quel que soit leur stock réel.
+function toggleAlerteCategorie(cat,actif){
+  categoryAlerteActive[cat]=actif;
+  initCategories();
+  renderStk();
   if(window.fssSyncPush)window.fssSyncPush();
-  toast('Seuil appliqué à '+nb+' article(s) de "'+cat+'"','s');
+  toast('Alerte de stock '+(actif?'activée':'désactivée')+' pour "'+cat+'"','i');
 }
 function openCatModal(nom){
   editCatNom=nom||null;
@@ -3675,7 +3655,7 @@ function saveCat(){
     var idx=categories.indexOf(editCatNom);
     if(idx>=0)categories[idx]=nom;
     arts.forEach(function(a){if(a.cat===editCatNom)a.cat=nom;});
-    if(categorySeuils[editCatNom]!=null){categorySeuils[nom]=categorySeuils[editCatNom];delete categorySeuils[editCatNom];}
+    if(categoryAlerteActive[editCatNom]!=null){categoryAlerteActive[nom]=categoryAlerteActive[editCatNom];delete categoryAlerteActive[editCatNom];}
   }else{
     categories.push(nom);
   }
@@ -3709,7 +3689,7 @@ function delCat(nom){
     if(!confirm('Supprimer la catégorie "'+nom+'" ?'))return;
   }
   categories=categories.filter(function(c){return c!==nom;});
-  delete categorySeuils[nom];
+  delete categoryAlerteActive[nom];
   renderArt();buildCats();renderProds('');
   initCategories();
   if(window.fssSyncPush)window.fssSyncPush();

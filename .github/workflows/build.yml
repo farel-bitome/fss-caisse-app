@@ -29,6 +29,11 @@ jobs:
           DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
           echo "{\"version\": \"$VERSION\", \"build\": $BUILD, \"date\": \"$DATE\"}" > app/version.json
           cat app/version.json
+          # Met aussi à jour le numéro affiché sur l'écran de connexion, pour
+          # qu'il reste TOUJOURS identique à celui du badge sous le logo —
+          # plus jamais de décalage entre les deux, sans intervention manuelle.
+          sed -i "s/window.FSS_VERSION='[^']*';/window.FSS_VERSION='$VERSION (build $BUILD)';/" app/index.html
+          grep "FSS_VERSION=" app/index.html
 
       - name: Compiler l'application (.exe)
         run: npm run dist

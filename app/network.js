@@ -24,7 +24,7 @@
   window.servers = window.servers || [];
   window.caisses = window.caisses || [];
   window.categories = window.categories || [];
-  window.categorySeuils = window.categorySeuils || {};
+  window.categoryAlerteActive = window.categoryAlerteActive || {};
   window.fondsOuverture = window.fondsOuverture || {};
   window.printBatches = window.printBatches || [];
   window.employes = window.employes || [];
@@ -36,7 +36,7 @@
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
       users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches,
-      categorySeuils: categorySeuils,
+      categoryAlerteActive: categoryAlerteActive,
       employes: employes, pointages: pointages, paieEntries: paieEntries
     };
   }
@@ -106,8 +106,8 @@
     window.caisses = caisses;
     if (s.categories && s.categories.length) categories = s.categories;
     window.categories = categories;
-    categorySeuils = s.categorySeuils || {};
-    window.categorySeuils = categorySeuils;
+    categoryAlerteActive = s.categoryAlerteActive || {};
+    window.categoryAlerteActive = categoryAlerteActive;
     if (s.fondsOuverture) fondsOuverture = s.fondsOuverture;
     window.fondsOuverture = fondsOuverture;
     employes = s.employes || [];

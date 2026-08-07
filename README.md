@@ -577,22 +577,6 @@ Vous ne devriez plus avoir besoin d'intervenir manuellement dans ces cas. Si
 l'app plante encore malgré ça, ouvrez la console développeur (touche F12) pour
 voir s'il y a un message d'erreur, qui aidera à identifier la vraie cause.
 
-## Seuil d'alerte stock par catégorie + suppression de catégorie améliorée
-
-Dans **Paramètres → Catégories**, chaque catégorie a maintenant :
-
-- Un **seuil d'alerte stock** réglable, avec un bouton **"Appliquer aux
-  articles"** qui l'écrit d'un coup sur tous les articles déjà existants de
-  cette catégorie. Tout nouvel article créé dans cette catégorie utilise aussi
-  ce seuil par défaut automatiquement.
-- Le nombre d'articles de la catégorie s'affiche à côté du nom.
-
-**Suppression de catégorie** : elle existait déjà mais était bloquée si des
-articles l'utilisaient encore. Maintenant, dans ce cas, l'app propose de
-**déplacer automatiquement** les articles concernés vers une autre catégorie de
-votre choix avant de supprimer — plus besoin de le faire à la main article par
-article au préalable.
-
 ## Trois corrections importantes
 
 **1. Droits d'accès enfin vraiment indépendants** — trouvé et corrigé le vrai
@@ -674,3 +658,28 @@ suppression. Synchronisé en temps réel comme le reste de l'application.
   dernière fois qu'elle a été ouverte sur ce PC, un message **"🆕 Application
   mise à jour : vX.X.X (build N)"** s'affiche automatiquement — vous savez
   immédiatement qu'une mise à jour vient d'être installée.
+
+## Alerte de stock par catégorie — remplacé par un simple activé/désactivé
+
+Sur votre retour, remplacé le système de seuil chiffré par catégorie par un
+**interrupteur simple** dans Paramètres → Catégories : pour chaque catégorie,
+un bouton **Activée/Désactivée** contrôle si l'alerte de stock faible
+s'applique aux articles de cette catégorie.
+
+Désactiver une catégorie retire ses articles de la liste "stock faible" (Stock
+→ Alertes) et de l'indicateur visuel rouge en Caisse, **peu importe leur stock
+réel** — pratique pour les catégories que vous ne voulez pas surveiller.
+
+**Testé** : vérifié qu'une catégorie désactivée exclut bien ses articles de la
+liste d'alerte, même avec un stock sous le seuil.
+
+## Correction : version toujours affichée "v1.7.1" sous l'écran de connexion
+
+**Cause trouvée** : il y avait en fait **deux affichages de version séparés** —
+celui sous le logo (mis à jour automatiquement à chaque compilation) et celui
+sous l'écran de connexion, qui était codé en dur et que je n'avais jamais mis à
+jour au même rythme. D'où le décalage.
+
+**Corrigé définitivement** : le processus de compilation automatique met
+maintenant à jour **les deux affichages en même temps**, à chaque build — plus
+jamais besoin d'y penser manuellement, ils resteront toujours synchronisés.
