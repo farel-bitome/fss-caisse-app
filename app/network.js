@@ -206,7 +206,7 @@
   [
     'saveArt', 'delArt', 'togArt', 'saveStk',
     'saveCli', 'delCli', 'saveFour', 'delFour',
-    'saveCmd', 'valPay', 'addPrel', 'razCaisse',
+    'saveCmd', 'delCmd', 'valPay', 'addPrel', 'razCaisse',
     'mettreEnAttente', 'reprendreAttente', 'supprimerAttente',
     'saveEmp', 'delEmp', 'clockIn', 'clockOut', 'savePointageManuel', 'delPointage', 'savePaieDetail',
     'importArticles', 'viderArticles'

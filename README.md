@@ -659,3 +659,18 @@ les PC déjà activés avant ce correctif devront demander une **nouvelle clé**
 
 **Testé avant envoi** : génération du nouvel identifiant stable + activation
 réussie sur un système sans registre Windows (repli automatique testé).
+
+## Suppression des bons de commande (Achats)
+
+Ajouté un bouton **🗑️** dans "Achats → Bons de Commande" (et "Commandes
+Fournisseurs") pour supprimer un bon de commande, avec confirmation avant
+suppression. Synchronisé en temps réel comme le reste de l'application.
+
+## Changement de version visible
+
+- Le numéro de version sous le logo est maintenant un peu plus lisible
+  (moins transparent, en bleu)
+- **Nouveau** : quand l'application démarre avec une version différente de la
+  dernière fois qu'elle a été ouverte sur ce PC, un message **"🆕 Application
+  mise à jour : vX.X.X (build N)"** s'affiche automatiquement — vous savez
+  immédiatement qu'une mise à jour vient d'être installée.
