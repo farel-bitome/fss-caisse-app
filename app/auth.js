@@ -393,6 +393,14 @@
   }
 
   function openUserMgmt() {
+    try {
+      openUserMgmtInterne();
+    } catch (e) {
+      console.error('Erreur openUserMgmt:', e);
+      safeToast('Erreur à l\'ouverture : ' + e.message, 'e');
+    }
+  }
+  function openUserMgmtInterne() {
     renderUserMgmt();
     document.getElementById('userMgmtOverlay').style.display = 'flex';
     document.getElementById('umgtErr').textContent = '';
@@ -411,6 +419,16 @@
   }
 
   function addUser() {
+    try {
+      addUserInterne();
+    } catch (e) {
+      console.error('Erreur addUser:', e);
+      safeToast('Erreur : ' + e.message, 'e');
+      var err = document.getElementById('umgtErr');
+      if (err) err.textContent = 'Erreur technique : ' + e.message;
+    }
+  }
+  function addUserInterne() {
     var nom = document.getElementById('umgtNom').value.trim();
     var mdp = document.getElementById('umgtMdp').value;
     var err = document.getElementById('umgtErr');

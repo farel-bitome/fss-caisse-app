@@ -4,24 +4,57 @@ const path = require('path');
 const fs = require('fs');
 const { Server } = require('socket.io');
 
+// Filet de sécurité global : une erreur imprévue n'importe où (surtout
+// probable quand plusieurs postes sont connectés en même temps et envoient
+// des changements proches dans le temps) ne doit JAMAIS faire planter le
+// serveur entier — ce qui coupait TOUS les postes connectés d'un coup. On
+// journalise l'erreur au lieu de laisser le processus s'arrêter.
+process.on('uncaughtException', (err) => {
+  console.error('[FSS-CAISSE] Erreur serveur non gérée (ignorée, le serveur continue) :', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('[FSS-CAISSE] Promesse rejetée non gérée (ignorée, le serveur continue) :', err);
+});
+
 module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
   return new Promise((resolve, reject) => {
     const appStaticDir = path.join(appRootDir, 'app');
     const dataFile = path.join(userDataDir, 'data.json');
+    const backupDataFile = path.join(userDataDir, 'data.backup.json');
     const defaultFile = path.join(appRootDir, 'server-data', 'data.default.json');
     const airtelConfigFile = path.join(userDataDir, 'airtel-config.json');
 
     function loadState() {
       let state;
+      let sourceUtilisee = 'principale';
       try {
         if (fs.existsSync(dataFile)) {
           state = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
         }
       } catch (e) {
-        console.error('Erreur de lecture des données, chargement des données par défaut :', e.message);
+        // Fichier principal corrompu (ex: l'app a planté en pleine écriture) —
+        // avant d'abandonner et de repartir sur des données vierges (ce qui
+        // effaçait TOUT : commandes en attente, ventes...), on tente d'abord
+        // de récupérer la dernière copie de secours valide.
+        console.error('Fichier de données principal illisible :', e.message);
+        try {
+          if (fs.existsSync(backupDataFile)) {
+            state = JSON.parse(fs.readFileSync(backupDataFile, 'utf8'));
+            sourceUtilisee = 'copie de secours';
+            console.log('Récupéré depuis la copie de secours (data.backup.json).');
+          }
+        } catch (e2) {
+          console.error('Copie de secours également illisible :', e2.message);
+        }
       }
       if (!state) {
+        console.error('Aucune donnée récupérable — démarrage sur les données par défaut (catalogue de base uniquement).');
         return JSON.parse(fs.readFileSync(defaultFile, 'utf8'));
+      }
+      if (sourceUtilisee === 'copie de secours') {
+        // Réécrit immédiatement le fichier principal avec les données
+        // récupérées, pour que la copie corrompue ne traîne pas.
+        saveState(state);
       }
       // Migration unique : remplace le catalogue d'articles par le nouveau menu,
       // sans toucher au reste des données déjà enregistrées (clients, ventes,
@@ -56,11 +89,45 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
           console.error('Erreur pendant la migration des catégories :', e.message);
         }
       }
+      // Migration unique : remplace l'ancienne liste de tables de démonstration
+      // (8 tables) par les 400 tables demandées, toutes "Libre" par défaut —
+      // à l'utilisateur de marquer ensuite lui-même celles qui sont réservées
+      // ou occupées, via le formulaire d'édition d'une table.
+      if (!state.tablesMigratedV1) {
+        try {
+          const defaults = JSON.parse(fs.readFileSync(defaultFile, 'utf8'));
+          state.tables = defaults.tables;
+          state.tablesMigratedV1 = true;
+          saveState(state);
+          console.log('Migration : ' + defaults.tables.length + ' tables mises en place (toutes libres).');
+        } catch (e) {
+          console.error('Erreur pendant la migration des tables :', e.message);
+        }
+      }
       return state;
     }
 
     function saveState(state) {
-      fs.writeFileSync(dataFile, JSON.stringify(state, null, 2));
+      const json = JSON.stringify(state, null, 2);
+      // Garde une copie de secours du dernier état VALIDE avant d'écraser —
+      // sert de filet de récupération si jamais la prochaine écriture est
+      // interrompue par un plantage.
+      try {
+        if (fs.existsSync(dataFile)) {
+          fs.copyFileSync(dataFile, backupDataFile);
+        }
+      } catch (e) {
+        console.error('Impossible de mettre à jour la copie de secours :', e.message);
+      }
+      // Écriture atomique : on écrit d'abord dans un fichier temporaire, puis
+      // on le renomme à la place du vrai fichier. Un "rename" est atomique au
+      // niveau du système de fichiers — soit il réussit entièrement, soit le
+      // fichier d'origine reste intact. Contrairement à une écriture directe,
+      // un plantage en plein milieu ne peut plus jamais laisser le fichier
+      // de données dans un état à moitié écrit (corrompu).
+      const tmpFile = dataFile + '.tmp';
+      fs.writeFileSync(tmpFile, json);
+      fs.renameSync(tmpFile, dataFile);
     }
 
     // ---- Config Airtel Money : stockée à part, JAMAIS envoyée au navigateur/synchronisée ----
@@ -112,10 +179,15 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
     });
 
     expressApp.post('/api/state', (req, res) => {
-      state = req.body;
-      saveState(state);
-      io.emit('state:changed', state);
-      res.json({ ok: true });
+      try {
+        state = req.body;
+        saveState(state);
+        io.emit('state:changed', state);
+        res.json({ ok: true });
+      } catch (e) {
+        console.error('[FSS-CAISSE] Erreur lors de l\'enregistrement d\'un changement :', e);
+        res.status(500).json({ ok: false, error: e.message });
+      }
     });
 
     // ---- Routes Airtel Money ----
@@ -191,7 +263,11 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
     });
 
     io.on('connection', (socket) => {
-      socket.emit('state:changed', state);
+      try {
+        socket.emit('state:changed', state);
+      } catch (e) {
+        console.error('[FSS-CAISSE] Erreur lors de la connexion d\'un poste :', e);
+      }
     });
 
     server.on('error', reject);

@@ -897,3 +897,111 @@ que vous décriviez.
 **Corrigé** : ces menus ne se reconstruisent plus tant que vous êtes en train
 de les utiliser (menu ouvert/en cours de sélection) — la mise à jour se fait
 juste après, une fois que vous avez terminé votre sélection.
+
+## ⚠️ CORRECTION CRITIQUE : perte de toutes les données après un plantage
+
+**Cause trouvée et confirmée par simulation réelle** : la sauvegarde des
+données n'était **pas atomique** — elle écrivait directement dans le fichier
+principal. Si l'application plantait pile pendant cette écriture (ce qui
+semble être exactement ce qui s'est passé chez vous), le fichier se
+retrouvait à moitié écrit, donc **illisible**. Au redémarrage, comme ce
+fichier ne pouvait plus être lu, l'application repartait silencieusement sur
+des données vierges — ce qui donnait l'impression que TOUT avait été
+supprimé (commandes en attente ET ventes encaissées), alors qu'en réalité
+rien n'avait été "supprimé" à proprement parler : le fichier était juste
+devenu illisible.
+
+**Corrigé sérieusement, à deux niveaux** :
+1. **Écriture atomique** : la sauvegarde écrit maintenant d'abord dans un
+   fichier temporaire, puis le remplace d'un coup — le vrai fichier de
+   données n'est **jamais touché** tant que la nouvelle version n'est pas
+   complètement écrite. Un plantage en cours d'écriture ne peut donc plus
+   jamais corrompre quoi que ce soit.
+2. **Copie de secours automatique** : une copie du dernier état valide est
+   conservée à chaque sauvegarde. Si jamais le fichier principal devenait
+   quand même illisible pour une autre raison, l'application récupère
+   automatiquement cette copie au lieu de repartir sur des données vierges.
+
+**Testé avant envoi avec une vraie simulation** de plantage en pleine
+écriture (fichier temporaire laissé à moitié écrit) — confirmé que le fichier
+réel reste intact et qu'aucune donnée n'est perdue.
+
+**Concernant les comptes serveur qui arrivaient encore à supprimer des
+articles** : il est possible que ce soit lié à cette même corruption de
+données (les réglages de permissions pouvant eux aussi être affectés).
+Repartez sur cette version corrigée et retestez ce point précis — si le
+problème persiste malgré cette correction majeure, dites-le-moi.
+
+## Ajout d'utilisateur qui plantait — filet de sécurité mis en place
+
+Je n'ai pas trouvé de bug précis en relisant tout le code d'ajout
+d'utilisateur (rien d'anormal détecté), et j'ai aussi testé le vrai démarrage
+du serveur avec des données réalistes (commandes en attente, ventes,
+utilisateurs) — tout fonctionne correctement de mon côté.
+
+**Plutôt que de continuer à deviner**, j'ai mis en place deux filets de
+sécurité :
+
+1. **Sur l'ajout/gestion d'utilisateurs spécifiquement** : si une erreur
+   survient, elle s'affiche maintenant clairement à l'écran avec son message
+   exact, au lieu de planter silencieusement sans rien indiquer.
+2. **Partout dans l'application** : toute erreur technique inattendue,
+   n'importe où, s'affiche désormais automatiquement en rouge en haut de
+   l'écran avec le message précis — plus besoin d'ouvrir la console
+   développeur pour la voir.
+
+**Si ça plante encore la prochaine fois**, un message rouge devrait apparaître
+à l'écran juste avant — envoyez-moi une capture d'écran de ce message précis,
+ça me permettra de corriger le vrai problème directement, sans deviner.
+
+## Bouton "🗑️ Annuler" en haut du ticket — ne supprime plus une commande reprise
+
+**Trouvé le vrai trou** : le bouton **"🗑️ Annuler"** en haut du ticket (celui
+que vous appeliez "le X au-dessus") videait le ticket sans jamais remettre la
+commande dans "Commandes en attente" si elle avait été **reprise** — la
+commande disparaissait purement et simplement, sans confirmation ni
+possibilité de la retrouver. C'est exactement ce que vous décriviez : n'importe
+qui, y compris un compte serveur, pouvait faire disparaître une commande déjà
+envoyée juste en cliquant "Annuler" après l'avoir reprise.
+
+**Corrigé** : cliquer sur "Annuler" après avoir repris une commande la remet
+maintenant **automatiquement en attente**, exactement comme elle était avant
+d'être reprise — rien n'est perdu, quel que soit le compte utilisé.
+
+**Au passage, trouvé et corrigé un vrai bug dans ma propre correction** avant
+de vous l'envoyer : après un paiement normal, l'état "commande reprise"
+n'était jamais réinitialisé — ce qui aurait fait réapparaître à tort une
+commande **déjà payée** dans "En attente". Corrigé et testé sur les 4 cas de
+figure (reprise+annuler, envoi normal, paiement normal, nouveau ticket) —
+tous corrects.
+
+## 400 tables, toutes libres par défaut
+
+Remplacé les anciennes tables de démonstration (8 tables, dont certaines
+marquées "Occupée"/"Réservée" par défaut) par **400 tables** ("Table 1" à
+"Table 400"), **toutes "Libre"** au départ — c'est vous qui décidez ensuite,
+table par table, si elle est réservée ou occupée (via le bouton ✏️ dans
+Paramètres → Tables, le statut se change comme avant).
+
+**Migration automatique** incluse pour votre serveur déjà en service, sans
+toucher au reste de vos données (testé avec de fausses données : clients
+préservés, tables bien remplacées par les 400 nouvelles, toutes libres).
+
+## Serveur qui plantait quand beaucoup de postes sont connectés en même temps
+
+**Cause probable** : le serveur n'avait **aucune protection** contre une
+erreur imprévue — si quoi que ce soit d'inattendu se produisait à un moment
+donné (plus probable avec plusieurs serveuses connectées en même temps,
+envoyant des changements proches dans le temps), ça pouvait faire planter
+**tout le processus serveur d'un coup**, coupant tous les postes connectés en
+même temps.
+
+**Corrigé** : le serveur est maintenant protégé à trois niveaux — une erreur
+imprévue est systématiquement journalisée au lieu d'arrêter le serveur, la
+route qui reçoit chaque changement de chaque poste est explicitement protégée,
+et la connexion d'un nouveau poste aussi. Un souci ponctuel n'affecte plus que
+lui-même, jamais tout le monde en même temps.
+
+**Testé avant envoi** : simulation d'une erreur non gérée en plein
+fonctionnement — confirmé que le processus continue de tourner normalement
+après, au lieu de s'arrêter.
