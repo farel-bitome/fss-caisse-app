@@ -1862,11 +1862,12 @@ function renderAttenteBar(){
     // Un compte "serveur uniquement" ne doit pas pouvoir sortir l'addition — seuls
     // caissiers/gérants/admins peuvent la générer (même logique que l'encaissement).
     if(window.isWaiterOnly&&window.isWaiterOnly())btnA.style.display='none';
+    var numTable=(c.tableVal||'').toString().split('-')[0];
     var info=document.createElement('span');
-    info.innerHTML='<span style="color:#FFCC00;font-weight:700">'+c.id+'</span> '+
+    info.innerHTML='<span style="color:#FFCC00;font-weight:700">T-'+numTable+'</span> '+
       '<span style="color:#FF6666">'+(c.srv&&c.srv!=='—'?c.srv:c.tableNom)+'</span> '+
       '<span style="color:#888">'+c.heure+'</span> '+
-      '<span style="color:#fff;font-weight:700">'+fmt(c.total)+' F</span> ';
+      '<span style="color:#fff;font-weight:700">'+Math.round(c.total).toLocaleString('fr-FR')+' F</span> ';
     div.appendChild(info);div.appendChild(btnA);div.appendChild(btnR);
     if(canDel){
       var btnS=document.createElement('button');

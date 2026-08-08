@@ -1005,3 +1005,13 @@ lui-même, jamais tout le monde en même temps.
 **Testé avant envoi** : simulation d'une erreur non gérée en plein
 fonctionnement — confirmé que le processus continue de tourner normalement
 après, au lieu de s'arrêter.
+
+## Format de la barre "Commandes en attente" corrigé
+
+Avant : `ATT-47 sorel 13:46 100 000 FCFA F` (identifiant interne + devise en
+double).
+
+Maintenant : **`T-47 sorel 13:46 100 000 F`** — T-47 représente le numéro de
+la table, l'heure, et le montant avec juste "F" (plus de doublon FCFA/F).
+
+**Testé** avec vos valeurs exactes avant envoi — résultat conforme.
