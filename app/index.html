@@ -1944,6 +1944,7 @@ function renderSousFactureSelect(){
 }
 function renderTableSelect(){
   var sel=g('selTable');if(!sel)return;
+  if(document.activeElement===sel)return; // évite de reconstruire un menu que l'utilisateur est en train d'utiliser
   var prev=sel.value;
   sel.innerHTML='<option value="0">— Table —</option>';
   tables.slice().sort(function(a,b){return a.n-b.n;}).forEach(function(t){
@@ -3500,6 +3501,7 @@ function delTable(n){
 var servers=[];
 function renderServerSelect(){
   var sel=g('selSrv');if(!sel)return;
+  if(document.activeElement===sel)return;
   var prev=sel.value;
   sel.innerHTML='<option value="">— Serveur —</option>';
   var noms=servers.slice();
@@ -3520,6 +3522,7 @@ var caisses=['Caisse 1','Caisse 2'];
 var editCaisseNom=null;
 function renderCaisseSelect(){
   var sel=g('selCaisse');if(!sel)return;
+  if(document.activeElement===sel)return;
   var prev=sel.value;
   sel.innerHTML='<option value="">— Caisse —</option>';
   caisses.slice().sort().forEach(function(c){
@@ -3580,6 +3583,7 @@ var categoryAlerteActive={};
 var editCatNom=null;
 function renderCatSelect(){
   var sel=g('aCat');if(!sel)return;
+  if(document.activeElement===sel)return;
   var prev=sel.value;
   sel.innerHTML='';
   categories.slice().sort().forEach(function(c){

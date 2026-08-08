@@ -878,3 +878,22 @@ avec le même mécanisme.
 
 Ces trois points (déconnexion, fermeture de l'app, "Recharger") utilisent
 maintenant tous la même protection fiable.
+
+## Trouvé pourquoi "impossible de sélectionner" après quelques minutes
+
+**Cause trouvée** : à chaque changement fait par N'IMPORTE QUEL poste connecté
+(un autre caissier qui ajoute un article, une vente ailleurs...), l'application
+reconstruisait automatiquement les menus déroulants (Table, Serveur, Caisse,
+Catégorie) sur **tous les écrans en même temps**. Si vous aviez un de ces menus
+ouvert pile à ce moment pour faire votre sélection, il se reconstruisait sous
+vos yeux — le clic "ratait" sa cible, donnant l'impression que plus rien ne
+répond.
+
+Plus il y a de monde qui travaille en même temps (plusieurs caissiers, plusieurs
+tables en cours), plus les synchronisations sont fréquentes, et plus ça devient
+probable après quelques minutes d'activité — ce qui correspond exactement à ce
+que vous décriviez.
+
+**Corrigé** : ces menus ne se reconstruisent plus tant que vous êtes en train
+de les utiliser (menu ouvert/en cours de sélection) — la mise à jour se fait
+juste après, une fois que vous avez terminé votre sélection.
