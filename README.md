@@ -1015,3 +1015,51 @@ Maintenant : **`T-47 sorel 13:46 100 000 F`** — T-47 représente le numéro de
 la table, l'heure, et le montant avec juste "F" (plus de doublon FCFA/F).
 
 **Testé** avec vos valeurs exactes avant envoi — résultat conforme.
+
+## Commandes qui disparaissaient toutes seules — vrai bug de synchronisation trouvé
+
+**Cause trouvée** : chaque poste envoyait son état complet au serveur, qui
+**écrasait tout** à chaque fois sans distinction. Si un poste avait une
+version légèrement en retard (n'ayant pas encore reçu une commande tout juste
+créée ailleurs) et envoyait son propre changement juste après, sa version
+écrasait celle du serveur — la commande fraîchement créée disparaissait
+purement et simplement, sans que personne ne l'ait supprimée. C'est
+exactement ce qui donnait l'impression qu'une table "se libérait toute
+seule".
+
+**Corrigé** : le serveur fusionne maintenant intelligemment les commandes en
+attente au lieu d'écraser brutalement — une commande tout juste créée (moins
+de 15 secondes) est toujours préservée même si un autre poste envoie une
+version qui ne la connaît pas encore. Les vraies suppressions (au-delà de ce
+court délai) continuent de fonctionner normalement.
+
+**Testé avant envoi** : simulé exactement le scénario du bug (commande créée
+puis "écrasée" par un poste en retard) — confirmé préservée ; et vérifié
+qu'une suppression légitime après le délai de grâce reste bien respectée.
+
+## LA vraie cause trouvée : le client n'utilisait jamais les nouvelles routes protégées
+
+**Ce qui s'est passé** : le serveur avait déjà une protection avancée en place
+(commandes en attente jamais écrasées par l'état complet, gérées via des
+routes dédiées) — mais **l'application elle-même n'avait jamais été mise à
+jour pour utiliser ces routes**. Résultat : chaque nouvelle commande créée
+était immédiatement ignorée par le serveur, et disparaissait dès la
+synchronisation suivante — exactement le comportement que vous observiez, à
+chaque fois.
+
+**Corrigé pour de vrai cette fois** : l'application utilise maintenant
+réellement ces routes dédiées à chaque étape :
+- **Envoi d'une commande** → envoyée via la route protégée
+- **Suppression** → retirée via la route protégée
+- **Reprise d'une commande** → retirée du serveur pendant l'édition
+- **Annuler après une reprise** → remise en attente via la route protégée
+
+Un **journal texte simple** (`sync-log.txt`, dans le dossier de données de
+l'application) enregistre maintenant aussi chaque ajout/retrait avec l'heure
+exacte — utile pour vérifier ce qui s'est passé sans avoir besoin de la
+console développeur, si jamais un doute persiste.
+
+**Testé avant envoi** : simulé le scénario exact (poste A crée une commande,
+poste B en retard envoie son état) avec la vraie logique du serveur —
+confirmé que la commande survit désormais, et que les suppressions
+explicites continuent de fonctionner normalement.

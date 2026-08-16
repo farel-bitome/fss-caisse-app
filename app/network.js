@@ -187,8 +187,34 @@
     });
   }
 
+  // Envoie l'ajout/mise à jour d'UNE commande en attente précise via la route
+  // dédiée du serveur — jamais via l'envoi de l'état complet, qui ne
+  // touche plus du tout à cmdAttente côté serveur (voir embedded-server.js).
+  // Sans appeler cette route, une commande créée localement semblait
+  // fonctionner un instant, puis disparaissait à la synchronisation suivante.
+  function envoyerCmdAttente(commande) {
+    return fetch('/api/cmdattente/ajouter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(commande)
+    }).catch(function () {
+      safe(function () { toast('⚠️ Impossible d\'envoyer la commande au serveur — vérifiez la connexion', 'e'); });
+    });
+  }
+  function retirerCmdAttente(id) {
+    return fetch('/api/cmdattente/retirer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id })
+    }).catch(function () {
+      safe(function () { toast('⚠️ Impossible de synchroniser la suppression — vérifiez la connexion', 'e'); });
+    });
+  }
+
   window.fssSyncPush = syncPush;
   window.fssSyncPushImmediate = syncPushImmediate;
+  window.fssEnvoyerCmdAttente = envoyerCmdAttente;
+  window.fssRetirerCmdAttente = retirerCmdAttente;
   // Si l'app se ferme (fermeture manuelle, redémarrage...), on force
   // immédiatement l'envoi de tout changement en attente, et on prévient le
   // processus principal une fois que c'est VRAIMENT terminé (pas juste lancé)

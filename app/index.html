@@ -1786,7 +1786,8 @@ function mettreEnAttente(){
     id='ATT-'+attenteSeq++;
     deltaItems=tkt.map(function(i){return{nom:i.nom,qty:i.qty||i.qt||1};});
   }
-  cmdAttente.push({id:id,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),sentQty:qtyMapNow,total:total,heure:heure});
+  var nouvelleCommandeAttente={id:id,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),sentQty:qtyMapNow,total:total,heure:heure,ts:Date.now()};
+  cmdAttente.push(nouvelleCommandeAttente);
   // Le bon de commande cuisine s'imprime bien à l'envoi (comme d'habitude).
   // Il ne s'imprime PAS au moment du paiement — ces deux impressions sont
   // deux mécanismes totalement indépendants dans le code : payer une commande
@@ -1798,6 +1799,10 @@ function mettreEnAttente(){
   libererTable();clearTk(true);
   toast('Commande '+id+' en attente ⏸ — '+deltaItems.length+' article(s) envoyé(s) en cuisine/bar','s');
   renderAttenteBar();updateTableOptions();
+  // Important : la commande en attente passe par sa route dédiée, pas par
+  // l'envoi de l'état complet (voir le serveur, qui ignore désormais
+  // volontairement cmdAttente sur la route générique).
+  if(window.fssEnvoyerCmdAttente)window.fssEnvoyerCmdAttente(nouvelleCommandeAttente);
   if(window.fssSyncPush)window.fssSyncPush();
 }
 function calcDeltaItems(sentQtyMap,currentItems){
@@ -1828,6 +1833,7 @@ function reprendreAttente(id){
     c.items.forEach(function(it){resumingSentQty[it.id]=(resumingSentQty[it.id]||0)+(it.qty||it.qt||1);});
   }
   cmdAttente.splice(idx,1);
+  if(window.fssRetirerCmdAttente)window.fssRetirerCmdAttente(id);
   // c.tableVal peut être "5" (table seule) ou "5-B" (table + sous-facture) :
   // on décompose pour sélectionner correctement les deux champs. On retire
   // d'abord la commande de la liste (ligne au-dessus) pour que sa propre
@@ -1844,6 +1850,7 @@ function supprimerAttente(id){
   if(!confirm('Supprimer ?'))return;
   cmdAttente=cmdAttente.filter(function(c){return c.id!==id;});
   renderAttenteBar();updateTableOptions();toast('Supprimé','i');
+  if(window.fssRetirerCmdAttente)window.fssRetirerCmdAttente(id);
 }
 function renderAttenteBar(){
   var bar=g('attenteBar'),list=g('attenteList');if(!bar)return;
@@ -1924,7 +1931,7 @@ function clearTk(silent){
   // qu'elle était, comme si on n'avait jamais cliqué sur "Reprendre".
   if(resumingAttenteId&&tkt.length){
     var sel=g('selTable');
-    cmdAttente.push({
+    var commandeRemise={
       id:resumingAttenteId,
       tableNom:tableNomAffiche?tableNomAffiche():(sel?sel.options[sel.selectedIndex].text:'—'),
       tableVal:tableValCombine?tableValCombine():(sel?sel.value:'0'),
@@ -1932,9 +1939,11 @@ function clearTk(silent){
       items:JSON.parse(JSON.stringify(tkt)),
       sentQty:(function(){var m={};tkt.forEach(function(it){m[it.id]=(m[it.id]||0)+(it.qty||it.qt||1);});return m;})(),
       total:tkt.reduce(function(s,i){return s+i.pv*(i.qty||i.qt||1);},0),
-      heure:new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'})
-    });
-    if(window.fssSyncPush)window.fssSyncPush();
+      heure:new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'}),
+      ts:Date.now()
+    };
+    cmdAttente.push(commandeRemise);
+    if(window.fssEnvoyerCmdAttente)window.fssEnvoyerCmdAttente(commandeRemise);
     if(!silent)toast('Commande remise en attente (rien n\'a été supprimé)','i');
     renderAttenteBar();
   }else if(!silent){
@@ -3913,7 +3922,7 @@ function saveTable(){
   var n=parseInt(g('tN').value)||0,nom=g('tNom').value.trim();
   if(!n||!nom){toast('N° et nom requis','e');return;}
   if(!editTableN&&tables.some(function(t){return t.n===n;})){toast('Ce n° de table existe déjà','e');return;}
-  var obj={n:n,nom:nom,zone:g('tZone').value,cap:parseInt(g('tCap').value)||0,st:g('tSt').value};
+  var obj={n:n,nom:nom,zone:g('tZone').value,cap:parseInt(g('tCap').value)||0,st:g('tSt').value,tsModif:Date.now()};
   var wasNew=!editTableN;
   if(editTableN){
     var idx=tables.findIndex(function(t){return t.n===editTableN;});

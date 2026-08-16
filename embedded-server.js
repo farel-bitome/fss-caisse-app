@@ -21,6 +21,13 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
     const appStaticDir = path.join(appRootDir, 'app');
     const dataFile = path.join(userDataDir, 'data.json');
     const backupDataFile = path.join(userDataDir, 'data.backup.json');
+    const logFile = path.join(userDataDir, 'sync-log.txt');
+    function ecrireJournal(ligne) {
+      try {
+        var horodatage = new Date().toLocaleString('fr-FR');
+        fs.appendFileSync(logFile, '[' + horodatage + '] ' + ligne + '\n');
+      } catch (e) {}
+    }
     const defaultFile = path.join(appRootDir, 'server-data', 'data.default.json');
     const airtelConfigFile = path.join(userDataDir, 'airtel-config.json');
 
@@ -178,9 +185,74 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       res.json(state);
     });
 
+    // ---- Commandes en attente : gérées EXCLUSIVEMENT via des actions ciblées ----
+    // Fini le système de fusion par délai de grâce (imprécis, pouvait quand
+    // même perdre une commande si un poste restait en retard plus de 15s —
+    // fréquent sur un wifi de restaurant chargé). Désormais, cmdAttente n'est
+    // JAMAIS remplacé en bloc par le "fullState" envoyé par un poste — cette
+    // route ignore volontairement tout cmdAttente reçu ici. Les seules façons
+    // de le modifier sont les 3 routes ciblées ci-dessous (ajouter, retirer,
+    // remplacer UNE commande précise par son id) — aucun risque qu'un poste
+    // avec une vue partielle/en retard n'écrase les commandes des autres.
+    expressApp.post('/api/cmdattente/ajouter', (req, res) => {
+      try {
+        state.cmdAttente = state.cmdAttente || [];
+        state.cmdAttente = state.cmdAttente.filter(function (c) { return c.id !== req.body.id; });
+        state.cmdAttente.push(req.body);
+        saveState(state);
+        io.emit('state:changed', state);
+        ecrireJournal('Commande en attente ajoutée : ' + req.body.id + ' (' + req.body.tableNom + ', ' + req.body.total + ' FCFA) — total actuel : ' + state.cmdAttente.length);
+        res.json({ ok: true });
+      } catch (e) {
+        console.error('[FSS-CAISSE] Erreur ajout commande en attente :', e);
+        res.status(500).json({ ok: false, error: e.message });
+      }
+    });
+    expressApp.post('/api/cmdattente/retirer', (req, res) => {
+      try {
+        state.cmdAttente = (state.cmdAttente || []).filter(function (c) { return c.id !== req.body.id; });
+        saveState(state);
+        io.emit('state:changed', state);
+        ecrireJournal('Commande en attente retirée : ' + req.body.id + ' — total actuel : ' + state.cmdAttente.length);
+        res.json({ ok: true });
+      } catch (e) {
+        console.error('[FSS-CAISSE] Erreur suppression commande en attente :', e);
+        res.status(500).json({ ok: false, error: e.message });
+      }
+    });
+
+    // Même problème, mais pour le STATUT des tables (Libre/Occupée/Réservée) :
+    // un poste avec une version en retard pouvait écraser le statut "Occupée"
+    // qu'un autre poste venait tout juste de définir, faisant "se libérer
+    // toute seule" une table en pleine utilisation. Fusion par numéro de
+    // table : on garde toujours la modification la PLUS RÉCENTE (grâce à
+    // tsModif), peu importe l'ordre d'arrivée des synchronisations.
+    function fusionnerTables(ancien, nouveau) {
+      var parNumero = {};
+      (ancien || []).forEach(function (t) { parNumero[t.n] = t; });
+      (nouveau || []).forEach(function (t) {
+        var existant = parNumero[t.n];
+        if (!existant) { parNumero[t.n] = t; return; }
+        var tsExistant = existant.tsModif || 0;
+        var tsNouveau = t.tsModif || 0;
+        // Garde la version la plus récente ; à égalité (ou aucun horodatage
+        // sur les deux, ex: anciennes données), la version reçue l'emporte.
+        parNumero[t.n] = (tsNouveau >= tsExistant) ? t : existant;
+      });
+      return Object.keys(parNumero).map(function (k) { return parNumero[k]; }).sort(function (a, b) { return a.n - b.n; });
+    }
+
     expressApp.post('/api/state', (req, res) => {
       try {
-        state = req.body;
+        const nouvelEtat = req.body;
+        // cmdAttente n'est plus jamais accepté depuis cette route générique —
+        // on garde toujours la version déjà connue du serveur, gérée à part
+        // via les routes /api/cmdattente/*.
+        nouvelEtat.cmdAttente = state.cmdAttente || [];
+        if (state && Array.isArray(state.tables) && Array.isArray(nouvelEtat.tables)) {
+          nouvelEtat.tables = fusionnerTables(state.tables, nouvelEtat.tables);
+        }
+        state = nouvelEtat;
         saveState(state);
         io.emit('state:changed', state);
         res.json({ ok: true });
