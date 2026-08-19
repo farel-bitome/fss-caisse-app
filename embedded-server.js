@@ -252,6 +252,17 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         if (state && Array.isArray(state.tables) && Array.isArray(nouvelEtat.tables)) {
           nouvelEtat.tables = fusionnerTables(state.tables, nouvelEtat.tables);
         }
+        // Le catalogue d'articles n'est accepté que s'il est réellement plus
+        // récent que celui déjà connu du serveur — sinon on garde la dernière
+        // vraie mise à jour. Sans ça, un poste avec une version un peu
+        // ancienne du catalogue (pas encore reçu un ajout/modif fait
+        // ailleurs) pouvait écraser un article tout juste mis à jour.
+        const ancienHorodatageArts = (state && state.artsUpdatedAt) || 0;
+        const nouvelHorodatageArts = nouvelEtat.artsUpdatedAt || 0;
+        if (ancienHorodatageArts > nouvelHorodatageArts) {
+          nouvelEtat.arts = state.arts;
+          nouvelEtat.artsUpdatedAt = ancienHorodatageArts;
+        }
         state = nouvelEtat;
         saveState(state);
         io.emit('state:changed', state);

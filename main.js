@@ -162,14 +162,19 @@ function createWindow() {
   });
 
   // Récupération automatique si la page reste figée (JavaScript bloqué) trop
-  // longtemps sans jamais redevenir réactive.
+  // longtemps sans jamais redevenir réactive. Délai volontairement généreux :
+  // avec un gros catalogue (articles, tables...), certaines opérations
+  // normales (enregistrer un article, synchroniser) peuvent légitimement
+  // prendre plusieurs secondes sans que l'application soit vraiment plantée —
+  // un délai trop court provoquait des rechargements intempestifs en plein
+  // travail normal (ex: juste après avoir modifié un article).
   let unresponsiveTimer = null;
   win.webContents.on('unresponsive', () => {
-    console.error('Application non réactive, tentative de rechargement dans 8s si ça persiste...');
+    console.error('Application non réactive, tentative de rechargement dans 30s si ça persiste...');
     unresponsiveTimer = setTimeout(() => {
       if (!win || win.isDestroyed()) return;
       boot();
-    }, 8000);
+    }, 30000);
   });
   win.webContents.on('responsive', () => {
     if (unresponsiveTimer) { clearTimeout(unresponsiveTimer); unresponsiveTimer = null; }
@@ -192,6 +197,7 @@ function createWindow() {
   boot();
 }
 
+let messageDemarrageDejaAffiche = false;
 async function boot() {
   const cfg = loadConfig();
   if (!cfg.role) {
@@ -204,14 +210,22 @@ async function boot() {
       return;
     }
     win.loadURL('http://localhost:' + PORT);
-    const eff = getEffectiveIP();
-    dialog.showMessageBox(win, {
-      type: 'info',
-      title: 'Serveur FSS-CAISSE démarré',
-      message: eff.ip
-        ? 'Adresse à utiliser sur les postes clients :\n\n' + eff.ip + ':' + eff.port + (eff.manual ? '\n(adresse manuelle)' : '')
-        : "Serveur démarré, mais aucune adresse réseau n'a été détectée."
-    });
+    // Ce message (avec l'adresse IP à donner aux postes clients) ne s'affiche
+    // désormais qu'une seule fois par lancement de l'application — sans ça,
+    // il réapparaissait à chaque "Recharger" ou récupération automatique après
+    // un plantage, ce qui donnait l'impression que le logiciel redemandait
+    // sans cesse de "recharger" quelque chose.
+    if (!messageDemarrageDejaAffiche) {
+      messageDemarrageDejaAffiche = true;
+      const eff = getEffectiveIP();
+      dialog.showMessageBox(win, {
+        type: 'info',
+        title: 'Serveur FSS-CAISSE démarré',
+        message: eff.ip
+          ? 'Adresse à utiliser sur les postes clients :\n\n' + eff.ip + ':' + eff.port + (eff.manual ? '\n(adresse manuelle)' : '')
+          : "Serveur démarré, mais aucune adresse réseau n'a été détectée."
+      });
+    }
   } else if (cfg.role === 'client' && cfg.serverUrl) {
     win.loadURL(cfg.serverUrl);
   } else {

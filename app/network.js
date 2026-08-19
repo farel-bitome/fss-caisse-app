@@ -39,6 +39,7 @@
       users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches,
       clotureHistorique: clotureHistorique,
       categoryAlerteActive: categoryAlerteActive,
+      artsUpdatedAt: window.artsUpdatedAt || 0,
       employes: employes, pointages: pointages, paieEntries: paieEntries
     };
   }
@@ -107,6 +108,7 @@
     window.categories = categories;
     categoryAlerteActive = s.categoryAlerteActive || {};
     window.categoryAlerteActive = categoryAlerteActive;
+    window.artsUpdatedAt = s.artsUpdatedAt || window.artsUpdatedAt || 0;
     if (s.fondsOuverture) fondsOuverture = s.fondsOuverture;
     window.fondsOuverture = fondsOuverture;
     employes = s.employes || [];
@@ -242,11 +244,17 @@
   window.fssFullState = fullState;
   window.fssApplyState = applyState;
 
+  // Fonctions qui modifient le catalogue d'articles — leur exécution met à
+  // jour un horodatage dédié, pour que le serveur puisse toujours reconnaître
+  // et garder la VRAIE dernière mise à jour, même si un autre poste, avec une
+  // version plus ancienne du catalogue, envoie un changement juste après.
+  var FONCTIONS_ARTICLES = ['saveArt', 'delArt', 'togArt', 'importArticles', 'viderArticles'];
   function wrap(name) {
     var orig = window[name];
     if (typeof orig !== 'function') return;
     window[name] = function () {
       var r = orig.apply(this, arguments);
+      if (FONCTIONS_ARTICLES.indexOf(name) !== -1) window.artsUpdatedAt = Date.now();
       syncPush();
       return r;
     };

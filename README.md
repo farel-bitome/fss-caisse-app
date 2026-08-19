@@ -1098,3 +1098,47 @@ soit le compte utilisé ou la façon de quitter.
 
 **Testé avant envoi** : les deux cas de figure (commande en cours d'édition
 vs. aucune reprise en cours) donnent le bon comportement.
+
+## Message répétitif au démarrage/rechargement
+
+Je n'ai pas trouvé de message littéralement intitulé "recharger la dernière
+base de données" dans le code — mais j'ai trouvé un candidat sérieux : le
+message **"Serveur FSS-CAISSE démarré"** (avec l'adresse IP) réapparaissait à
+**chaque** rechargement, y compris les rechargements automatiques après un
+plantage ou un blocage (ajoutés récemment) — ce qui pouvait donner
+l'impression que le logiciel redemande sans cesse quelque chose.
+
+**Corrigé** : ce message ne s'affiche désormais **qu'une seule fois** par
+lancement de l'application, plus à chaque "Recharger" ou récupération
+automatique.
+
+**Si ce n'est pas exactement ce que vous voyiez** : pouvez-vous m'envoyer une
+capture d'écran du message exact ? Le texte précis m'aidera à trouver le bon
+endroit si le souci persiste après cette correction.
+
+## Message "Serveur démarré" après modification d'article — vraie cause trouvée
+
+**Confirmé par vos précisions** : ma détection automatique de "blocage"
+(ajoutée récemment pour la récupération après plantage) se déclenchait trop
+facilement — avec 400 tables et tout votre catalogue d'articles, enregistrer
+un article peut légitimement prendre quelques secondes de plus que la
+normale, sans que l'application soit vraiment figée. Après seulement 8
+secondes, elle déclenchait un rechargement automatique, qui rouvrait le
+serveur et redéclenchait le message.
+
+**Corrigé** : le délai de grâce passe de 8 à **30 secondes** — largement
+suffisant pour toute opération normale, même avec un gros catalogue, tout en
+gardant la protection contre un vrai blocage.
+
+## La dernière mise à jour des articles est maintenant protégée
+
+M�me correction que pour les commandes en attente, appliquée cette fois au
+**catalogue d'articles** : si un poste a une version un peu ancienne du
+catalogue (n'ayant pas encore reçu un ajout ou une modification faite
+ailleurs) et envoie son propre changement juste après, sa version ne peut plus
+écraser la dernière vraie mise à jour. La bonne version (la plus récente) est
+toujours celle qui reste active.
+
+**Testé avant envoi** avec le scénario complet : modification d'un prix →
+préservée même si un autre poste envoie une version en retard juste après →
+une vraie nouvelle modification passe toujours normalement ensuite.
