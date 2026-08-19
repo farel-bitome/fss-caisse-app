@@ -1063,3 +1063,38 @@ console développeur, si jamais un doute persiste.
 poste B en retard envoie son état) avec la vraie logique du serveur —
 confirmé que la commande survit désormais, et que les suppressions
 explicites continuent de fonctionner normalement.
+
+## Correction : commande perdue en changeant d'utilisateur
+
+**Cause trouvée** : depuis la correction précédente, reprendre une commande
+(bouton ▶) la retire temporairement du serveur pendant qu'elle est en cours
+d'édition — le temps normal étant de cliquer ensuite sur "Envoyer" ou
+"Annuler" pour la remettre en place. Mais si l'utilisateur se **déconnectait**
+(ou fermait l'application) **sans faire ni l'un ni l'autre**, la commande
+restait "sortie" du serveur pour de bon — elle disparaissait.
+
+**Corrigé** : la déconnexion, la fermeture de l'application et le bouton
+"Recharger" remettent maintenant **automatiquement** en attente toute
+commande en cours d'édition avant de continuer — exactement comme si vous
+aviez cliqué sur "Annuler" juste avant.
+
+**Testé** avant envoi sur les deux cas de figure (reprise en cours vs. rien à
+faire) — comportement correct dans les deux cas.
+
+## Commandes qui disparaissaient au changement de compte / déconnexion
+
+**Trouvé** : quand une serveuse ou un caissier reprenait une commande pour
+l'éditer (bouton ▶), elle était temporairement retirée du serveur pendant
+l'édition. Si la personne se déconnectait ensuite pour laisser la main à un
+autre compte (ex: passer sur le compte admin) **sans avoir cliqué sur
+"Envoyer" ni "Annuler" avant**, la commande restait "sortie" du serveur pour
+toujours — elle disparaissait purement et simplement.
+
+**Corrigé** : maintenant, si une commande est en cours de reprise au moment de
+se déconnecter (ou de fermer l'application, ou de cliquer sur "Recharger"),
+elle est **automatiquement remise en attente** avant que quoi que ce soit ne
+se passe — comme si vous aviez cliqué sur "Annuler". Rien ne se perd, quel que
+soit le compte utilisé ou la façon de quitter.
+
+**Testé avant envoi** : les deux cas de figure (commande en cours d'édition
+vs. aucune reprise en cours) donnent le bon comportement.

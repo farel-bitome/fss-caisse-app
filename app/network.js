@@ -221,6 +221,13 @@
   // — pour qu'il attende la vraie fin avant de fermer la fenêtre.
   if (window.electronAPI && window.electronAPI.onFlushAvantFermeture) {
     window.electronAPI.onFlushAvantFermeture(function () {
+      // Même protection que pour la déconnexion : une commande en cours de
+      // reprise/édition (donc temporairement retirée du serveur) doit être
+      // remise en attente avant toute fermeture ou tout rechargement — sans
+      // ça, elle reste "sortie" du serveur pour toujours.
+      if (window.resumingAttenteId && window.tkt && window.tkt.length && typeof window.clearTk === 'function') {
+        safe(function () { window.clearTk(); });
+      }
       var p = syncPushImmediate();
       var confirmer = function () {
         if (window.electronAPI.confirmerFlushTermine) window.electronAPI.confirmerFlushTermine();

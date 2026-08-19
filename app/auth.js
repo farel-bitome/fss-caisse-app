@@ -267,6 +267,14 @@
       });
     }
     document.getElementById('miLogout').addEventListener('click', function () {
+      // Important : si une commande était en cours de reprise/édition (donc
+      // temporairement retirée du serveur) au moment de la déconnexion, on la
+      // remet en attente automatiquement avant de partir — sans ça, elle
+      // restait "sortie" du serveur pour toujours si l'utilisateur se
+      // déconnectait sans cliquer sur "Envoyer" ni "Annuler" au préalable.
+      if (window.resumingAttenteId && window.tkt && window.tkt.length && typeof window.clearTk === 'function') {
+        window.clearTk();
+      }
       // Important : on force et on attend la fin de toute synchronisation en
       // cours avant de recharger la page. Sans ça, une commande envoyée juste
       // avant de se déconnecter pouvait ne jamais atteindre le serveur — la
