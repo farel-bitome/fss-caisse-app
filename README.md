@@ -1256,3 +1256,24 @@ automatiquement avec tous les navigateurs modernes.
 
 Republiez et recompilez sur le **PC Serveur**, puis retestez la connexion
 depuis le téléphone.
+
+## LE vrai bug trouvé : horloge d'un appareil en avance = plus rien n'imprime
+
+**Enfin identifié, et reproduit avec certitude** : la protection anti-écrasement
+que j'avais ajoutée pour les bons de commande (`fusionnerPrintBatches`) avait
+une faille — elle rejetait un bon de commande dès que son horodatage semblait
+"dans le futur" par rapport à l'horloge du serveur. Or il suffit que l'horloge
+d'un appareil (téléphone en particulier, mais aussi un PC) soit ne serait-ce
+que **quelques secondes ou minutes en avance** sur celle du serveur — ce qui
+est très courant en pratique, les horloges n'étant presque jamais
+parfaitement synchronisées — pour que **tous** les bons de commande créés
+depuis cet appareil soient rejetés silencieusement, à chaque fois.
+
+C'est exactement pour ça que "l'ancienne version" (avant que j'ajoute cette
+protection) imprimait bien, et que ça a cessé de fonctionner correctement
+ensuite : la protection elle-même était devenue la cause du problème.
+
+**Corrigé et testé avec le scénario exact** : simulé un téléphone avec une
+horloge 2 minutes en avance sur le serveur — confirmé que l'ancien code
+rejetait bien le bon de commande (bug reproduit), et que le nouveau code le
+préserve correctement.

@@ -296,8 +296,17 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         return m ? parseInt(m[1], 10) : 0;
       }
       (ancien || []).concat(nouveau || []).forEach(function (bt) {
+        // IMPORTANT : on ne rejette plus sur un âge négatif (horodatage dans
+        // le "futur"). Ça arrivait dès que l'horloge d'un poste (téléphone ou
+        // PC) était ne serait-ce que légèrement en avance sur celle du
+        // serveur — un cas très courant en pratique (horloges jamais
+        // parfaitement synchronisées). Avant ce correctif, ÇA REJETAIT ALORS
+        // SYSTÉMATIQUEMENT TOUT NOUVEAU BON DE COMMANDE créé depuis cet
+        // appareil, donnant exactement l'impression que "plus rien
+        // n'imprime". Un horodatage dans le futur reste traité comme
+        // parfaitement valide/récent.
         var age = MAINTENANT - idDe(bt);
-        if (age >= 0 && age < DUREE_MAX_MS) parId[bt.batchId] = bt;
+        if (age < DUREE_MAX_MS) parId[bt.batchId] = bt;
       });
       return Object.keys(parId).map(function (k) { return parId[k]; });
     }
