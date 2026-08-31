@@ -1943,7 +1943,7 @@ function clearTk(silent){
       ts:Date.now()
     };
     cmdAttente.push(commandeRemise);
-    if(window.fssEnvoyerCmdAttente)window.fssEnvoyerCmdAttente(commandeRemise);
+    if(window.fssEnvoyerCmdAttente)window.fssDerniereEnvoyerCmdAttentePromise=window.fssEnvoyerCmdAttente(commandeRemise);
     if(!silent)toast('Commande remise en attente (rien n\'a été supprimé)','i');
     renderAttenteBar();
   }else if(!silent){

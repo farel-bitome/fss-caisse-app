@@ -223,22 +223,26 @@
   // — pour qu'il attende la vraie fin avant de fermer la fenêtre.
   if (window.electronAPI && window.electronAPI.onFlushAvantFermeture) {
     window.electronAPI.onFlushAvantFermeture(function () {
-      // Même protection que pour la déconnexion : une commande en cours de
-      // reprise/édition (donc temporairement retirée du serveur) doit être
-      // remise en attente avant toute fermeture ou tout rechargement — sans
-      // ça, elle reste "sortie" du serveur pour toujours.
-      if (window.resumingAttenteId && window.tkt && window.tkt.length && typeof window.clearTk === 'function') {
-        safe(function () { window.clearTk(); });
-      }
-      var p = syncPushImmediate();
       var confirmer = function () {
         if (window.electronAPI.confirmerFlushTermine) window.electronAPI.confirmerFlushTermine();
       };
-      if (p && typeof p.then === 'function') {
-        p.then(confirmer).catch(confirmer);
-      } else {
-        confirmer();
+      // Même protection que pour la déconnexion : une commande en cours de
+      // reprise/édition (donc temporairement retirée du serveur) doit être
+      // remise en attente avant toute fermeture ou tout rechargement — via sa
+      // route dédiée et protégée, en attendant qu'elle soit vraiment partie.
+      //
+      // Important : on ne renvoie PLUS l'état complet ici (contrairement à
+      // avant) — ce poste pourrait avoir une vue en retard des données (ex:
+      // resté un moment en arrière-plan), et renvoyer son état complet
+      // risquait d'écraser des changements plus récents faits ailleurs.
+      if (window.resumingAttenteId && window.tkt && window.tkt.length && typeof window.clearTk === 'function') {
+        safe(function () { window.clearTk(); });
+        if (window.fssDerniereEnvoyerCmdAttentePromise && typeof window.fssDerniereEnvoyerCmdAttentePromise.then === 'function') {
+          window.fssDerniereEnvoyerCmdAttentePromise.then(confirmer).catch(confirmer);
+          return;
+        }
       }
+      confirmer();
     });
   }
   window.fssFullState = fullState;

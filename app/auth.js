@@ -267,32 +267,35 @@
       });
     }
     document.getElementById('miLogout').addEventListener('click', function () {
-      // Important : si une commande était en cours de reprise/édition (donc
-      // temporairement retirée du serveur) au moment de la déconnexion, on la
-      // remet en attente automatiquement avant de partir — sans ça, elle
-      // restait "sortie" du serveur pour toujours si l'utilisateur se
-      // déconnectait sans cliquer sur "Envoyer" ni "Annuler" au préalable.
-      if (window.resumingAttenteId && window.tkt && window.tkt.length && typeof window.clearTk === 'function') {
-        window.clearTk();
-      }
-      // Important : on force et on attend la fin de toute synchronisation en
-      // cours avant de recharger la page. Sans ça, une commande envoyée juste
-      // avant de se déconnecter pouvait ne jamais atteindre le serveur — la
-      // page se rechargeait plus vite que l'enregistrement, et la commande
-      // "disparaissait" car elle n'avait en fait jamais été sauvegardée.
       menu.style.display = 'none';
       var recharger = function () { location.reload(); };
-      if (window.fssSyncPushImmediate) {
-        var p = window.fssSyncPushImmediate();
-        if (p && typeof p.then === 'function') {
-          p.then(recharger).catch(recharger);
+      // Important : si une commande était en cours de reprise/édition (donc
+      // temporairement retirée du serveur) au moment de la déconnexion, on la
+      // remet en attente automatiquement avant de partir — via sa route
+      // dédiée et protégée (qui ne touche à rien d'autre), et on attend
+      // qu'elle soit vraiment partie avant de recharger.
+      //
+      // Important aussi : on ne force PLUS l'envoi de l'ÉTAT COMPLET avant de
+      // se déconnecter, contrairement à avant. Ça semblait prudent au premier
+      // abord, mais c'était en réalité risqué : si ce poste avait une vue un
+      // peu en retard des données (ex: un téléphone resté un moment en
+      // arrière-plan, où les mises à jour des autres postes peuvent être
+      // retardées), renvoyer son état complet pouvait écraser des
+      // changements plus récents faits ailleurs pendant ce temps — donnant
+      // l'impression que les données "revenaient en arrière" après un
+      // changement de compte. Tout ce qui doit vraiment être sauvegardé
+      // utilise déjà sa propre route protégée à chaque modification.
+      if (window.resumingAttenteId && window.tkt && window.tkt.length && typeof window.clearTk === 'function') {
+        window.clearTk();
+        if (window.fssDerniereEnvoyerCmdAttentePromise && typeof window.fssDerniereEnvoyerCmdAttentePromise.then === 'function') {
+          window.fssDerniereEnvoyerCmdAttentePromise.then(recharger).catch(recharger);
           setTimeout(recharger, 3000); // filet de sécurité si ça traîne
-        } else {
-          setTimeout(recharger, 400);
+          return;
         }
-      } else {
-        recharger();
+        setTimeout(recharger, 400);
+        return;
       }
+      recharger();
     });
 
     var fileInput = document.createElement('input');

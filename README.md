@@ -1142,3 +1142,25 @@ toujours celle qui reste active.
 **Testé avant envoi** avec le scénario complet : modification d'un prix →
 préservée même si un autre poste envoie une version en retard juste après →
 une vraie nouvelle modification passe toujours normalement ensuite.
+
+## "Retour à une ancienne version" au changement d'utilisateur — vraie cause trouvée
+
+**Ce qui se passait** : ma correction précédente (bien intentionnée) forçait
+l'envoi de **l'état complet** du poste juste avant chaque déconnexion. Si ce
+poste avait une vue un peu en retard des données (très possible sur un
+téléphone resté un moment en arrière-plan, où les mises à jour des autres
+postes peuvent être retardées), cet envoi forcé **écrasait les changements
+plus récents** faits ailleurs pendant ce temps — donnant exactement
+l'impression que "les données reviennent en arrière" après un changement de
+compte, sur n'importe quel poste.
+
+**Corrigé** : la déconnexion (et la fermeture de l'application) n'envoie plus
+jamais l'état complet. Seule une commande en cours d'édition au moment de se
+déconnecter est remise en attente, via sa route dédiée et protégée qui ne
+touche à rien d'autre — tout le reste (articles, clients, ventes...) reste
+intact, sans jamais risquer d'écraser une version plus récente.
+
+**Vous ne devriez plus jamais avoir besoin d'exporter la base de données par
+précaution avant de changer de compte** — le mécanisme de sauvegarde normal
+(déjà protégé pour les commandes en attente et les articles) suffit
+désormais.
