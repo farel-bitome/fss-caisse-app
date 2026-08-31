@@ -221,6 +221,19 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       }
     });
 
+    // Petite route de diagnostic : permet à l'application (n'importe quel
+    // poste) d'écrire une ligne dans le journal texte du serveur — utile pour
+    // suivre précisément ce qui se passe côté écran sans avoir besoin
+    // d'ouvrir la console développeur.
+    expressApp.post('/api/log', (req, res) => {
+      try {
+        ecrireJournal('[poste] ' + (req.body && req.body.message ? req.body.message : ''));
+        res.json({ ok: true });
+      } catch (e) {
+        res.status(500).json({ ok: false });
+      }
+    });
+
     // Même problème, mais pour le STATUT des tables (Libre/Occupée/Réservée) :
     // un poste avec une version en retard pouvait écraser le statut "Occupée"
     // qu'un autre poste venait tout juste de définir, faisant "se libérer
@@ -277,7 +290,14 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
           nouvelEtat.tables = fusionnerTables(state.tables, nouvelEtat.tables);
         }
         if (state && Array.isArray(state.printBatches)) {
+          var nbAvant = state.printBatches.length;
           nouvelEtat.printBatches = fusionnerPrintBatches(state.printBatches, nouvelEtat.printBatches);
+          var idsAvant = {};
+          state.printBatches.forEach(function (bt) { idsAvant[bt.batchId] = true; });
+          var nouveauxIds = (nouvelEtat.printBatches || []).filter(function (bt) { return !idsAvant[bt.batchId]; }).map(function (bt) { return bt.batchId; });
+          if (nouveauxIds.length) {
+            ecrireJournal('Nouveau(x) bon(s) de commande reçu(s) sur /api/state : ' + nouveauxIds.join(', ') + ' (total après fusion : ' + nouvelEtat.printBatches.length + ', avant : ' + nbAvant + ')');
+          }
         }
         // Le catalogue d'articles n'est accepté que s'il est réellement plus
         // récent que celui déjà connu du serveur — sinon on garde la dernière

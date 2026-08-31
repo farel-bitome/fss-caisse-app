@@ -1793,7 +1793,11 @@ function mettreEnAttente(){
   // deux mécanismes totalement indépendants dans le code : payer une commande
   // (valPay/imprimerRecu) n'appelle jamais cette fonction ni printBatches.
   if(deltaItems.length){
-    printBatches.push({batchId:id+'-'+Date.now(),attenteId:id,tableNom:tableNom,srv:srv,heure:heure,items:deltaItems,ajout:!!resumingAttenteId});
+    var nouveauLotImpression={batchId:id+'-'+Date.now(),attenteId:id,tableNom:tableNom,srv:srv,heure:heure,items:deltaItems,ajout:!!resumingAttenteId};
+    printBatches.push(nouveauLotImpression);
+    fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'mettreEnAttente crée le lot '+nouveauLotImpression.batchId+' (table: '+tableNom+', '+deltaItems.length+' article(s), ajout à commande existante: '+!!resumingAttenteId+')'})}).catch(function(){});
+  }else{
+    fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'mettreEnAttente : AUCUN nouvel article détecté pour '+id+' (table: '+tableNom+', ajout à commande existante: '+!!resumingAttenteId+', sentQty avant: '+JSON.stringify(resumingSentQty)+', ticket actuel: '+JSON.stringify(tkt.map(function(i){return{id:i.id,nom:i.nom,qty:i.qty};}))+') — donc rien à imprimer'})}).catch(function(){});
   }
   resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;
   libererTable();clearTk(true);

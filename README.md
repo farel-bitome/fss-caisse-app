@@ -1184,3 +1184,44 @@ mois.
 **Testé avant envoi** : reproduit le scénario exact (ajout à une commande en
 cours, écrasement par un poste en retard) — confirmé que le bon de commande
 survit désormais ; et vérifié que la purge après 2h fonctionne normalement.
+
+## Adresse IP qui ne s'affichait plus au rechargement — corrigé
+
+**Conséquence directe d'une correction précédente** : j'avais fait en sorte que
+le message affichant l'adresse IP ne s'affiche plus qu'une seule fois, pour
+éviter qu'il ne réapparaisse sans arrêt lors des récupérations automatiques
+après un plantage. Le problème, c'est que ça masquait **aussi** le message
+quand vous cliquiez vous-même sur "Recharger" — pile au moment où vous en
+aviez besoin (par exemple pour reconnecter un téléphone).
+
+**Corrigé** : le message s'affiche maintenant :
+- Au tout premier démarrage (comme avant)
+- **Et à chaque fois que vous cliquez vous-même sur "Recharger"** dans le menu
+- Il reste en revanche silencieux lors d'une récupération **automatique**
+  après un plantage ou un blocage (là où c'était gênant)
+
+**Pour reconnecter vos téléphones** : une fois cette version republiée sur le
+PC Serveur, cliquez sur Alt → FSS-CAISSE → Recharger pour revoir l'adresse
+IP actuelle, et vérifiez qu'elle correspond bien à celle enregistrée sur les
+téléphones (si votre routeur a changé l'adresse du PC Serveur entre-temps,
+c'est aussi une cause possible indépendante — il faudra la remettre à jour sur
+chaque téléphone).
+
+## Diagnostic renforcé pour le bon de commande qui ne s'imprime toujours pas
+
+Comme le problème persiste malgré la correction précédente, j'ai ajouté un
+**journal détaillé** qui trace tout le trajet d'un bon de commande, de sa
+création jusqu'à la tentative d'impression : quand il est créé, ce qu'il
+contient, s'il est bien reçu par le serveur, et s'il est bien détecté pour
+impression sur le poste Serveur — avec un cas particulier tracé si aucun
+"nouvel article" n'est même détecté (ce qui indiquerait un problème différent,
+dans le calcul lui-même plutôt que dans la synchronisation).
+
+**Pour la suite, j'ai besoin de ce fichier** : après avoir republié/recompilé,
+faites le test qui pose problème (reprendre une commande, ajouter un article,
+renvoyer), puis ouvrez le fichier **`sync-log.txt`** — il se trouve dans le
+dossier de données de l'application sur le PC Serveur (généralement
+`%APPDATA%\fss-caisse\sync-log.txt` sous Windows, ou accessible en cherchant
+"fss-caisse" dans le dossier `AppData\Roaming` de l'utilisateur Windows).
+Copiez-collez son contenu ou envoyez-moi une capture — ça me dira exactement
+où ça bloque, au lieu de continuer à deviner.

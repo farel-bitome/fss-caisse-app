@@ -72,22 +72,29 @@
     prls = s.prls || [];
     cmdAttente = s.cmdAttente || [];
     printBatches = s.printBatches || [];
-    if (window.FSS_IS_SERVER && prevBatchIds !== null) {
+    if (prevBatchIds !== null) {
       var nouveauxLots = printBatches.filter(function (bt) { return prevBatchIds.indexOf(bt.batchId) === -1; });
-      nouveauxLots.forEach(function (batch) {
-        safe(function () {
-          // Même circuit, même écouteur pour tout ce qui doit s'imprimer côté
-          // Serveur : bon de commande cuisine ET bilan de clôture — aucune
-          // différence de traitement entre les deux, pour garantir que la
-          // clôture fonctionne exactement aussi bien depuis un téléphone que
-          // les bons de commande, dont on sait qu'ils fonctionnent déjà.
-          if (batch.type === 'cloture') {
-            if (window.imprimerBilanClotureAuto) window.imprimerBilanClotureAuto(batch.snapshot);
-          } else {
-            if (window.imprimerTicketAttente) window.imprimerTicketAttente(batch);
-          }
+      if (nouveauxLots.length) {
+        logDistant('applyState reçoit ' + nouveauxLots.length + ' nouveau(x) lot(s) : ' + nouveauxLots.map(function(b){return b.batchId;}).join(', ') + ' — FSS_IS_SERVER=' + window.FSS_IS_SERVER + ' (hostname=' + location.hostname + ')');
+      }
+      if (window.FSS_IS_SERVER) {
+        nouveauxLots.forEach(function (batch) {
+          safe(function () {
+            // Même circuit, même écouteur pour tout ce qui doit s'imprimer côté
+            // Serveur : bon de commande cuisine ET bilan de clôture — aucune
+            // différence de traitement entre les deux, pour garantir que la
+            // clôture fonctionne exactement aussi bien depuis un téléphone que
+            // les bons de commande, dont on sait qu'ils fonctionnent déjà.
+            if (batch.type === 'cloture') {
+              logDistant('Tentative impression clôture pour lot ' + batch.batchId);
+              if (window.imprimerBilanClotureAuto) window.imprimerBilanClotureAuto(batch.snapshot);
+            } else {
+              logDistant('Tentative impression bon de commande pour lot ' + batch.batchId + ' (table: ' + batch.tableNom + ', articles: ' + (batch.items||[]).length + ')');
+              if (window.imprimerTicketAttente) window.imprimerTicketAttente(batch);
+            }
+          });
         });
-      });
+      }
     }
     prevBatchIds = printBatches.map(function (bt) { return bt.batchId; });
     clotureHistorique = s.clotureHistorique || [];
@@ -124,6 +131,19 @@
   }
 
   function safe(fn) { try { fn(); } catch (e) { /* la vue n'est peut-être pas encore prête */ } }
+  // Envoie une ligne de diagnostic au journal texte du serveur (sync-log.txt)
+  // — permet de suivre précisément ce qui se passe sur chaque poste sans
+  // avoir besoin d'ouvrir la console développeur. Best-effort, ne bloque rien
+  // si ça échoue.
+  function logDistant(message) {
+    try {
+      fetch('/api/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message })
+      }).catch(function () {});
+    } catch (e) {}
+  }
 
   function refreshAllViews() {
     safe(function () { buildCats(); });

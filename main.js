@@ -9,6 +9,7 @@ const configPath = path.join(app.getPath('userData'), 'config.json');
 
 let win;
 let serverStarted = false;
+let messageDemarrageDejaAffiche = false;
 
 function loadConfig() {
   try {
@@ -120,7 +121,7 @@ function createWindow() {
     const suite = () => {
       if (repondu) return;
       repondu = true;
-      boot();
+      boot(true);
     };
     ipcMain.once('flush-termine', suite);
     if (win && !win.isDestroyed()) win.webContents.send('flush-avant-fermeture');
@@ -197,8 +198,7 @@ function createWindow() {
   boot();
 }
 
-let messageDemarrageDejaAffiche = false;
-async function boot() {
+async function boot(declencheParUtilisateur) {
   const cfg = loadConfig();
   if (!cfg.role) {
     win.loadFile(path.join(__dirname, 'choice.html'));
@@ -210,12 +210,14 @@ async function boot() {
       return;
     }
     win.loadURL('http://localhost:' + PORT);
-    // Ce message (avec l'adresse IP à donner aux postes clients) ne s'affiche
-    // désormais qu'une seule fois par lancement de l'application — sans ça,
-    // il réapparaissait à chaque "Recharger" ou récupération automatique après
-    // un plantage, ce qui donnait l'impression que le logiciel redemandait
-    // sans cesse de "recharger" quelque chose.
-    if (!messageDemarrageDejaAffiche) {
+    // Ce message (avec l'adresse IP à donner aux postes clients) s'affiche au
+    // tout premier démarrage, ET à chaque fois que l'utilisateur clique
+    // lui-même sur "Recharger" (utile pour retrouver l'adresse à tout
+    // moment, par exemple pour connecter un nouveau téléphone). Il reste en
+    // revanche silencieux lors d'une récupération AUTOMATIQUE après un
+    // plantage ou un blocage — sans ça, il réapparaissait sans arrêt sans
+    // que l'utilisateur n'ait rien demandé.
+    if (declencheParUtilisateur || !messageDemarrageDejaAffiche) {
       messageDemarrageDejaAffiche = true;
       const eff = getEffectiveIP();
       dialog.showMessageBox(win, {
@@ -263,7 +265,7 @@ function buildMenu() {
             }
           }
         },
-        { label: 'Recharger', click: () => global.rechargerEnAttendantSync ? global.rechargerEnAttendantSync() : boot() },
+        { label: 'Recharger', click: () => global.rechargerEnAttendantSync ? global.rechargerEnAttendantSync() : boot(true) },
         {
           label: 'Licence / Activation',
           click: () => win.loadFile(path.join(__dirname, 'activation.html'))
@@ -347,7 +349,7 @@ ipcMain.handle('reset-manual-ip', () => {
 });
 
 ipcMain.handle('reload-app', () => {
-  boot();
+  boot(true);
   return true;
 });
 
