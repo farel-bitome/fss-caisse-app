@@ -1225,3 +1225,34 @@ dossier de données de l'application sur le PC Serveur (généralement
 "fss-caisse" dans le dossier `AppData\Roaming` de l'utilisateur Windows).
 Copiez-collez son contenu ou envoyez-moi une capture — ça me dira exactement
 où ça bloque, au lieu de continuer à deviner.
+
+## Ce n'était pas un bug — nouveau bouton pour réimprimer le bon complet
+
+Grâce au journal de diagnostic, confirmé que le mécanisme fonctionnait
+correctement : "Envoyer" n'imprime **volontairement** que les nouveaux
+articles ajoutés depuis le dernier envoi (pas tout le bon à chaque fois),
+pour éviter d'inonder la cuisine de doublons. Quand vous repreniez une
+commande sans rien ajouter et cliquiez "Envoyer", il n'y avait donc
+légitimement rien de nouveau à imprimer.
+
+**Ajouté ce que vous cherchiez réellement** : un nouveau bouton **🍳** dans
+"Commandes en attente", à côté de 🧾, qui réimprime **tout le bon de
+commande** pour cette table — y compris les articles déjà envoyés — avec
+confirmation avant impression, et la mention "🔁 RAPPEL — BON COMPLET" bien
+visible sur le ticket pour que la cuisine comprenne qu'il s'agit d'un rappel,
+pas d'une nouvelle commande.
+
+## Téléphone qui charge à l'infini — compression ajoutée
+
+Avec 400 tables, tout le catalogue d'articles, et l'historique accumulé au fil
+des tests, les données envoyées à chaque connexion sont devenues volumineuses
+— ce qui peut expliquer un chargement très long (voire semblant infini) sur un
+réseau mobile plus faible.
+
+**Corrigé** : le serveur compresse maintenant automatiquement ces données
+(gzip) avant de les envoyer — testé avec un volume de données réaliste : **93%
+de réduction** (64 Ko → 4 Ko). Aucune configuration nécessaire, ça fonctionne
+automatiquement avec tous les navigateurs modernes.
+
+Republiez et recompilez sur le **PC Serveur**, puis retestez la connexion
+depuis le téléphone.

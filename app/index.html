@@ -1614,7 +1614,7 @@ function imprimerTicketAttente(batch){
   var attId=batch.attenteId||batch.id;
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
   html+='<div class="c" style="font-size:15px">'+etab+'</div>';
-  html+='<div class="c" style="font-size:14px;margin:4px 0">'+(batch.ajout?'📨 AJOUT À LA COMMANDE':'📨 BON DE COMMANDE')+'</div>';
+  html+='<div class="c" style="font-size:14px;margin:4px 0">'+(batch.reimpression?'🔁 RAPPEL — BON COMPLET':(batch.ajout?'📨 AJOUT À LA COMMANDE':'📨 BON DE COMMANDE'))+'</div>';
   html+='<div class="sep"></div>';
   html+='<div class="c" style="font-size:26px;line-height:1.15">'+(batch.tableNom||'—')+'</div>';
   html+='<div class="c" style="font-size:16px;margin-top:2px">👤 '+(batch.srv||'—')+'</div>';
@@ -1856,6 +1856,22 @@ function supprimerAttente(id){
   renderAttenteBar();updateTableOptions();toast('Supprimé','i');
   if(window.fssRetirerCmdAttente)window.fssRetirerCmdAttente(id);
 }
+// Réimprime en cuisine TOUT le contenu actuel d'une commande en attente,
+// y compris les articles déjà envoyés — contrairement à "Envoyer" qui
+// n'imprime volontairement que les nouveaux articles ajoutés depuis le
+// dernier envoi. Utile pour redemander un bon complet en cas de doute,
+// de perte du papier, ou pour rappel en cuisine.
+function reimprimerBonComplet(id){
+  var c=cmdAttente.find(function(x){return x.id===id;});
+  if(!c){toast('Commande introuvable','e');return;}
+  if(!confirm('Réimprimer TOUT le bon de commande pour '+c.tableNom+' (y compris les articles déjà envoyés) ?'))return;
+  var tousLesArticles=(c.items||[]).map(function(it){return{nom:it.nom,qty:it.qty||it.qt||1};});
+  var nouveauLot={batchId:id+'-COMPLET-'+Date.now(),attenteId:id,tableNom:c.tableNom,srv:c.srv,heure:c.heure,items:tousLesArticles,ajout:false,reimpression:true};
+  printBatches.push(nouveauLot);
+  fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'reimprimerBonComplet crée le lot '+nouveauLot.batchId+' (table: '+c.tableNom+', '+tousLesArticles.length+' article(s), TOUT le bon)'})}).catch(function(){});
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('Bon de commande complet envoyé à l\'impression','s');
+}
 function renderAttenteBar(){
   var bar=g('attenteBar'),list=g('attenteList');if(!bar)return;
   if(!cmdAttente.length||(window.waiterCanSeeAttente&&!window.waiterCanSeeAttente())){bar.style.display='none';return;}
@@ -1873,13 +1889,16 @@ function renderAttenteBar(){
     // Un compte "serveur uniquement" ne doit pas pouvoir sortir l'addition — seuls
     // caissiers/gérants/admins peuvent la générer (même logique que l'encaissement).
     if(window.isWaiterOnly&&window.isWaiterOnly())btnA.style.display='none';
+    var btnCuisine=document.createElement('button');
+    btnCuisine.textContent='🍳';btnCuisine.title='Réimprimer le bon de commande COMPLET en cuisine (même les articles déjà envoyés)';btnCuisine.style.cssText='background:#CC6600;color:#fff;border:none;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer;font-weight:700';
+    btnCuisine.onclick=(function(id){return function(){reimprimerBonComplet(id);};})(c.id);
     var numTable=(c.tableVal||'').toString().split('-')[0];
     var info=document.createElement('span');
     info.innerHTML='<span style="color:#FFCC00;font-weight:700">T-'+numTable+'</span> '+
       '<span style="color:#FF6666">'+(c.srv&&c.srv!=='—'?c.srv:c.tableNom)+'</span> '+
       '<span style="color:#888">'+c.heure+'</span> '+
       '<span style="color:#fff;font-weight:700">'+Math.round(c.total).toLocaleString('fr-FR')+' F</span> ';
-    div.appendChild(info);div.appendChild(btnA);div.appendChild(btnR);
+    div.appendChild(info);div.appendChild(btnA);div.appendChild(btnCuisine);div.appendChild(btnR);
     if(canDel){
       var btnS=document.createElement('button');
       btnS.textContent='✕';btnS.style.cssText='background:#FF4444;color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer';

@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const zlib = require('zlib');
 const { Server } = require('socket.io');
 
 // Filet de sécurité global : une erreur imprévue n'importe où (surtout
@@ -179,6 +180,28 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       next();
     });
     expressApp.use(express.json({ limit: '10mb' }));
+    // Compression gzip des réponses (surtout utile pour /api/state, qui peut
+    // devenir volumineux avec beaucoup d'articles/tables/historique) — réduit
+    // nettement le temps de chargement sur un réseau mobile plus faible.
+    // Implémenté avec le module natif "zlib" de Node, sans dépendance externe
+    // à installer.
+    expressApp.use(function (req, res, next) {
+      var acceptEncoding = req.headers['accept-encoding'] || '';
+      if (acceptEncoding.indexOf('gzip') === -1) return next();
+      var originalJson = res.json.bind(res);
+      var originalSend = res.send.bind(res);
+      function compresserEtEnvoyer(corps) {
+        var buffer = Buffer.isBuffer(corps) ? corps : Buffer.from(typeof corps === 'string' ? corps : JSON.stringify(corps));
+        zlib.gzip(buffer, function (err, resultat) {
+          if (err) { res.set('Content-Type', 'application/json'); return originalSend(buffer); }
+          res.set('Content-Encoding', 'gzip');
+          res.set('Content-Type', 'application/json');
+          originalSend(resultat);
+        });
+      }
+      res.json = function (corps) { compresserEtEnvoyer(corps); return res; };
+      next();
+    });
     expressApp.use(express.static(appStaticDir));
 
     expressApp.get('/api/state', (req, res) => {
