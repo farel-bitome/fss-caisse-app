@@ -242,6 +242,30 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       return Object.keys(parNumero).map(function (k) { return parNumero[k]; }).sort(function (a, b) { return a.n - b.n; });
     }
 
+    // Même souci que pour cmdAttente : printBatches (bons de commande cuisine
+    // en attente d'impression, et bilans de clôture) pouvait être écrasé par
+    // un poste avec une vue en retard AVANT même que le serveur n'ait eu le
+    // temps de l'imprimer — un ajout à une commande déjà en cours pouvait
+    // ainsi ne jamais ressortir en cuisine. Fusion par identifiant unique : on
+    // garde toujours l'union des deux versions, jamais une perte silencieuse.
+    // On purge aussi les entrées trop anciennes (au-delà de 2h, largement
+    // suffisant pour qu'elles aient été imprimées), pour éviter que ce
+    // tableau ne grossisse indéfiniment au fil du temps.
+    function fusionnerPrintBatches(ancien, nouveau) {
+      var MAINTENANT = Date.now();
+      var DUREE_MAX_MS = 2 * 60 * 60 * 1000; // 2h
+      var parId = {};
+      function idDe(bt) {
+        var m = String(bt.batchId || '').match(/-(\d+)$/);
+        return m ? parseInt(m[1], 10) : 0;
+      }
+      (ancien || []).concat(nouveau || []).forEach(function (bt) {
+        var age = MAINTENANT - idDe(bt);
+        if (age >= 0 && age < DUREE_MAX_MS) parId[bt.batchId] = bt;
+      });
+      return Object.keys(parId).map(function (k) { return parId[k]; });
+    }
+
     expressApp.post('/api/state', (req, res) => {
       try {
         const nouvelEtat = req.body;
@@ -251,6 +275,9 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         nouvelEtat.cmdAttente = state.cmdAttente || [];
         if (state && Array.isArray(state.tables) && Array.isArray(nouvelEtat.tables)) {
           nouvelEtat.tables = fusionnerTables(state.tables, nouvelEtat.tables);
+        }
+        if (state && Array.isArray(state.printBatches)) {
+          nouvelEtat.printBatches = fusionnerPrintBatches(state.printBatches, nouvelEtat.printBatches);
         }
         // Le catalogue d'articles n'est accepté que s'il est réellement plus
         // récent que celui déjà connu du serveur — sinon on garde la dernière

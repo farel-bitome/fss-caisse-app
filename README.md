@@ -1164,3 +1164,23 @@ intact, sans jamais risquer d'écraser une version plus récente.
 précaution avant de changer de compte** — le mécanisme de sauvegarde normal
 (déjà protégé pour les commandes en attente et les articles) suffit
 désormais.
+
+## Bon de commande cuisine qui ne s'imprimait pas au 2e ajout — trouvé et corrigé
+
+**La vraie cause** : quand vous repreniez une commande déjà en cours pour y
+ajouter des articles, le nouveau bon de commande (juste les articles ajoutés)
+pouvait être **écrasé par un autre poste** avant même que le serveur n'ait eu
+le temps de l'imprimer — exactement le même type de bug que celui déjà corrigé
+pour les commandes en attente et les articles, mais qui touchait cette fois le
+mécanisme d'impression cuisine lui-même.
+
+**Corrigé** : ce mécanisme est maintenant protégé de la même façon — un bon de
+commande fraîchement créé ne peut plus être perdu avant impression, peu
+importe ce qu'un autre poste envoie en même temps. Au passage, ce tableau se
+purge aussi désormais automatiquement (au-delà de 2h, largement le temps
+d'avoir été imprimé), pour éviter qu'il ne grossisse indéfiniment au fil des
+mois.
+
+**Testé avant envoi** : reproduit le scénario exact (ajout à une commande en
+cours, écrasement par un poste en retard) — confirmé que le bon de commande
+survit désormais ; et vérifié que la purge après 2h fonctionne normalement.
