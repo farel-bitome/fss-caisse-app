@@ -70,7 +70,12 @@
     prevTxIds = txs.map(function (t) { return t.id; });
     mouv = s.mouv || [];
     prls = s.prls || [];
+    var idsAvantReception = cmdAttente.map(function (c) { return c.id; });
     cmdAttente = s.cmdAttente || [];
+    var idsApresReception = cmdAttente.map(function (c) { return c.id; });
+    if (idsAvantReception.join(',') !== idsApresReception.join(',')) {
+      logDistant('applyState met à jour cmdAttente sur ce poste : avant=[' + idsAvantReception.join(',') + '] après=[' + idsApresReception.join(',') + ']');
+    }
     printBatches = s.printBatches || [];
     if (prevBatchIds !== null) {
       var nouveauxLots = printBatches.filter(function (bt) { return prevBatchIds.indexOf(bt.batchId) === -1; });

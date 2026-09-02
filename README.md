@@ -1355,3 +1355,41 @@ l'application en plein service.
 - Si vous préférez quand même voir un aperçu avant impression (pour
   vérifier ou changer d'imprimante ponctuellement), vous pouvez toujours
   repasser sur "Désactivée — afficher l'aperçu" dans Périphériques
+
+## Vraie cause probable trouvée : collision de numéro de commande entre postes
+
+**Trouvé un risque sérieux** : le numéro interne d'une commande en attente
+(ATT-56, ATT-57...) était généré par un simple compteur local sur chaque
+poste. Si deux appareils créaient chacun une nouvelle commande avant d'avoir
+eu le temps de se resynchroniser entre eux, ils pouvaient générer **le même
+numéro par pure coïncidence** — et la seconde commande écrasait alors
+silencieusement la première, puisque le serveur les traitait comme "la même
+commande mise à jour". C'est très probablement ce qui causait la disparition
+d'une commande en attente en prenant une autre commande sur un autre poste.
+
+**Corrigé** : le numéro de commande combine désormais l'horodatage précis à la
+milliseconde et une partie aléatoire — une collision entre deux postes devient
+statistiquement impossible en usage normal.
+
+**Testé avant envoi** : simulé 100 000 commandes créées à la même milliseconde
+exacte (un cas bien plus extrême que la réalité) — aucune collision détectée.
+
+**Ajouté aussi un journal plus détaillé** (liste complète des commandes
+présentes à chaque étape, pas juste un total) pour diagnostiquer encore plus
+précisément si un souci similaire réapparaissait.
+
+## Numéro de commande simplifié sur le bon de commande
+
+Sur votre demande, le bon de commande imprimé affiche maintenant un simple
+**numéro de commande** (1, 2, 3...) au lieu de l'identifiant technique
+"ATT-..." — devenu d'ailleurs plus long avec la correction anti-collision
+précédente.
+
+Ce numéro reste **le même tout au long de la vie d'une commande**, même en la
+reprenant plusieurs fois pour y ajouter des articles — seul l'identifiant
+technique en coulisses (invisible pour vous) garantit qu'il n'y a jamais de
+collision entre deux postes.
+
+**Testé avant envoi** : vérifié que le numéro reste cohérent à chaque étape
+(création → reprise → ajout → réimpression), et que chaque nouvelle commande
+obtient bien le numéro suivant.

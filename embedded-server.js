@@ -224,7 +224,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         state.cmdAttente.push(req.body);
         saveState(state);
         io.emit('state:changed', state);
-        ecrireJournal('Commande en attente ajoutée : ' + req.body.id + ' (' + req.body.tableNom + ', ' + req.body.total + ' FCFA) — total actuel : ' + state.cmdAttente.length);
+        ecrireJournal('Commande en attente ajoutée : ' + req.body.id + ' (' + req.body.tableNom + ', ' + req.body.total + ' FCFA) — liste complète après ajout (' + state.cmdAttente.length + ') : ' + state.cmdAttente.map(function (c) { return c.id; }).join(', '));
         res.json({ ok: true });
       } catch (e) {
         console.error('[FSS-CAISSE] Erreur ajout commande en attente :', e);
@@ -236,7 +236,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         state.cmdAttente = (state.cmdAttente || []).filter(function (c) { return c.id !== req.body.id; });
         saveState(state);
         io.emit('state:changed', state);
-        ecrireJournal('Commande en attente retirée : ' + req.body.id + ' — total actuel : ' + state.cmdAttente.length);
+        ecrireJournal('Commande en attente retirée : ' + req.body.id + ' — liste complète après retrait (' + state.cmdAttente.length + ') : ' + state.cmdAttente.map(function (c) { return c.id; }).join(', '));
         res.json({ ok: true });
       } catch (e) {
         console.error('[FSS-CAISSE] Erreur suppression commande en attente :', e);

@@ -1595,7 +1595,7 @@ function updateTableOptions(){
 var cmdAttente=[];var attenteSeq=1;
 var printBatches=[];
 var clotureHistorique=[];
-var resumingAttenteId=null,resumingBaseItems=null,resumingSentQty=null;
+var resumingAttenteId=null,resumingBaseItems=null,resumingSentQty=null,resumingNumero=null;
 function imprimerTicketAttente(batch){
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
   var css='@page{size:80mm auto;margin:0}'+
@@ -1619,7 +1619,7 @@ function imprimerTicketAttente(batch){
   html+='<div class="c" style="font-size:26px;line-height:1.15">'+(batch.tableNom||'—')+'</div>';
   html+='<div class="c" style="font-size:16px;margin-top:2px">👤 '+(batch.srv||'—')+'</div>';
   html+='<div class="sep"></div>';
-  html+=ligne('N° Commande','<strong>'+attId+'</strong>');
+  html+=ligne('N° Commande','<strong>'+(batch.numero!=null?batch.numero:(batch.attenteId||batch.id))+'</strong>');
   html+=ligne('Heure',batch.heure||'');
   html+='<div class="sep"></div>';
   (batch.items||[]).forEach(function(it){
@@ -1781,31 +1781,46 @@ function mettreEnAttente(){
   // Quantité actuelle du ticket, par article — sert de nouvelle référence "déjà envoyé"
   var qtyMapNow={};
   tkt.forEach(function(it){qtyMapNow[it.id]=(qtyMapNow[it.id]||0)+(it.qty||it.qt||1);});
+  var numeroAffiche;
   if(resumingAttenteId){
     // Ajout sur une commande déjà envoyée : on ne réimprime que les nouveaux articles/quantités,
     // calculées à partir de ce qui a été explicitement enregistré comme "déjà envoyé" (resumingSentQty).
     id=resumingAttenteId;
+    numeroAffiche=resumingNumero;
     deltaItems=calcDeltaItems(resumingSentQty||{},tkt);
   }else{
     // Toute nouvelle commande : tout est nouveau
-    id='ATT-'+attenteSeq++;
+    // Identifiant unique garanti même si deux postes créent une commande au
+    // même instant, sans avoir eu le temps de se resynchroniser entre eux —
+    // avant, un simple compteur local (ATT-56, ATT-57...) pouvait générer le
+    // MÊME numéro sur deux appareils différents par pure coïncidence si leurs
+    // compteurs n'étaient pas encore synchronisés, et la seconde commande
+    // écrasait alors silencieusement la première (traitée comme une mise à
+    // jour de la même commande). L'horodatage précis + une partie aléatoire
+    // rendent une collision quasiment impossible, même à la même
+    // milliseconde.
+    id='ATT-'+Date.now()+'-'+Math.random().toString(36).slice(2,10);
+    // Numéro simple et lisible pour l'affichage/impression (distinct de
+    // l'identifiant technique ci-dessus, qui doit rester unique entre postes
+    // mais n'a pas besoin d'être affiché tel quel).
+    numeroAffiche=attenteSeq++;
     deltaItems=tkt.map(function(i){return{nom:i.nom,qty:i.qty||i.qt||1};});
   }
-  var nouvelleCommandeAttente={id:id,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),sentQty:qtyMapNow,total:total,heure:heure,ts:Date.now()};
+  var nouvelleCommandeAttente={id:id,numero:numeroAffiche,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),sentQty:qtyMapNow,total:total,heure:heure,ts:Date.now()};
   cmdAttente.push(nouvelleCommandeAttente);
   // Le bon de commande cuisine s'imprime bien à l'envoi (comme d'habitude).
   // Il ne s'imprime PAS au moment du paiement — ces deux impressions sont
   // deux mécanismes totalement indépendants dans le code : payer une commande
   // (valPay/imprimerRecu) n'appelle jamais cette fonction ni printBatches.
   if(deltaItems.length){
-    var nouveauLotImpression={batchId:id+'-'+Date.now(),attenteId:id,tableNom:tableNom,srv:srv,heure:heure,items:deltaItems,ajout:!!resumingAttenteId};
+    var nouveauLotImpression={batchId:id+'-'+Date.now(),attenteId:id,numero:numeroAffiche,tableNom:tableNom,srv:srv,heure:heure,items:deltaItems,ajout:!!resumingAttenteId};
     printBatches.push(nouveauLotImpression);
     if(window.fssEnvoyerBonCommande)window.fssEnvoyerBonCommande(nouveauLotImpression);
     fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'mettreEnAttente crée le lot '+nouveauLotImpression.batchId+' (table: '+tableNom+', '+deltaItems.length+' article(s), ajout à commande existante: '+!!resumingAttenteId+')'})}).catch(function(){});
   }else{
     fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'mettreEnAttente : AUCUN nouvel article détecté pour '+id+' (table: '+tableNom+', ajout à commande existante: '+!!resumingAttenteId+', sentQty avant: '+JSON.stringify(resumingSentQty)+', ticket actuel: '+JSON.stringify(tkt.map(function(i){return{id:i.id,nom:i.nom,qty:i.qty};}))+') — donc rien à imprimer'})}).catch(function(){});
   }
-  resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;
+  resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;resumingNumero=null;
   libererTable();clearTk(true);
   toast('Commande '+id+' en attente ⏸ — '+deltaItems.length+' article(s) envoyé(s) en cuisine/bar','s');
   renderAttenteBar();updateTableOptions();
@@ -1832,6 +1847,7 @@ function reprendreAttente(id){
   var c=cmdAttente[idx];
   tkt=JSON.parse(JSON.stringify(c.items));
   resumingAttenteId=c.id;
+  resumingNumero=(c.numero!=null)?c.numero:c.id;
   resumingBaseItems=JSON.parse(JSON.stringify(c.items));
   // sentQty = ce qui a été réellement envoyé/imprimé pour cette commande jusqu'ici.
   // Repli pour les commandes créées avant cette mise à jour (pas encore de champ sentQty) :
@@ -1872,7 +1888,7 @@ function reimprimerBonComplet(id){
   if(!c){toast('Commande introuvable','e');return;}
   if(!confirm('Réimprimer TOUT le bon de commande pour '+c.tableNom+' (y compris les articles déjà envoyés) ?'))return;
   var tousLesArticles=(c.items||[]).map(function(it){return{nom:it.nom,qty:it.qty||it.qt||1};});
-  var nouveauLot={batchId:id+'-COMPLET-'+Date.now(),attenteId:id,tableNom:c.tableNom,srv:c.srv,heure:c.heure,items:tousLesArticles,ajout:false,reimpression:true};
+  var nouveauLot={batchId:id+'-COMPLET-'+Date.now(),attenteId:id,numero:c.numero,tableNom:c.tableNom,srv:c.srv,heure:c.heure,items:tousLesArticles,ajout:false,reimpression:true};
   printBatches.push(nouveauLot);
   if(window.fssEnvoyerBonCommande)window.fssEnvoyerBonCommande(nouveauLot);
   fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'reimprimerBonComplet crée le lot '+nouveauLot.batchId+' (table: '+c.tableNom+', '+tousLesArticles.length+' article(s), TOUT le bon)'})}).catch(function(){});
@@ -1989,6 +2005,7 @@ function clearTk(silent){
     var sel=g('selTable');
     var commandeRemise={
       id:resumingAttenteId,
+      numero:resumingNumero,
       tableNom:tableNomAffiche?tableNomAffiche():(sel?sel.options[sel.selectedIndex].text:'—'),
       tableVal:tableValCombine?tableValCombine():(sel?sel.value:'0'),
       srv:g('selSrv')?g('selSrv').value:'—',
@@ -2005,7 +2022,7 @@ function clearTk(silent){
   }else if(!silent){
     toast('Ticket annulé','i');
   }
-  tkt=[];g('remF').value='';g('remP').value='';resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;renderTkt();updTotal();
+  tkt=[];g('remF').value='';g('remP').value='';resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;resumingNumero=null;renderTkt();updTotal();
 }
 function tblN(v){
   if(v==='0'||!v)return '—';
@@ -2180,7 +2197,7 @@ function valPay(){
   var caisseNom=g('selCaisse')?g('selCaisse').value:'';
   txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tableNomAffiche(),srv:g('selSrv').value,caissier:caissier,caisse:caisseNom,arts:nb,items:itemsSnapshot,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':(payMode==='airtel'?'Airtel Money':'Carte'),recu:recu,rendu:rendu,stat:'Validé'});
   nextTk++;g('tkNum').textContent='TK-#'+('000'+nextTk).slice(-4);
-  resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;
+  resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;resumingNumero=null;
   closeM('ovPay');clearTk(true);libererTable();renderProds('');renderStk();renderTkList();renderRap();initCloture();
   afficherRecu(txs[0]);
   toast('Paiement validé — '+fmt(tot),'s');
