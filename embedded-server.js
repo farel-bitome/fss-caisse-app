@@ -257,65 +257,76 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       }
     });
 
-    // Même problème, mais pour le STATUT des tables (Libre/Occupée/Réservée) :
-    // un poste avec une version en retard pouvait écraser le statut "Occupée"
-    // qu'un autre poste venait tout juste de définir, faisant "se libérer
-    // toute seule" une table en pleine utilisation. Fusion par numéro de
-    // table : on garde toujours la modification la PLUS RÉCENTE (grâce à
-    // tsModif), peu importe l'ordre d'arrivée des synchronisations.
-    function fusionnerTables(ancien, nouveau) {
-      var parNumero = {};
-      (ancien || []).forEach(function (t) { parNumero[t.n] = t; });
-      (nouveau || []).forEach(function (t) {
-        var existant = parNumero[t.n];
-        if (!existant) { parNumero[t.n] = t; return; }
-        var tsExistant = existant.tsModif || 0;
-        var tsNouveau = t.tsModif || 0;
-        // Garde la version la plus récente ; à égalité (ou aucun horodatage
-        // sur les deux, ex: anciennes données), la version reçue l'emporte.
-        parNumero[t.n] = (tsNouveau >= tsExistant) ? t : existant;
-      });
-      return Object.keys(parNumero).map(function (k) { return parNumero[k]; }).sort(function (a, b) { return a.n - b.n; });
-    }
+    // Comme pour les commandes en attente : une table (création, modification
+    // du statut Libre/Occupée/Réservée, suppression) passe désormais par sa
+    // propre route dédiée, plutôt que par l'envoi de l'état complet. Fini la
+    // comparaison d'horodatages entre appareils (tsModif), qui restait
+    // fragile dès qu'une horloge était mal réglée quelque part — cause du
+    // souci "le logiciel écrase toujours les tables". Le serveur applique
+    // directement le changement demandé, sans jamais avoir besoin de deviner
+    // laquelle de deux versions est "la plus récente".
+    expressApp.post('/api/tables/enregistrer', (req, res) => {
+      try {
+        state.tables = state.tables || [];
+        var idx = state.tables.findIndex(function (t) { return t.n === req.body.n; });
+        if (idx >= 0) state.tables[idx] = req.body; else state.tables.push(req.body);
+        saveState(state);
+        io.emit('state:changed', state);
+        ecrireJournal('Table enregistrée : n°' + req.body.n + ' (' + req.body.nom + ', statut: ' + req.body.st + ')');
+        res.json({ ok: true });
+      } catch (e) {
+        console.error('[FSS-CAISSE] Erreur enregistrement table :', e);
+        res.status(500).json({ ok: false, error: e.message });
+      }
+    });
+    expressApp.post('/api/tables/supprimer', (req, res) => {
+      try {
+        state.tables = (state.tables || []).filter(function (t) { return t.n !== req.body.n; });
+        saveState(state);
+        io.emit('state:changed', state);
+        ecrireJournal('Table supprimée : n°' + req.body.n);
+        res.json({ ok: true });
+      } catch (e) {
+        console.error('[FSS-CAISSE] Erreur suppression table :', e);
+        res.status(500).json({ ok: false, error: e.message });
+      }
+    });
 
-    // Même souci que pour cmdAttente : printBatches (bons de commande cuisine
-    // en attente d'impression, et bilans de clôture) pouvait être écrasé par
-    // un poste avec une vue en retard AVANT même que le serveur n'ait eu le
-    // temps de l'imprimer — un ajout à une commande déjà en cours pouvait
-    // ainsi ne jamais ressortir en cuisine. Fusion par identifiant unique : on
-    // garde toujours l'union des deux versions, jamais une perte silencieuse.
-    // On purge aussi les entrées trop anciennes (au-delà de 2h, largement
-    // suffisant pour qu'elles aient été imprimées), pour éviter que ce
-    // tableau ne grossisse indéfiniment au fil du temps.
-    function fusionnerPrintBatches(ancien, nouveau) {
-      // Fusion par identifiant unique, sans AUCUNE dépendance à l'horloge
-      // d'un appareil distant (téléphone ou PC) — un bon de commande n'est
-      // jamais rejeté sur la base de son horodatage d'origine, qui peut être
-      // n'importe quoi si l'horloge de cet appareil est mal réglée (en
-      // avance OU en retard, parfois de plusieurs heures). Un bon de
-      // commande une fois connu du serveur n'est donc plus jamais perdu par
-      // ce mécanisme.
-      var parId = {};
-      (ancien || []).forEach(function (bt) { parId[bt.batchId] = bt; });
-      (nouveau || []).forEach(function (bt) {
-        // _recuLe : horodatage posé UNIQUEMENT par le serveur, à la première
-        // fois qu'il voit ce bon — sert uniquement à la purge ci-dessous, et
-        // ne dépend donc que de l'horloge du serveur lui-même, jamais de
-        // celle d'un autre appareil.
-        if (!parId[bt.batchId]) bt._recuLe = Date.now();
-        else bt._recuLe = parId[bt.batchId]._recuLe || Date.now();
-        parId[bt.batchId] = bt;
-      });
-      // Purge les bons connus du serveur depuis plus de 2h (largement le
-      // temps d'avoir été imprimés) — basée EXCLUSIVEMENT sur le moment où LE
-      // SERVEUR les a vus pour la première fois, jamais sur un horodatage
-      // venu d'ailleurs.
-      var MAINTENANT = Date.now();
-      var DUREE_MAX_MS = 2 * 60 * 60 * 1000;
-      return Object.keys(parId).map(function (k) { return parId[k]; }).filter(function (bt) {
-        return (MAINTENANT - (bt._recuLe || MAINTENANT)) < DUREE_MAX_MS;
-      });
-    }
+    // Même principe, appliqué cette fois aux bons de commande cuisine et aux
+    // bilans de clôture (printBatches) : route dédiée et immédiate, plutôt
+    // que de compter sur la synchronisation générale (débouncée, et qui
+    // pouvait être affectée par des versions concurrentes). Le serveur ajoute
+    // directement le bon et diffuse le changement sans délai — c'est la même
+    // approche que celle qui fonctionne déjà de façon fiable pour les
+    // commandes en attente et les tables.
+    expressApp.post('/api/printbatches/ajouter', (req, res) => {
+      try {
+        state.printBatches = state.printBatches || [];
+        state.printBatches = state.printBatches.filter(function (bt) { return bt.batchId !== req.body.batchId; });
+        state.printBatches.push(req.body);
+        // Purge les bons de plus de 2h connus du serveur, pour ne pas
+        // accumuler indéfiniment — basé uniquement sur l'horloge du serveur.
+        var MAINTENANT = Date.now();
+        state.printBatches.forEach(function (bt) { if (!bt._recuLe) bt._recuLe = MAINTENANT; });
+        state.printBatches = state.printBatches.filter(function (bt) { return (MAINTENANT - bt._recuLe) < 2 * 60 * 60 * 1000; });
+        saveState(state);
+        io.emit('state:changed', state);
+        ecrireJournal('[route dédiée] Bon de commande ajouté : ' + req.body.batchId + ' (table: ' + req.body.tableNom + ', ' + (req.body.items || []).length + ' article(s)) — total en file : ' + state.printBatches.length);
+        res.json({ ok: true });
+      } catch (e) {
+        console.error('[FSS-CAISSE] Erreur ajout bon de commande :', e);
+        res.status(500).json({ ok: false, error: e.message });
+      }
+    });
+
+    // Le statut des tables (Libre/Occupée/Réservée) est désormais géré via
+    // les routes dédiées /api/tables/* ci-dessous, plus robuste qu'une
+    // comparaison d'horodatages entre appareils (tsModif), qui restait
+    // fragile dès qu'une horloge était mal réglée quelque part.
+
+    // Les bons de commande cuisine et bilans de clôture (printBatches) sont
+    // désormais gérés via la route dédiée /api/printbatches/ajouter
+    // ci-dessous, plus fiable qu'une fusion par horodatage.
 
     expressApp.post('/api/state', (req, res) => {
       try {
@@ -324,19 +335,16 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         // on garde toujours la version déjà connue du serveur, gérée à part
         // via les routes /api/cmdattente/*.
         nouvelEtat.cmdAttente = state.cmdAttente || [];
-        if (state && Array.isArray(state.tables) && Array.isArray(nouvelEtat.tables)) {
-          nouvelEtat.tables = fusionnerTables(state.tables, nouvelEtat.tables);
-        }
-        if (state && Array.isArray(state.printBatches)) {
-          var nbAvant = state.printBatches.length;
-          nouvelEtat.printBatches = fusionnerPrintBatches(state.printBatches, nouvelEtat.printBatches);
-          var idsAvant = {};
-          state.printBatches.forEach(function (bt) { idsAvant[bt.batchId] = true; });
-          var nouveauxIds = (nouvelEtat.printBatches || []).filter(function (bt) { return !idsAvant[bt.batchId]; }).map(function (bt) { return bt.batchId; });
-          if (nouveauxIds.length) {
-            ecrireJournal('Nouveau(x) bon(s) de commande reçu(s) sur /api/state : ' + nouveauxIds.join(', ') + ' (total après fusion : ' + nouvelEtat.printBatches.length + ', avant : ' + nbAvant + ')');
-          }
-        }
+        // Même chose pour les tables — gérées à part via /api/tables/*, pour
+        // ne plus jamais dépendre d'une comparaison d'horodatages entre
+        // appareils.
+        nouvelEtat.tables = state.tables || [];
+        // printBatches n'est plus jamais accepté depuis cette route
+        // générique — géré exclusivement via /api/printbatches/ajouter,
+        // pour la même raison que cmdAttente et tables : ne plus jamais
+        // dépendre d'une synchronisation débouncée qui pouvait manquer un
+        // bon fraîchement créé.
+        nouvelEtat.printBatches = state.printBatches || [];
         // Le catalogue d'articles n'est accepté que s'il est réellement plus
         // récent que celui déjà connu du serveur — sinon on garde la dernière
         // vraie mise à jour. Sans ça, un poste avec une version un peu

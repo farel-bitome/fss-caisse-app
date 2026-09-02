@@ -97,6 +97,17 @@ function createWindow() {
   win.on('close', (event) => {
     if (fermetureAutorisee) return;
     event.preventDefault();
+    // Demande confirmation avant de fermer réellement — pour éviter qu'un
+    // clic accidentel sur la croix ne ferme l'application en plein service.
+    const choix = dialog.showMessageBoxSync(win, {
+      type: 'question',
+      buttons: ['Annuler', 'Fermer quand même'],
+      defaultId: 0,
+      cancelId: 0,
+      title: 'Fermer FSS-CAISSE ?',
+      message: 'Voulez-vous vraiment fermer cette application ?'
+    });
+    if (choix !== 1) return; // "Annuler" (ou fermeture de la boîte de dialogue elle-même)
     let repondu = false;
     const terminerFermeture = () => {
       if (repondu) return;

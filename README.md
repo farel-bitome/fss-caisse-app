@@ -1295,3 +1295,63 @@ une fois connu du serveur n'est plus jamais perdu.
 horloge 3 jours en retard (préservé), un vrai vieux bon connu du serveur
 depuis 3h (purgé normalement), et une fusion normale de deux bons différents
 (les deux préservés).
+
+## Tables encore écrasées — corrigé avec la même approche fiable
+
+**Même famille de bug** que celui trouvé pour les bons de commande, mais cette
+fois sur le statut des tables (Libre/Occupée/Réservée) : la protection
+précédente comparait l'horodatage de chaque appareil, ce qui restait fragile
+pour les mêmes raisons (horloge mal réglée quelque part = statut écrasé).
+
+**Corrigé définitivement** : créer/modifier/supprimer une table passe
+désormais par ses propres routes dédiées (comme les commandes en attente),
+qui ne dépendent plus jamais de l'horloge d'aucun appareil. La route générale
+de synchronisation ignore maintenant complètement les tables — le serveur
+garde toujours sa version, déjà à jour via ces nouvelles routes.
+
+**Testé avant envoi** : simulé le scénario exact (table marquée "Occupée" via
+la nouvelle route, puis un autre poste avec une vue en retard envoie son état
+complet) — confirmé que le statut reste correctement "Occupée", plus jamais
+écrasé.
+
+## Bons de commande : passage définitif à une route dédiée (comme les commandes en attente)
+
+Pour éliminer complètement ce point comme source de problème, les bons de
+commande cuisine et les bilans de clôture passent désormais **exclusivement**
+par une route dédiée et immédiate (`/api/printbatches/ajouter`) — exactement
+la même approche, déjà fiable, que celle utilisée pour les commandes en
+attente et les tables. Plus aucune dépendance à la synchronisation générale
+débouncée, plus aucune fusion complexe à faire confiance.
+
+**Testé avant envoi** avec le scénario complet que vous décriviez : envoi
+initial → un autre poste synchronise entre-temps avec une vue en retard → 
+reprise de la commande → ajout d'un article → renvoi. Les deux bons de
+commande restent bien présents et prêts pour impression à chaque étape.
+
+## Confirmation avant fermeture de l'application
+
+Ajouté une boîte de dialogue de confirmation dès qu'on clique sur la croix
+pour fermer l'application : **"Voulez-vous vraiment fermer cette
+application ?"** avec deux boutons ("Annuler" / "Fermer quand même",
+"Annuler" étant le choix par défaut). Ça évite qu'un clic accidentel ne ferme
+l'application en plein service.
+
+## Impression sans avoir à sélectionner l'imprimante à chaque fois
+
+**Trouvé deux problèmes** dans Paramètres → Périphériques :
+1. Le réglage "Impression automatique" existait dans l'écran mais n'était en
+   réalité **jamais utilisé nulle part** dans le code (bouton fantôme)
+2. Aucun réglage de cette page n'était réellement **sauvegardé** — tout
+   repartait à zéro à chaque redémarrage de l'application
+
+**Corrigé** :
+- Le ticket de caisse final et l'addition utilisent maintenant le même
+  circuit d'impression fiable et silencieux que les bons de commande cuisine
+  (pas de fenêtre de dialogue à confirmer, pas d'imprimante à sélectionner)
+- **Activé par défaut**, sans rien à faire
+- Vos réglages (type d'imprimante, format, impression automatique...) sont
+  désormais **réellement enregistrés** sur chaque poste, et se rechargent
+  automatiquement à chaque démarrage
+- Si vous préférez quand même voir un aperçu avant impression (pour
+  vérifier ou changer d'imprimante ponctuellement), vous pouvez toujours
+  repasser sur "Désactivée — afficher l'aperçu" dans Périphériques

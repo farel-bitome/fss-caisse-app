@@ -788,8 +788,8 @@ td{padding:8px 11px;vertical-align:middle}
             <div class="fg" id="devPrintIPWrap" style="display:none"><label class="fl">Adresse IP imprimante</label><input class="fi" id="devPrintIP" placeholder="192.168.1.50" onchange="saveDevSettings()"></div>
             <div class="fg"><label class="fl">Impression automatique</label>
               <select class="fi" id="devPrintAuto" onchange="saveDevSettings()">
-                <option value="0">Désactivée — afficher l'aperçu</option>
                 <option value="1">Activée — imprimer sans aperçu</option>
+                <option value="0">Désactivée — afficher l'aperçu</option>
               </select>
             </div>
           </div>
@@ -1712,12 +1712,17 @@ function imprimerAddition(attId,nbParts){
     pages.push('<div class="'+cls+'">'+buildAdditionBody(pi+1)+'</div>');
   }
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+pages.join('')+'</body></html>';
-  var w=window.open('','_blank','width=380,height=600');
-  w.document.write(html);w.document.close();
-  w.onafterprint=function(){w.close();};
-  setTimeout(function(){w.print();},400);
-  setTimeout(function(){if(!w.closed)w.close();},15000);
-  toast('Addition imprimée (aperçu)','s');
+  var previsualisationActivee=g('devPrintAuto')&&g('devPrintAuto').value==='0';
+  if(previsualisationActivee){
+    var w=window.open('','_blank','width=380,height=600');
+    w.document.write(html);w.document.close();
+    w.onafterprint=function(){w.close();};
+    setTimeout(function(){w.print();},400);
+    setTimeout(function(){if(!w.closed)w.close();},15000);
+  }else{
+    imprimerSilencieux(html);
+  }
+  toast('Addition imprimée','s');
 }
 function imprimerSilencieux(html){
   if(window.electronAPI&&window.electronAPI.printSilent){
@@ -1795,6 +1800,7 @@ function mettreEnAttente(){
   if(deltaItems.length){
     var nouveauLotImpression={batchId:id+'-'+Date.now(),attenteId:id,tableNom:tableNom,srv:srv,heure:heure,items:deltaItems,ajout:!!resumingAttenteId};
     printBatches.push(nouveauLotImpression);
+    if(window.fssEnvoyerBonCommande)window.fssEnvoyerBonCommande(nouveauLotImpression);
     fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'mettreEnAttente crée le lot '+nouveauLotImpression.batchId+' (table: '+tableNom+', '+deltaItems.length+' article(s), ajout à commande existante: '+!!resumingAttenteId+')'})}).catch(function(){});
   }else{
     fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'mettreEnAttente : AUCUN nouvel article détecté pour '+id+' (table: '+tableNom+', ajout à commande existante: '+!!resumingAttenteId+', sentQty avant: '+JSON.stringify(resumingSentQty)+', ticket actuel: '+JSON.stringify(tkt.map(function(i){return{id:i.id,nom:i.nom,qty:i.qty};}))+') — donc rien à imprimer'})}).catch(function(){});
@@ -1868,6 +1874,7 @@ function reimprimerBonComplet(id){
   var tousLesArticles=(c.items||[]).map(function(it){return{nom:it.nom,qty:it.qty||it.qt||1};});
   var nouveauLot={batchId:id+'-COMPLET-'+Date.now(),attenteId:id,tableNom:c.tableNom,srv:c.srv,heure:c.heure,items:tousLesArticles,ajout:false,reimpression:true};
   printBatches.push(nouveauLot);
+  if(window.fssEnvoyerBonCommande)window.fssEnvoyerBonCommande(nouveauLot);
   fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'reimprimerBonComplet crée le lot '+nouveauLot.batchId+' (table: '+c.tableNom+', '+tousLesArticles.length+' article(s), TOUT le bon)'})}).catch(function(){});
   if(window.fssSyncPush)window.fssSyncPush();
   toast('Bon de commande complet envoyé à l\'impression','s');
@@ -1913,7 +1920,33 @@ function renderAttenteBar(){
 function saveDevSettings(){
   var type=g('devPrintType').value;
   g('devPrintIPWrap').style.display=(type==='network')?'':'none';
+  // Ces réglages sont propres à CE poste précis (chaque appareil a sa propre
+  // imprimante physique) — enregistrés localement, pas synchronisés avec les
+  // autres postes.
+  try{
+    localStorage.setItem('fss-dev-settings', JSON.stringify({
+      printType:g('devPrintType').value,
+      printFmt:g('devPrintFmt').value,
+      printIP:g('devPrintIP')?g('devPrintIP').value:'',
+      printAuto:g('devPrintAuto').value,
+      scanMode:g('devScanMode')?g('devScanMode').value:'camera',
+      scanBeep:g('devScanBeep')?g('devScanBeep').value:'1'
+    }));
+  }catch(e){}
   toast('Réglages périphériques enregistrés','s');
+}
+function chargerDevSettings(){
+  try{
+    var s=JSON.parse(localStorage.getItem('fss-dev-settings')||'null');
+    if(!s)return;
+    if(g('devPrintType')&&s.printType)g('devPrintType').value=s.printType;
+    if(g('devPrintFmt')&&s.printFmt)g('devPrintFmt').value=s.printFmt;
+    if(g('devPrintIP')&&s.printIP)g('devPrintIP').value=s.printIP;
+    if(g('devPrintAuto')&&s.printAuto)g('devPrintAuto').value=s.printAuto;
+    if(g('devScanMode')&&s.scanMode)g('devScanMode').value=s.scanMode;
+    if(g('devScanBeep')&&s.scanBeep)g('devScanBeep').value=s.scanBeep;
+    if(g('devPrintIPWrap'))g('devPrintIPWrap').style.display=(g('devPrintType').value==='network')?'':'none';
+  }catch(e){}
 }
 function testPrint(){
   g('devPrintStatus').textContent='Envoi du test...';g('devPrintStatus').style.color='#FFCC00';
@@ -2220,7 +2253,8 @@ function imprimerRecu(){
   var nowD=new Date();
   var dateStr=nowD.toLocaleDateString('fr-FR');
   var heureStr=nowD.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-  var w=window.open('','_blank','width=420,height=700');
+  var previsualisationActivee=g('devPrintAuto')&&g('devPrintAuto').value==='0';
+  var w=previsualisationActivee?window.open('','_blank','width=420,height=700'):null;
   var css='@page{size:80mm auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
     'html,body{width:80mm}'+
@@ -2303,9 +2337,17 @@ function imprimerRecu(){
     copies.push('<div class="'+cls+'">'+prefix+buildBody(ci+1,n)+'</div>');
   }
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+copies.join('')+'</body></html>';
-  w.document.write(html);w.document.close();
-  w.onafterprint=function(){w.close();};
-  setTimeout(function(){w.print();},400);
+  // Impression silencieuse par défaut (imprimante déjà choisie dans
+  // Paramètres → Périphériques, plus besoin de la sélectionner à chaque
+  // ticket) — sauf si l'utilisateur a explicitement choisi d'afficher un
+  // aperçu avant impression dans les réglages.
+  if(previsualisationActivee){
+    w.document.write(html);w.document.close();
+    w.onafterprint=function(){w.close();};
+    setTimeout(function(){w.print();},400);
+  }else{
+    imprimerSilencieux(html);
+  }
   setTimeout(function(){if(!w.closed)w.close();},15000);
   // Ferme aussi la fenêtre du reçu dans l'application une fois l'impression lancée
   closeM('ovRecu');
@@ -3311,9 +3353,9 @@ function doCloture(){
   if(window.FSS_IS_SERVER){
     print80();
   }else{
-    printBatches.push({batchId:'CLO-'+Date.now(),type:'cloture',snapshot:snapshot});
-    if(window.fssSyncPushImmediate)window.fssSyncPushImmediate();
-    else if(window.fssSyncPush)window.fssSyncPush();
+    var lotCloture={batchId:'CLO-'+Date.now(),type:'cloture',snapshot:snapshot};
+    printBatches.push(lotCloture);
+    if(window.fssEnvoyerBonCommande)window.fssEnvoyerBonCommande(lotCloture);
     toast('Ticket de clôture envoyé à l\'imprimante du serveur','i');
   }
   if(window.fssSyncPush)window.fssSyncPush();
@@ -3955,14 +3997,14 @@ function saveTable(){
   }
   closeM('ovTable');initTables();updateTableOptions();
   if(wasNew&&g('selTable')){g('selTable').value=n;onTableChange();}
-  if(window.fssSyncPush)window.fssSyncPush();
+  if(window.fssEnregistrerTable)window.fssEnregistrerTable(obj);
   toast('Table enregistrée','s');
 }
 function delTable(n){
   if(!confirm('Supprimer cette table ?'))return;
   tables=tables.filter(function(t){return t.n!==n;});
   initTables();updateTableOptions();
-  if(window.fssSyncPush)window.fssSyncPush();
+  if(window.fssSupprimerTable)window.fssSupprimerTable(n);
   toast('Table supprimée','i');
 }
 var servers=[];
@@ -4586,6 +4628,7 @@ function loadAppVersion(){
 }
 document.addEventListener('DOMContentLoaded',function(){
   startClock();buildCats();renderProds('');
+  chargerDevSettings();
   renderArt();renderStk();renderMouv();
   renderCli();renderFour();
   renderTkList();renderDV();renderLV();renderReg();renderRegG();renderTopV();renderTotCat();

@@ -223,6 +223,15 @@
       safe(function () { toast('⚠️ Impossible d\'envoyer la commande au serveur — vérifiez la connexion', 'e'); });
     });
   }
+  function envoyerBonCommande(batch) {
+    return fetch('/api/printbatches/ajouter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(batch)
+    }).catch(function () {
+      safe(function () { toast('⚠️ Impossible d\'envoyer le bon de commande au serveur — vérifiez la connexion', 'e'); });
+    });
+  }
   function retirerCmdAttente(id) {
     return fetch('/api/cmdattente/retirer', {
       method: 'POST',
@@ -232,11 +241,32 @@
       safe(function () { toast('⚠️ Impossible de synchroniser la suppression — vérifiez la connexion', 'e'); });
     });
   }
+  function enregistrerTable(table) {
+    return fetch('/api/tables/enregistrer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(table)
+    }).catch(function () {
+      safe(function () { toast('⚠️ Impossible d\'enregistrer la table sur le serveur — vérifiez la connexion', 'e'); });
+    });
+  }
+  function supprimerTable(n) {
+    return fetch('/api/tables/supprimer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ n: n })
+    }).catch(function () {
+      safe(function () { toast('⚠️ Impossible de synchroniser la suppression de la table — vérifiez la connexion', 'e'); });
+    });
+  }
 
   window.fssSyncPush = syncPush;
   window.fssSyncPushImmediate = syncPushImmediate;
   window.fssEnvoyerCmdAttente = envoyerCmdAttente;
+  window.fssEnvoyerBonCommande = envoyerBonCommande;
   window.fssRetirerCmdAttente = retirerCmdAttente;
+  window.fssEnregistrerTable = enregistrerTable;
+  window.fssSupprimerTable = supprimerTable;
   // Si l'app se ferme (fermeture manuelle, redémarrage...), on force
   // immédiatement l'envoi de tout changement en attente, et on prévient le
   // processus principal une fois que c'est VRAIMENT terminé (pas juste lancé)
