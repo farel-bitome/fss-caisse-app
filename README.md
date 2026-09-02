@@ -1277,3 +1277,21 @@ ensuite : la protection elle-même était devenue la cause du problème.
 horloge 2 minutes en avance sur le serveur — confirmé que l'ancien code
 rejetait bien le bon de commande (bug reproduit), et que le nouveau code le
 préserve correctement.
+
+## Correction plus profonde : plus aucune dépendance à l'horloge d'un appareil
+
+Ma correction précédente réglait le cas d'une horloge en avance, mais restait
+vulnérable si l'horloge d'un appareil était en RETARD de plusieurs heures (ou
+plus) — un cas tout aussi possible en pratique.
+
+**Refondu complètement** : la protection contre l'écrasement des bons de
+commande ne dépend plus **du tout** de l'horodatage d'origine d'un appareil.
+Elle se base uniquement sur le moment où **le serveur lui-même** a vu chaque
+bon pour la première fois — peu importe à quel point l'horloge d'un téléphone
+ou d'un PC est mal réglée, dans un sens ou dans l'autre, un bon de commande
+une fois connu du serveur n'est plus jamais perdu.
+
+**Testé avant envoi** sur 4 cas de figure : horloge 5h en avance (préservé),
+horloge 3 jours en retard (préservé), un vrai vieux bon connu du serveur
+depuis 3h (purgé normalement), et une fusion normale de deux bons différents
+(les deux préservés).

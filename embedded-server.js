@@ -288,27 +288,33 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
     // suffisant pour qu'elles aient été imprimées), pour éviter que ce
     // tableau ne grossisse indéfiniment au fil du temps.
     function fusionnerPrintBatches(ancien, nouveau) {
-      var MAINTENANT = Date.now();
-      var DUREE_MAX_MS = 2 * 60 * 60 * 1000; // 2h
+      // Fusion par identifiant unique, sans AUCUNE dépendance à l'horloge
+      // d'un appareil distant (téléphone ou PC) — un bon de commande n'est
+      // jamais rejeté sur la base de son horodatage d'origine, qui peut être
+      // n'importe quoi si l'horloge de cet appareil est mal réglée (en
+      // avance OU en retard, parfois de plusieurs heures). Un bon de
+      // commande une fois connu du serveur n'est donc plus jamais perdu par
+      // ce mécanisme.
       var parId = {};
-      function idDe(bt) {
-        var m = String(bt.batchId || '').match(/-(\d+)$/);
-        return m ? parseInt(m[1], 10) : 0;
-      }
-      (ancien || []).concat(nouveau || []).forEach(function (bt) {
-        // IMPORTANT : on ne rejette plus sur un âge négatif (horodatage dans
-        // le "futur"). Ça arrivait dès que l'horloge d'un poste (téléphone ou
-        // PC) était ne serait-ce que légèrement en avance sur celle du
-        // serveur — un cas très courant en pratique (horloges jamais
-        // parfaitement synchronisées). Avant ce correctif, ÇA REJETAIT ALORS
-        // SYSTÉMATIQUEMENT TOUT NOUVEAU BON DE COMMANDE créé depuis cet
-        // appareil, donnant exactement l'impression que "plus rien
-        // n'imprime". Un horodatage dans le futur reste traité comme
-        // parfaitement valide/récent.
-        var age = MAINTENANT - idDe(bt);
-        if (age < DUREE_MAX_MS) parId[bt.batchId] = bt;
+      (ancien || []).forEach(function (bt) { parId[bt.batchId] = bt; });
+      (nouveau || []).forEach(function (bt) {
+        // _recuLe : horodatage posé UNIQUEMENT par le serveur, à la première
+        // fois qu'il voit ce bon — sert uniquement à la purge ci-dessous, et
+        // ne dépend donc que de l'horloge du serveur lui-même, jamais de
+        // celle d'un autre appareil.
+        if (!parId[bt.batchId]) bt._recuLe = Date.now();
+        else bt._recuLe = parId[bt.batchId]._recuLe || Date.now();
+        parId[bt.batchId] = bt;
       });
-      return Object.keys(parId).map(function (k) { return parId[k]; });
+      // Purge les bons connus du serveur depuis plus de 2h (largement le
+      // temps d'avoir été imprimés) — basée EXCLUSIVEMENT sur le moment où LE
+      // SERVEUR les a vus pour la première fois, jamais sur un horodatage
+      // venu d'ailleurs.
+      var MAINTENANT = Date.now();
+      var DUREE_MAX_MS = 2 * 60 * 60 * 1000;
+      return Object.keys(parId).map(function (k) { return parId[k]; }).filter(function (bt) {
+        return (MAINTENANT - (bt._recuLe || MAINTENANT)) < DUREE_MAX_MS;
+      });
     }
 
     expressApp.post('/api/state', (req, res) => {
