@@ -761,8 +761,8 @@ td{padding:8px 11px;vertical-align:middle}
         </table></div>
         <div class="ssect" id="ssectPerformances" style="display:none;border:1px solid #442222">
           <div class="ssti" style="color:#FF6666">⚠️ Performances / Zone sensible</div>
-          <div style="font-size:12px;color:#888;margin-bottom:12px">Action réservée aux administrateurs. Remet le stock de <strong>tous les articles</strong> à zéro — utile pour repartir sur un inventaire propre.</div>
-          <button class="btn btn-r" onclick="initStockArticlesZero()">🗑️ Initialise le stock article à 0</button>
+          <div style="font-size:12px;color:#888;margin-bottom:12px">Action réservée aux administrateurs. Supprime <strong>tous les articles et toutes les catégories</strong> du catalogue — repart de zéro, à reconstruire entièrement ensuite. Irréversible.</div>
+          <button class="btn btn-r" onclick="initStockArticlesZero()">🗑️ Supprimer tous les articles et catégories</button>
         </div>
       </div>
     </div>
@@ -1718,9 +1718,19 @@ function imprimerAddition(attId,nbParts){
     w.document.write(html);w.document.close();
     w.onafterprint=function(){w.close();};
     setTimeout(function(){w.print();},400);
-    setTimeout(function(){if(!w.closed)w.close();},15000);
+    setTimeout(function(){if(w&&!w.closed)w.close();},15000);
+  }else if(window.FSS_IS_SERVER){
+    // Même précaution que pour le ticket de caisse : un travail d'impression
+    // séparé par exemplaire/part, plutôt qu'un seul document à plusieurs
+    // pages avec sauts de page (qui pouvait faire échouer complètement
+    // l'impression silencieuse dès qu'il y a plus d'une page).
+    pages.forEach(function(corpsPage,idx){
+      var htmlPage='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+corpsPage+'</body></html>';
+      setTimeout(function(){imprimerSilencieux(htmlPage);},idx*300);
+    });
   }else{
-    imprimerSilencieux(html);
+    var lotAddition={batchId:'TICKET-'+Date.now(),type:'ticket',html:html,copies:pages,css:css};
+    if(window.fssEnvoyerBonCommande)window.fssEnvoyerBonCommande(lotAddition);
   }
   toast('Addition imprimée','s');
 }
@@ -2358,14 +2368,33 @@ function imprimerRecu(){
   // Paramètres → Périphériques, plus besoin de la sélectionner à chaque
   // ticket) — sauf si l'utilisateur a explicitement choisi d'afficher un
   // aperçu avant impression dans les réglages.
+  //
+  // Important : si ce poste n'est PAS le Serveur (téléphone, PC client...),
+  // il n'a généralement pas d'imprimante physique branchée — imprimer
+  // "localement" ici ne produisait donc rien de visible. Comme pour les bons
+  // de commande cuisine, la demande est transmise au Serveur (qui a
+  // l'imprimante), qui imprime à sa place.
   if(previsualisationActivee){
     w.document.write(html);w.document.close();
     w.onafterprint=function(){w.close();};
     setTimeout(function(){w.print();},400);
+    setTimeout(function(){if(w&&!w.closed)w.close();},15000);
+  }else if(window.FSS_IS_SERVER){
+    // Important : chaque exemplaire est envoyé comme un travail d'impression
+    // SÉPARÉ, plutôt qu'un seul document à plusieurs pages avec des sauts de
+    // page. L'impression silencieuse combinée à la hauteur de page
+    // automatique du papier thermique gérait mal les sauts de page — dès
+    // qu'il y avait plus d'un exemplaire, rien ne sortait du tout, alors
+    // qu'un seul exemplaire fonctionnait normalement.
+    copies.forEach(function(corpsExemplaire,idx){
+      var htmlExemplaire='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+corpsExemplaire+'</body></html>';
+      setTimeout(function(){imprimerSilencieux(htmlExemplaire);},idx*300);
+    });
   }else{
-    imprimerSilencieux(html);
+    var lotTicket={batchId:'TICKET-'+Date.now(),type:'ticket',html:html,copies:copies,css:css};
+    if(window.fssEnvoyerBonCommande)window.fssEnvoyerBonCommande(lotTicket);
+    toast('Ticket envoyé à l\'imprimante du serveur','i');
   }
-  setTimeout(function(){if(!w.closed)w.close();},15000);
   // Ferme aussi la fenêtre du reçu dans l'application une fois l'impression lancée
   closeM('ovRecu');
 }
@@ -4205,11 +4234,14 @@ function confirmAdminAction(){
   if(action)action();
 }
 function initStockArticlesZero(){
-  openAdminPwdConfirm('Cette action va remettre le <strong>stock de tous les articles à 0</strong>. C\'est irréversible.<br><br>Pour confirmer, saisissez votre mot de passe administrateur :','🗑️ Remettre à 0',function(){
-    arts.forEach(function(a){a.stk=0;});
-    renderArt();renderStk();renderProds('');
+  openAdminPwdConfirm('Cette action va <strong>supprimer TOUS les articles ET toutes les catégories</strong> — le catalogue entier repart de zéro. C\'est irréversible.<br><br>Pour confirmer, saisissez votre mot de passe administrateur :','🗑️ Tout supprimer',function(){
+    arts=[];
+    categories=[];
+    categoryAlerteActive={};
+    window.artsUpdatedAt=Date.now();
+    renderArt();renderStk();renderProds('');buildCats();initCategories();renderCatSelect();
     if(window.fssSyncPush)window.fssSyncPush();
-    toast('Stock de tous les articles remis à 0','s');
+    toast('Tous les articles et catégories ont été supprimés','s');
   });
 }
 function applyPerfSectionVisibility(){

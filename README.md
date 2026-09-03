@@ -1393,3 +1393,49 @@ collision entre deux postes.
 **Testé avant envoi** : vérifié que le numéro reste cohérent à chaque étape
 (création → reprise → ajout → réimpression), et que chaque nouvelle commande
 obtient bien le numéro suivant.
+
+## Ticket de caisse qui ne s'imprimait pas depuis un poste distant
+
+**Trouvé la cause** : depuis ma récente correction pour l'impression
+automatique (sans sélection d'imprimante), le ticket de caisse essayait
+d'imprimer **localement** sur l'appareil qui traite le paiement — mais si ce
+n'est pas le poste Serveur (téléphone, autre PC), il n'a généralement pas
+d'imprimante physique branchée, donc rien ne sortait.
+
+**Corrigé** : comme pour les bons de commande cuisine, le ticket de caisse
+(et l'addition) est maintenant automatiquement transmis au **Serveur** pour
+impression si vous n'êtes pas sur ce poste — vous n'avez plus besoin d'être
+physiquement sur le PC Serveur pour qu'un ticket sorte.
+
+**Au passage**, corrigé aussi un vrai bug technique trouvé pendant la
+vérification (référence à une fenêtre qui n'existait plus dans certains cas),
+qui pouvait provoquer une erreur silencieuse quelques secondes après
+l'impression.
+
+## Plusieurs exemplaires de ticket qui ne s'imprimaient plus du tout
+
+**Trouvé la vraie cause**, précisée grâce à votre retour ("1 exemplaire
+marche, plusieurs non") : l'impression silencieuse combinée aux sauts de page
+(utilisés pour séparer les exemplaires) et à la hauteur de page automatique
+du papier thermique posait problème — dès qu'il y avait plus d'une page dans
+le même document, l'impression échouait entièrement, sans aucun message
+d'erreur visible.
+
+**Corrigé** : chaque exemplaire est maintenant envoyé comme un **travail
+d'impression séparé** (léger décalage de 0,3s entre chacun pour laisser le
+temps à l'imprimante de traiter), plutôt qu'un seul document à plusieurs
+pages. Un seul exemplaire fonctionne exactement comme avant. Corrigé à la
+fois pour le ticket de caisse et pour l'addition (même souci potentiel).
+
+**Testé avant envoi** : vérifié que 3 exemplaires génèrent bien 3 travaux
+d'impression séparés avec le bon contenu chacun, et qu'un seul exemplaire
+reste inchangé (1 seul travail).
+
+## Zone sensible : suppression complète des articles et catégories
+
+Sur votre demande, le bouton dans Paramètres → Zone sensible (⚠️ Performances)
+va maintenant beaucoup plus loin qu'avant : au lieu de juste remettre le
+stock à zéro, il **supprime entièrement tous les articles et toutes les
+catégories** — le catalogue repart complètement de zéro. Reste protégé par la
+confirmation du mot de passe administrateur, avec un texte clair sur l'écran
+indiquant la vraie portée de l'action avant de confirmer.

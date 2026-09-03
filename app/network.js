@@ -93,6 +93,20 @@
             if (batch.type === 'cloture') {
               logDistant('Tentative impression clôture pour lot ' + batch.batchId);
               if (window.imprimerBilanClotureAuto) window.imprimerBilanClotureAuto(batch.snapshot);
+            } else if (batch.type === 'ticket') {
+              logDistant('Tentative impression ticket de caisse pour lot ' + batch.batchId + (batch.copies ? (' (' + batch.copies.length + ' exemplaire(s))') : ''));
+              if (window.imprimerSilencieux) {
+                if (batch.copies && batch.copies.length > 1) {
+                  // Même précaution que sur le poste Serveur lui-même : un
+                  // travail d'impression séparé par exemplaire.
+                  batch.copies.forEach(function (corpsExemplaire, idx) {
+                    var htmlExemplaire = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' + (batch.css || '') + '</style></head><body>' + corpsExemplaire + '</body></html>';
+                    setTimeout(function () { window.imprimerSilencieux(htmlExemplaire); }, idx * 300);
+                  });
+                } else {
+                  window.imprimerSilencieux(batch.html);
+                }
+              }
             } else {
               logDistant('Tentative impression bon de commande pour lot ' + batch.batchId + ' (table: ' + batch.tableNom + ', articles: ' + (batch.items||[]).length + ')');
               if (window.imprimerTicketAttente) window.imprimerTicketAttente(batch);
