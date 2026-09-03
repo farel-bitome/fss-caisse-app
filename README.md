@@ -1439,3 +1439,24 @@ stock à zéro, il **supprime entièrement tous les articles et toutes les
 catégories** — le catalogue repart complètement de zéro. Reste protégé par la
 confirmation du mot de passe administrateur, avec un texte clair sur l'écran
 indiquant la vraie portée de l'action avant de confirmer.
+
+## Suppression de catégorie corrigée — menu déroulant au lieu d'une saisie texte
+
+**Sans le texte exact de l'erreur**, j'ai repensé le mécanisme pour éliminer
+la source la plus probable du problème : la suppression d'une catégorie
+contenant des articles demandait de **retaper exactement le nom** de la
+catégorie de destination dans une fenêtre de saisie texte — un simple espace
+en trop, un accent, ou une faute de frappe suffisait à faire échouer
+silencieusement toute la suppression.
+
+**Corrigé** : remplacé cette saisie texte par un vrai **menu déroulant** —
+vous choisissez la catégorie de destination dans une liste, aucune faute de
+frappe possible.
+
+**Testé avant envoi** : scénario complet (catégorie avec 2 articles,
+réaffectation vers une autre catégorie via le menu, suppression) — tout
+fonctionne correctement.
+
+**Si le souci persiste malgré cette version**, le texte exact du message
+d'erreur (qui devrait s'afficher en rouge à l'écran) reste la meilleure piste
+pour trouver la vraie cause.

@@ -987,6 +987,13 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
   </div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('ovHistCloture')" style="width:100%">Fermer</button></div>
 </div></div>
+<div class="ov" id="ovReaffectCat"><div class="md"><div class="mh"><span class="mt">🗑️ Supprimer une catégorie</span><button class="mc" onclick="closeM('ovReaffectCat')">✕</button></div>
+  <div class="mb">
+    <p id="ovReaffectCatMsg" style="font-size:13px;color:#ccc;margin-bottom:14px"></p>
+    <div class="fg"><label class="fl">Déplacer les articles concernés vers</label><select class="fi" id="selReaffectCat"></select></div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovReaffectCat')">Annuler</button><button class="btn btn-r" onclick="confirmerReaffectationCat()">Déplacer et supprimer</button></div>
+</div></div>
 <div class="ov" id="ovPay"><div class="md"><div class="mh"><span class="mt" id="payMT">Paiement</span><button class="mc" onclick="closeM('ovPay')">✕</button></div>
   <div class="mb">
     <div style="text-align:center;font-size:11px;color:#666;margin-bottom:4px">Montant à régler</div>
@@ -4347,32 +4354,45 @@ function saveCat(){
   if(window.fssSyncPush)window.fssSyncPush();
   toast('Catégorie enregistrée','s');
 }
+var categorieEnSuppressionNom=null;
 function delCat(nom){
   if(categories.length<=1){toast('Il doit rester au moins une catégorie','e');return;}
   var nbArts=arts.filter(function(a){return a.cat===nom;}).length;
   if(nbArts){
     // Plutôt que de bloquer, on propose de réaffecter les articles concernés
-    // vers une autre catégorie avant de supprimer celle-ci.
+    // vers une autre catégorie avant de supprimer celle-ci — via un menu
+    // déroulant (pas une fenêtre de saisie texte où une faute de frappe
+    // bloquait toute la suppression).
+    categorieEnSuppressionNom=nom;
     var autres=categories.filter(function(c){return c!==nom;});
-    var choix=prompt(
-      nbArts+' article(s) utilisent encore "'+nom+'".\n'+
-      'Vers quelle catégorie les déplacer avant suppression ?\n\n'+
-      'Catégories disponibles :\n'+autres.join(', '),
-      autres[0]||''
-    );
-    if(choix===null)return; // annulé
-    choix=choix.trim();
-    if(!autres.some(function(c){return c.toLowerCase()===choix.toLowerCase();})){
-      toast('Catégorie de destination invalide — suppression annulée','e');return;
-    }
-    var vraiNomCible=autres.find(function(c){return c.toLowerCase()===choix.toLowerCase();});
-    arts.forEach(function(a){if(a.cat===nom)a.cat=vraiNomCible;});
-    toast(nbArts+' article(s) déplacé(s) vers "'+vraiNomCible+'"','i');
+    var sel=g('selReaffectCat');
+    sel.innerHTML='';
+    autres.forEach(function(c){
+      var opt=document.createElement('option');
+      opt.value=c;opt.textContent=c;
+      sel.appendChild(opt);
+    });
+    g('ovReaffectCatMsg').textContent=nbArts+' article(s) utilisent encore "'+nom+'". Choisissez la catégorie vers laquelle les déplacer avant de supprimer "'+nom+'".';
+    g('ovReaffectCat').classList.add('on');
   }else{
     if(!confirm('Supprimer la catégorie "'+nom+'" ?'))return;
+    supprimerCategorieMaintenant(nom);
   }
+}
+function confirmerReaffectationCat(){
+  var nom=categorieEnSuppressionNom;
+  var vraiNomCible=g('selReaffectCat').value;
+  if(!nom||!vraiNomCible){toast('Catégorie de destination invalide','e');return;}
+  var nbArts=arts.filter(function(a){return a.cat===nom;}).length;
+  arts.forEach(function(a){if(a.cat===nom)a.cat=vraiNomCible;});
+  toast(nbArts+' article(s) déplacé(s) vers "'+vraiNomCible+'"','i');
+  closeM('ovReaffectCat');
+  supprimerCategorieMaintenant(nom);
+}
+function supprimerCategorieMaintenant(nom){
   categories=categories.filter(function(c){return c!==nom;});
   delete categoryAlerteActive[nom];
+  categorieEnSuppressionNom=null;
   renderArt();buildCats();renderProds('');
   initCategories();
   if(window.fssSyncPush)window.fssSyncPush();
