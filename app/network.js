@@ -2,7 +2,8 @@
 // Ce script connecte l'application au serveur central FSS-CAISSE
 // et synchronise en temps réel les données entre tous les postes.
 (function () {
-  var socket = (typeof io === 'function') ? io() : null;
+  // Mode cloud : la connexion temps réel démarre seulement après l'ouverture de session.
+  var socket = (typeof io === 'function') ? (window.FSS_CLOUD ? io({ autoConnect: false }) : io()) : null;
   var API = '/api/state';
   var applying = false;
   // Empêche tout envoi vers le serveur (syncPush) tant que ce poste n'a pas
@@ -352,7 +353,17 @@
     });
   }
 
+  // Cloud : appelée par l'écran de connexion une fois la session ouverte.
+  window.fssLoadStateCloud = function () {
+    if (socket && !socket.connected) socket.connect();
+    return fetch(API).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(applyState);
+  };
+
   window.addEventListener('load', function () {
+    if (window.FSS_CLOUD) return; // cloud : rien à charger avant la connexion
     fetch(API).then(function (r) { return r.json(); }).then(applyState).catch(function () {
       safe(function () { toast('⚠️ Serveur injoignable — mode hors-ligne', 'e'); });
     });

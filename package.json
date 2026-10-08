@@ -7,7 +7,10 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win --publish=never"
+    "dist": "electron-builder --win --publish=never",
+    "cloud": "node cloud/server.js",
+    "cloud:admin": "node cloud/admin.js",
+    "cloud:test": "node cloud/test/smoke.js"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -15,7 +18,8 @@
   },
   "devDependencies": {
     "electron": "^30.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "socket.io-client": "^4.7.5"
   },
   "build": {
     "appId": "com.fss.caisse",

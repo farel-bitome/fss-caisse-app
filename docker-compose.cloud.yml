@@ -1,0 +1,35 @@
+# FSS-CAISSE Cloud — serveur + HTTPS automatique (Caddy)
+#   cp cloud/.env.example .env   puis éditer .env
+#   docker compose -f docker-compose.cloud.yml up -d --build
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.cloud
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - fss-data:/data          # TOUTES les données des établissements (à sauvegarder !)
+    expose:
+      - "3000"
+      - "3001"                  # contrôle interne des certificats : jamais publié
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./cloud/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  fss-data:
+  caddy-data:
+  caddy-config:

@@ -106,10 +106,35 @@
     }
   }
 
+  // Mode cloud (web) : la connexion est vérifiée par le serveur ; les mots de passe
+  // ne sont jamais envoyés au navigateur.
+  function tryLoginCloud(nom, mdp, err) {
+    var btn = document.getElementById('authLoginBtn');
+    btn.disabled = true;
+    err.textContent = '';
+    fetch('/api/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom: nom, mdp: mdp })
+    }).then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (res) {
+        if (!res.body.ok) { err.textContent = res.body.erreur || 'Connexion impossible'; btn.disabled = false; return; }
+        err.textContent = 'Chargement des données...';
+        return window.fssLoadStateCloud().then(function () {
+          var u = (window.users || []).find(function (x) { return x.id === res.body.user.id; });
+          if (!u) { err.textContent = 'Compte introuvable'; btn.disabled = false; return; }
+          currentUser = u;
+          window.currentUser = u;
+          document.getElementById('authOverlay').remove();
+          if (u.doitChangerMdp) { showChangePassword(u, true); } else { enterApp(); }
+        });
+      }).catch(function () { err.textContent = 'Serveur injoignable'; btn.disabled = false; });
+  }
+
   function tryLogin() {
     var nom = document.getElementById('authNom').value.trim();
     var mdp = document.getElementById('authMdp').value.trim();
     var err = document.getElementById('authErr');
+    if (window.FSS_CLOUD) { tryLoginCloud(nom, mdp, err); return; }
     if (!dataReady || !(window.users || []).length) {
       err.textContent = 'Connexion en cours, réessayez dans un instant...';
       return;
@@ -131,7 +156,9 @@
 
   // ---------- Changement de mot de passe ----------
   function showChangePassword(u, forced) {
-    if (u.super) { safeToast('Ce compte est protégé et ne peut jamais être modifié', 'e'); return; }
+    // Cloud : un compte protégé peut changer SON propre mot de passe (jamais celui d'un autre).
+    var soiMeme = !!(window.FSS_CLOUD && currentUser && u.id === currentUser.id);
+    if (u.super && !soiMeme) { safeToast('Ce compte est protégé et ne peut jamais être modifié', 'e'); return; }
     var ov = document.createElement('div');
     ov.id = 'chgPwdOverlay';
     ov.style.display = 'flex';
@@ -139,6 +166,7 @@
       '<div class="box">' +
       '<h1>🔑 Nouveau mot de passe</h1>' +
       '<p>' + (forced ? 'Première connexion — merci de définir un nouveau mot de passe pour "' + u.nom + '"' : 'Changer le mot de passe de "' + u.nom + '"') + '</p>' +
+      ((soiMeme && !forced) ? '<input id="cpOld" type="password" placeholder="Mot de passe actuel" autocomplete="current-password">' : '') +
       '<input id="cpNew" type="password" placeholder="Nouveau mot de passe">' +
       '<input id="cpConfirm" type="password" placeholder="Confirmer le mot de passe">' +
       '<button class="main" id="cpBtn">Valider</button>' +
@@ -150,8 +178,24 @@
       var p1 = document.getElementById('cpNew').value;
       var p2 = document.getElementById('cpConfirm').value;
       var err = document.getElementById('cpErr');
-      if (!p1 || p1.length < 3) { err.textContent = 'Mot de passe trop court (3 caractères minimum)'; return; }
+      var minLen = window.FSS_CLOUD ? 6 : 3;
+      if (!p1 || p1.length < minLen) { err.textContent = 'Mot de passe trop court (' + minLen + ' caractères minimum)'; return; }
       if (p1 !== p2) { err.textContent = 'Les mots de passe ne correspondent pas'; return; }
+      if (soiMeme) {
+        // Cloud : le serveur enregistre (haché) le mot de passe de l'utilisateur connecté.
+        var cpBtn = document.getElementById('cpBtn');
+        cpBtn.disabled = true;
+        fetch('/api/me/password', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ancien: (document.getElementById('cpOld') || {}).value || '', mdp: p1 })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (!j.ok) { err.textContent = j.erreur || 'Échec du changement'; cpBtn.disabled = false; return; }
+          u.doitChangerMdp = false;
+          ov.remove();
+          if (forced) enterApp(); else safeToast('Mot de passe modifié', 's');
+        }).catch(function () { err.textContent = 'Serveur injoignable'; cpBtn.disabled = false; });
+        return;
+      }
       u.mdp = p1;
       u.doitChangerMdp = false;
       if (window.fssSyncPush) window.fssSyncPush();
@@ -268,7 +312,10 @@
     }
     document.getElementById('miLogout').addEventListener('click', function () {
       menu.style.display = 'none';
-      var recharger = function () { location.reload(); };
+      var recharger = function () {
+        if (window.FSS_CLOUD) { fetch('/api/logout', { method: 'POST' }).then(function () { location.reload(); }, function () { location.reload(); }); }
+        else location.reload();
+      };
       // Important : si une commande était en cours de reprise/édition (donc
       // temporairement retirée du serveur) au moment de la déconnexion, on la
       // remet en attente automatiquement avant de partir — via sa route
@@ -444,6 +491,7 @@
     var mdp = document.getElementById('umgtMdp').value;
     var err = document.getElementById('umgtErr');
     if (!nom || !mdp) { err.textContent = 'Identifiant et mot de passe requis'; return; }
+    if (window.FSS_CLOUD && mdp.length < 6) { err.textContent = 'Mot de passe trop court (6 caractères minimum)'; return; }
     var exists = (window.users || []).some(function (u) { return u.nom.toLowerCase() === nom.toLowerCase(); });
     if (exists) { err.textContent = 'Cet identifiant existe déjà'; return; }
     var isWaiter = document.getElementById('umgtWaiterChk').checked;
@@ -579,4 +627,15 @@
 
   injectCSS();
   buildLoginOverlay();
+  if (window.FSS_CLOUD) {
+    dataReady = true;
+    var w = document.getElementById('authWait');
+    if (w) w.style.display = 'none';
+    fetch('/api/public').then(function (r) { return r.json(); }).then(function (p) {
+      if (p && p.logo) { window.logoData = p.logo; }
+      var t = document.getElementById('authTitle');
+      if (t && p && p.nom) t.textContent = p.nom;
+      updateLoginLogo();
+    }).catch(function () {});
+  }
 })();

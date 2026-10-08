@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FSS-CAISSE — Accès à votre établissement</title>
+<style>
+  :root{--bordeaux:#7a1f2b;--marine:#14264a;--blanc:#fff}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--marine);color:var(--blanc);min-height:100vh;display:flex;flex-direction:column}
+  header{background:var(--bordeaux);padding:18px 24px;font-weight:700;letter-spacing:.5px}
+  main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:var(--blanc);color:var(--marine);border-radius:10px;padding:32px 36px;width:100%;max-width:420px;border-top:6px solid var(--bordeaux);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+  h1{margin:0 0 6px;font-size:22px;color:var(--bordeaux)}
+  p{margin:0 0 20px;font-size:14px;line-height:1.5}
+  label{font-size:12px;font-weight:700;display:block;margin-bottom:6px}
+  .row{display:flex;align-items:stretch;border:1px solid #c9ced8;border-radius:6px;overflow:hidden;margin-bottom:14px}
+  .row input{flex:1;border:0;padding:12px;font-size:15px;min-width:0;outline:none}
+  .row span{background:#eef0f5;padding:12px 10px;font-size:13px;color:#555;display:flex;align-items:center;white-space:nowrap}
+  button{width:100%;padding:13px;border:0;border-radius:6px;background:var(--bordeaux);color:var(--blanc);font-size:15px;font-weight:700;cursor:pointer}
+  button:hover{background:#5f1722}
+  .err{color:#b00020;font-size:12px;min-height:16px;margin-bottom:10px}
+  footer{padding:16px;text-align:center;font-size:11px;opacity:.75}
+</style>
+</head>
+<body>
+<header>FSS-CAISSE</header>
+<main>
+  <form class="card" id="f">
+    <h1>Accéder à ma caisse</h1>
+    <p>Saisissez le code de votre établissement pour ouvrir votre espace.</p>
+    <label for="code">Code établissement</label>
+    <div class="row"><input id="code" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="ex. afrolounge" required><span>.__BASE_DOMAIN__</span></div>
+    <div class="err" id="err"></div>
+    <button type="submit">Continuer</button>
+  </form>
+</main>
+<footer>Développé par FallServices&amp;Solutions — +241 77 37 86 02</footer>
+<script>
+document.getElementById('f').addEventListener('submit', function (e) {
+  e.preventDefault();
+  var code = document.getElementById('code').value.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{1,30}$/.test(code)) {
+    document.getElementById('err').textContent = 'Code invalide (lettres, chiffres et tirets uniquement).';
+    return;
+  }
+  location.href = location.protocol + '//' + code + '.' + location.host + '/';
+});
+</script>
+</body>
+</html>

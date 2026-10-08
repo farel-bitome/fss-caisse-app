@@ -1,0 +1,19 @@
+# HTTPS automatique (Let's Encrypt) pour le domaine principal ET chaque sous-domaine d'établissement,
+# sans configuration par client : Caddy demande au serveur si le sous-domaine existe avant d'émettre le certificat.
+{
+	on_demand_tls {
+		ask http://app:3001/tls-ask
+	}
+}
+
+https:// {
+	tls {
+		on_demand
+	}
+	encode gzip
+	reverse_proxy app:3000
+}
+
+http:// {
+	redir https://{host}{uri} permanent
+}
