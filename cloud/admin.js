@@ -5,6 +5,7 @@
 //   node cloud/admin.js liste
 //   node cloud/admin.js suspendre <code>      |  reactiver <code>
 //   node cloud/admin.js mot-de-passe <code> [identifiant]   (génère un nouveau mot de passe, à changer à la connexion)
+//   node cloud/admin.js appareils <code>      |  revoquer <code> <id-appareil>   (PC liés pour la synchronisation)
 'use strict';
 const path = require('path');
 const fs = require('fs');
@@ -51,8 +52,22 @@ try {
     const nom = b || 'admin';
     const pwd = store.resetPassword(a.toLowerCase(), nom);
     console.log('Nouveau mot de passe pour ' + nom + ' (' + a + ') : ' + pwd + '   (à changer à la prochaine connexion)');
+  } else if (cmd === 'appareils' || cmd === 'revoquer') {
+    if (!a) fail('code manquant');
+    const f = path.join(dataDir, 'tenants', a.toLowerCase(), 'devices.json');
+    let dev = {};
+    try { dev = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) {}
+    if (cmd === 'revoquer') {
+      if (!b || !dev[b]) fail('appareil introuvable (voir : appareils ' + a + ')');
+      delete dev[b]; fs.writeFileSync(f, JSON.stringify(dev, null, 2));
+      console.log('Appareil ' + b + ' révoqué : il ne pourra plus se synchroniser.');
+    } else {
+      const ids = Object.keys(dev);
+      if (!ids.length) console.log('Aucun poste lié.');
+      ids.forEach(function (id) { console.log(id + '  ' + dev[id].nom.padEnd(24) + ' lié le ' + String(dev[id].creeLe).slice(0, 10) + ' par ' + dev[id].par + ' — dernière synchro : ' + (dev[id].dernierSync || 'jamais')); });
+    }
   } else {
-    console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 8).map(function (l) { return l.replace(/^\/\/ ?/, ''); }).join('\n'));
+    console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 9).map(function (l) { return l.replace(/^\/\/ ?/, ''); }).join('\n'));
     process.exit(cmd ? 1 : 0);
   }
 } catch (e) { fail(e.message); }

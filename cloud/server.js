@@ -13,6 +13,7 @@ const https = require('https');
 const dns = require('dns');
 const net = require('net');
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const { Server } = require('socket.io');
 const security = require('./security');
@@ -89,7 +90,10 @@ function createApp(opts) {
     }
     next();
   });
-  app.use(express.json({ limit: '10mb' }));
+  // Résolution de l'établissement d'abord ; les gros corps JSON (état complet) ne sont lus qu'après authentification.
+  const smallJson = express.json({ limit: '1mb' });
+  const bigJson = express.json({ limit: '60mb' });
+  const BIG_PATHS = { '/api/state': 1, '/api/sync/push': 1 };
 
   // ---------- Résolution de l'établissement ----------
   function pageMessage(res, code, titre, texte) {
@@ -114,7 +118,8 @@ function createApp(opts) {
     }
     req.slug = slug;
     req.tenant = store.open(slug);
-    next();
+    if (req.method === 'POST' && BIG_PATHS[req.path]) return next();
+    smallJson(req, res, next);
   });
 
   // ---------- Session ----------
@@ -211,6 +216,107 @@ function createApp(opts) {
     res.json({ ok: true });
   });
 
+  // ---------- Synchronisation avec les PC liés (version Windows) ----------
+  // Un administrateur « lie » un PC avec son identifiant ; le PC reçoit un jeton d'appareil (stocké haché ici)
+  // et l'utilise ensuite seul, sans mot de passe, tant que l'appareil n'est pas révoqué (admin.js revoquer).
+  const NOT_SYNCED_KEYS = ['cmdAttente', 'printBatches', 'attenteSeq', 'syncVersion'];
+  function devicesFile(t) { return t.file('devices.json'); }
+  function loadDevices(t) { try { return JSON.parse(fs.readFileSync(devicesFile(t), 'utf8')); } catch (e) { return {}; } }
+  function saveDevices(t, d) { const f = devicesFile(t); fs.writeFileSync(f + '.tmp', JSON.stringify(d, null, 2)); fs.renameSync(f + '.tmp', f); }
+  const sha256 = function (x) { return crypto.createHash('sha256').update(String(x)).digest('hex'); };
+
+  function requireDevice(req, res, next) {
+    const m = String(req.headers.authorization || '').match(/^Bearer ([a-f0-9]{12})\.([a-f0-9]{64})$/);
+    const devices = loadDevices(req.tenant);
+    const d = m && devices[m[1]];
+    const okTok = d && (function () { const a = Buffer.from(sha256(m[2])), b = Buffer.from(d.tokenHash); return a.length === b.length && crypto.timingSafeEqual(a, b); })();
+    if (!okTok) return res.status(401).json({ ok: false, erreur: 'Appareil non reconnu ou révoqué — liez de nouveau ce poste.' });
+    req.device = { id: m[1], nom: d.nom };
+    next();
+  }
+  // Données envoyées au PC : tout sauf ce qui est propre au serveur ; les comptes gardent leur haché (jamais de clair).
+  function syncPayload(t) {
+    const out = {};
+    Object.keys(t.state).forEach(function (k) { if (NOT_SYNCED_KEYS.indexOf(k) === -1) out[k] = t.state[k]; });
+    out.users = (t.state.users || []).map(function (u) { const c = Object.assign({}, u); delete c.mdp; return c; });
+    return out;
+  }
+
+  app.post('/api/sync/link', async function (req, res) {
+    const t = req.tenant;
+    const nom = String((req.body && req.body.nom) || '').trim();
+    const mdp = String((req.body && req.body.mdp) || '');
+    const appareil = String((req.body && req.body.appareil) || 'Poste').slice(0, 60);
+    if (!nom || !mdp) return res.status(400).json({ ok: false, erreur: 'Identifiant et mot de passe requis' });
+    const kIp = req.slug + '|ip|' + req.ip, kUser = req.slug + '|u|' + nom.toLowerCase();
+    if (loginLimiter.blocked(kIp) || loginLimiter.blocked(kUser)) return res.status(429).json({ ok: false, erreur: 'Trop d\'essais. Réessayez dans 15 minutes.' });
+    const u = (t.state.users || []).find(function (x) { return String(x.nom).toLowerCase() === nom.toLowerCase(); });
+    const ok = await security.verifyPassword(mdp, u && u.mdpHash ? u.mdpHash : DUMMY_HASH) && !!u && !!u.mdpHash;
+    if (!ok) { loginLimiter.fail(kIp); loginLimiter.fail(kUser); t.journal('Liaison refusée : ' + nom + ' (' + req.ip + ')'); return res.status(401).json({ ok: false, erreur: 'Identifiant ou mot de passe incorrect' }); }
+    if (!(u.super || u.full)) return res.status(403).json({ ok: false, erreur: 'Seul un administrateur peut lier un poste.' });
+    loginLimiter.reset(kUser);
+    const id = crypto.randomBytes(6).toString('hex');
+    const token = crypto.randomBytes(32).toString('hex');
+    const devices = loadDevices(t);
+    devices[id] = { nom: appareil, tokenHash: sha256(token), creeLe: new Date().toISOString(), par: u.nom, dernierSync: null };
+    saveDevices(t, devices);
+    t.journal('Poste lié : ' + appareil + ' (' + id + ') par ' + u.nom);
+    const s = t.state;
+    res.json({ ok: true, deviceId: id, token: token, slug: req.slug, etablissement: (s.etab && s.etab.nom) || t.meta.nom, version: s.syncVersion || 0,
+      vide: !((s.txs || []).length || (s.arts || []).length || (s.clis || []).length) });
+  });
+
+  // Le PC demande l'état si la version a changé depuis sa dernière synchronisation.
+  app.get('/api/sync/state', requireDevice, function (req, res) {
+    const t = req.tenant;
+    const version = t.state.syncVersion || 0;
+    if (String(req.query.since) === String(version)) return res.json({ ok: true, unchanged: true, version: version });
+    res.json({ ok: true, version: version, state: syncPayload(t) });
+  });
+
+  app.post('/api/sync/push', requireDevice, bigJson, function (req, res) {
+    const t = req.tenant;
+    try {
+      const cur = t.state;
+      const b = req.body || {};
+      if (!b.state || typeof b.state !== 'object' || Array.isArray(b.state)) return res.status(400).json({ ok: false, erreur: 'Données invalides' });
+      if (Number(b.baseVersion) !== (cur.syncVersion || 0)) return res.status(409).json({ ok: false, conflit: true, version: cur.syncVersion || 0 });
+      const next = b.state;
+      NOT_SYNCED_KEYS.forEach(function (k) { if (cur[k] !== undefined) next[k] = cur[k]; else delete next[k]; });
+      // Comptes : mots de passe en clair -> hachés ; jamais d'élévation implicite ; jamais sans administrateur.
+      const avertissements = [];
+      const users = [];
+      (Array.isArray(next.users) ? next.users : []).forEach(function (u) {
+        if (!u || typeof u.nom !== 'string' || !u.nom.trim()) return;
+        const c = Object.assign({}, u);
+        if (typeof c.mdp === 'string' && c.mdp) {
+          // Sur Internet : jamais de mot de passe faible. Le compte reste utilisable sur le PC ; pour l'utiliser
+          // aussi sur le web, il faut choisir un mot de passe d'au moins 6 caractères (changé sur le PC, il sera envoyé).
+          if (c.mdp.length < security.MIN_PASSWORD || c.mdp.length > 200) {
+            avertissements.push('« ' + c.nom + ' » : mot de passe trop court pour le web (' + security.MIN_PASSWORD + ' caractères minimum) — compte utilisable sur le PC uniquement tant qu\'il n\'est pas changé.');
+          } else { c.mdpHash = security.hashPasswordSync(c.mdp); c.pwdAt = Date.now(); }
+        }
+        delete c.mdp;
+        if (typeof c.mdpHash !== 'string') c.mdpHash = '';
+        if (typeof c.pwdAt !== 'number') c.pwdAt = 0;
+        users.push(c);
+      });
+      if (!users.some(function (u) { return u.super || u.full; })) return res.status(400).json({ ok: false, erreur: 'Aucun compte administrateur dans les données envoyées.' });
+      next.users = users;
+      next.nextUserId = Math.max(Number(next.nextUserId) || 1, 1 + users.reduce(function (m, u) { return Math.max(m, Number(u.id) || 0); }, 0));
+      t.state = next;
+      t.save();
+      broadcast(t);
+      const devices = loadDevices(t);
+      if (devices[req.device.id]) { devices[req.device.id].dernierSync = new Date().toISOString(); saveDevices(t, devices); }
+      t.journal('Synchronisation reçue de ' + req.device.nom + ' (' + req.device.id + ') — version ' + t.state.syncVersion);
+      res.json({ ok: true, version: t.state.syncVersion, users: users, avertissements: avertissements });
+    } catch (e) {
+      console.error('[' + req.slug + '] Erreur synchronisation :', e);
+      res.status(500).json({ ok: false, erreur: 'Erreur serveur' });
+    }
+  });
+
   // ---------- Données ----------
   app.get('/api/state', requireAuth, function (req, res) { res.json(publicState(req.tenant.state)); });
 
@@ -250,7 +356,7 @@ function createApp(opts) {
     return { users: out, nextUserId: maxId + 1 };
   }
 
-  app.post('/api/state', requireAuth, function (req, res) {
+  app.post('/api/state', requireAuth, bigJson, function (req, res) {
     const t = req.tenant;
     try {
       const cur = t.state;
@@ -270,6 +376,7 @@ function createApp(opts) {
         next.users = cur.users;
         next.nextUserId = cur.nextUserId;
       }
+      next.syncVersion = cur.syncVersion || 0;
       t.state = next;
       t.save();
       broadcast(t);

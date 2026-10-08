@@ -46,6 +46,28 @@ Un nouvel établissement démarre vide (catalogue, tables, clients à saisir ou 
 Les mots de passe existants sont **hachés** (plus jamais stockés en clair) ; chaque employé choisit un nouveau
 mot de passe à sa prochaine connexion. Un compte `admin` de secours est créé (mot de passe affiché une fois).
 
+## Synchronisation avec la version Windows (hors-ligne ↔ en ligne)
+
+Le PC de caisse reste le poste de vente : **il fonctionne sans Internet**. Une fois lié à son compte en ligne, il envoie
+automatiquement ce qui s'est passé hors-ligne dès que la connexion revient, et reçoit ce qui a changé sur le web
+(consultation des chiffres depuis n'importe où, modifications du catalogue, etc.).
+
+**Lier un PC** (à faire une fois, avec Internet) : sur le PC serveur, connecté en administrateur, menu du badge en haut à droite →
+**☁️ Synchronisation en ligne** → saisir l'adresse de l'établissement (`afrolounge.votre-domaine.com`) et l'identifiant/mot de passe
+**administrateur** du compte en ligne. À la première liaison, **les données du PC sont envoyées en ligne** (rien n'est effacé côté web).
+Un indicateur ☁️ en bas à droite montre l'état (synchronisé / hors-ligne / en attente).
+
+Règles de fusion (aucune vente perdue) :
+- ventes, mouvements de stock, prélèvements, clôtures : **tout est conservé des deux côtés** ;
+- **stock et soldes** : on additionne les variations des deux côtés (PC −3 et web −5 → −8) ;
+- même champ modifié des deux côtés en même temps : **le PC gagne** ;
+- deux ventes de même numéro faites en même temps (PC et web) : la vente du web est renommée `TK-xxxx-W`, signalée dans le panneau ;
+- les commandes en attente et les files d'impression restent propres à chaque côté.
+
+Comptes : les mots de passe sont envoyés **hachés** ; sur le PC, un compte synchronisé se connecte sans Internet (vérification locale).
+⚠ Un mot de passe de **moins de 6 caractères** n'est pas accepté sur le web (compte utilisable sur le PC seulement tant qu'il n'est pas changé) —
+le panneau le signale. Chaque PC lié a son propre jeton : `node cloud/admin.js appareils <code>` pour les voir, `revoquer <code> <id>` pour en couper un.
+
 ## Données et sauvegardes
 
 - Tout est dans le volume Docker `fss-data` : `/data/tenants/<code>/data.json` + une **sauvegarde automatique par jour**
@@ -75,4 +97,4 @@ mot de passe à sa prochaine connexion. Un compte `admin` de secours est créé 
 
 ## Tests
 
-`npm install && npm run cloud:test` — 60 vérifications automatiques (accès, sessions, isolation, droits, temps réel, import…).
+`npm install && npm run cloud:test` — vérifications automatiques : serveur web (accès, sessions, isolation, droits, temps réel, import), règles de fusion, et un test de bout en bout PC ↔ web avec coupure Internet simulée.

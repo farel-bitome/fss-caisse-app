@@ -44,6 +44,7 @@ function normalizeUsers(state) {
 // Copie de l'état SANS aucun secret, pour envoi aux navigateurs.
 function publicState(state) {
   const copy = Object.assign({}, state);
+  delete copy.syncVersion;
   copy.users = (state.users || []).map(function (u) {
     const c = Object.assign({}, u);
     delete c.mdp; delete c.mdpHash; delete c.pwdAt;
@@ -120,6 +121,7 @@ function createStore(dataDir) {
         try { fs.appendFileSync(logFile, '[' + new Date().toISOString() + '] ' + ligne + '\n'); } catch (e) {}
       },
       save: function () {
+        t.state.syncVersion = (t.state.syncVersion || 0) + 1; // permet aux PC liés de savoir que le web a changé
         try { if (fs.existsSync(dataFile)) fs.copyFileSync(dataFile, backupFile); } catch (e) { console.error('[' + slug + '] copie de secours impossible :', e.message); }
         atomicWrite(dataFile, JSON.stringify(t.state));
         try { t.mtime = fs.statSync(dataFile).mtimeMs; } catch (e) {}

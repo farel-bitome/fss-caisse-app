@@ -139,19 +139,32 @@
       err.textContent = 'Connexion en cours, réessayez dans un instant...';
       return;
     }
-    var u = (window.users || []).find(function (x) {
-      return x.nom.toLowerCase() === nom.toLowerCase() && x.mdp === mdp;
-    });
-    if (!u) { err.textContent = 'Identifiant ou mot de passe incorrect'; return; }
-    err.textContent = '';
-    currentUser = u;
-    window.currentUser = u;
-    document.getElementById('authOverlay').remove();
-    if (u.doitChangerMdp) {
-      showChangePassword(u, true);
-    } else {
-      enterApp();
+    var cand = (window.users || []).find(function (x) { return x.nom.toLowerCase() === nom.toLowerCase(); });
+    function terminerConnexion(u) {
+      err.textContent = '';
+      currentUser = u;
+      window.currentUser = u;
+      document.getElementById('authOverlay').remove();
+      if (u.doitChangerMdp) {
+        showChangePassword(u, true);
+      } else {
+        enterApp();
+      }
     }
+    // Compte avec mot de passe local (en clair, comme avant) : vérification immédiate.
+    if (cand && cand.mdp) {
+      if (cand.mdp === mdp) terminerConnexion(cand); else err.textContent = 'Identifiant ou mot de passe incorrect';
+      return;
+    }
+    // Compte synchronisé depuis la version web (mot de passe haché) : le serveur local vérifie, sans Internet.
+    if (cand && cand.mdpHash) {
+      fetch('/api/auth/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nom: nom, mdp: mdp }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (j && j.ok) terminerConnexion(cand); else err.textContent = 'Identifiant ou mot de passe incorrect'; })
+        .catch(function () { err.textContent = 'Serveur local injoignable'; });
+      return;
+    }
+    err.textContent = 'Identifiant ou mot de passe incorrect';
   }
 
   // ---------- Changement de mot de passe ----------
@@ -282,9 +295,10 @@
     var menu = document.createElement('div');
     menu.id = 'userMenu';
     menu.innerHTML =
-      (!currentUser.super ? '<div class="mi" id="miChangePwd">🔑 Changer mon mot de passe</div>' : '') +
+      ((!currentUser.super || window.FSS_CLOUD) ? '<div class="mi" id="miChangePwd">🔑 Changer mon mot de passe</div>' : '') +
       (canManage ? '<div class="mi" id="miManageUsers">👥 Gérer les utilisateurs</div>' : '') +
       (canManage ? '<div class="mi" id="miChangeLogo">🖼️ Changer le logo</div>' : '') +
+      ((canManage && window.FSS_IS_SERVER && !window.FSS_CLOUD && window.fssOpenCloudSync) ? '<div class="mi" id="miCloudSync">☁️ Synchronisation en ligne</div>' : '') +
       '<div class="mi" id="miLogout">🚪 Déconnexion</div>';
     document.body.appendChild(menu);
 
@@ -294,7 +308,13 @@
     });
     document.addEventListener('click', function () { menu.style.display = 'none'; });
 
-    if (!currentUser.super) {
+    if (document.getElementById('miCloudSync')) {
+      document.getElementById('miCloudSync').addEventListener('click', function () {
+        menu.style.display = 'none';
+        window.fssOpenCloudSync();
+      });
+    }
+    if (document.getElementById('miChangePwd')) {
       document.getElementById('miChangePwd').addEventListener('click', function () {
         menu.style.display = 'none';
         showChangePassword(currentUser, false);
@@ -615,6 +635,7 @@
   // ---------- Entrée dans l'application ----------
   function enterApp() {
     buildUserBadge();
+    try { if (window.fssStartCloudBadge && window.FSS_IS_SERVER) window.fssStartCloudBadge(); } catch (e) {}
     buildUserMgmtOverlay();
     buildPermsOverlay();
     bindPermsSaveBtn();

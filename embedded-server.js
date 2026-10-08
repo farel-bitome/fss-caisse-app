@@ -19,6 +19,7 @@ process.on('unhandledRejection', (err) => {
 
 module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
   return new Promise((resolve, reject) => {
+    var cloudSync = null; // synchronisation avec la version web (cloud-sync.js), optionnelle
     const appStaticDir = path.join(appRootDir, 'app');
     const dataFile = path.join(userDataDir, 'data.json');
     const backupDataFile = path.join(userDataDir, 'data.backup.json');
@@ -137,6 +138,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       const tmpFile = dataFile + '.tmp';
       fs.writeFileSync(tmpFile, json);
       fs.renameSync(tmpFile, dataFile);
+      try { if (cloudSync) cloudSync.notifyChange(); } catch (e) { /* la synchro ne doit jamais gêner la caisse */ }
     }
 
     // ---- Config Airtel Money : stockée à part, JAMAIS envoyée au navigateur/synchronisée ----
@@ -517,6 +519,51 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       }
       res.status(r.status).json(r.body);
     });
+
+    // ---- Connexion avec comptes synchronisés depuis le web (mots de passe hachés scrypt) ----
+    // Le navigateur ne peut pas vérifier un haché scrypt : il demande à ce serveur, qui répond oui/non.
+    var essaisVerif = {};
+    expressApp.post('/api/auth/verify', (req, res) => {
+      try {
+        var b = req.body || {};
+        var nom = String(b.nom || '').trim().toLowerCase();
+        var mdp = String(b.mdp || '');
+        var maintenant = Date.now();
+        var e = essaisVerif[nom];
+        if (e && maintenant - e.debut < 5 * 60 * 1000 && e.n >= 10) return res.status(429).json({ ok: false });
+        var u = (state.users || []).find(function (x) { return String(x.nom).toLowerCase() === nom; });
+        var ok = false;
+        if (u && u.mdpHash) {
+          var parts = String(u.mdpHash).split('$');
+          if (parts.length === 3 && parts[0] === 'scrypt') {
+            var attendu = Buffer.from(parts[2], 'hex');
+            var calcule = require('crypto').scryptSync(mdp, Buffer.from(parts[1], 'hex'), attendu.length, { N: 16384, r: 8, p: 1 });
+            ok = calcule.length === attendu.length && require('crypto').timingSafeEqual(calcule, attendu);
+          }
+        }
+        if (!ok) { if (!e || maintenant - e.debut >= 5 * 60 * 1000) essaisVerif[nom] = { debut: maintenant, n: 1 }; else e.n++; }
+        else delete essaisVerif[nom];
+        res.json({ ok: ok, id: ok ? u.id : null });
+      } catch (err) { res.status(500).json({ ok: false }); }
+    });
+
+    // ---- Synchronisation avec la version web (facultative : sans le module, la caisse fonctionne comme avant) ----
+    try {
+      var creerCloudSync = require('./cloud-sync');
+      cloudSync = creerCloudSync({
+        userDataDir: userDataDir,
+        getState: function () { return state; },
+        replaceState: function (fusionne) {
+          state = Object.assign({}, state, fusionne); // les données propres au PC (commandes en attente, impressions) restent intactes
+          saveState(state);
+          io.emit('state:changed', state);
+        },
+        journal: ecrireJournal
+      });
+      cloudSync.attach(expressApp);
+    } catch (e) {
+      console.error('[FSS-CAISSE] Synchronisation web indisponible :', e.message);
+    }
 
     io.on('connection', (socket) => {
       try {
