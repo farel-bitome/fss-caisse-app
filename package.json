@@ -10,7 +10,8 @@
     "dist": "electron-builder --win --publish=never",
     "cloud": "node cloud/server.js",
     "cloud:admin": "node cloud/admin.js",
-    "cloud:test": "node cloud/test/smoke.js"
+    "cloud:test": "node cloud/test/smoke.js",
+    "cloud:test:sync": "node cloud/test/sync.js"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -30,6 +31,9 @@
       "preload.js",
       "embedded-server.js",
       "licensing.js",
+      "cloud-link.html",
+      "sync-cloud.js",
+      "sync-merge.js",
       "choice.html",
       "client.html",
       "server-ip.html",

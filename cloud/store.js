@@ -3,6 +3,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const security = require('./security');
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,30}$/;
@@ -93,7 +94,7 @@ function createStore(dataDir) {
         c.checkedAt = Date.now();
         try {
           const m = fs.statSync(c.file('data.json')).mtimeMs;
-          if (m !== c.mtime) { c.state = JSON.parse(fs.readFileSync(c.file('data.json'), 'utf8')); normalizeUsers(c.state); c.mtime = m; }
+          if (m !== c.mtime) { c.state = JSON.parse(fs.readFileSync(c.file('data.json'), 'utf8')); normalizeUsers(c.state); c.mtime = m; c.version++; try { atomicWrite(c.file('version.json'), JSON.stringify({ version: c.version })); } catch (e2) {} }
         } catch (e) { /* fichier en cours d'écriture : on garde l'état en mémoire */ }
       }
       return c;
@@ -114,14 +115,53 @@ function createStore(dataDir) {
     }
     if (!state) state = blankState(meta.nom);
 
+    const versionFile = path.join(dir, 'version.json');
+    const devicesFile = path.join(dir, 'devices.json');
+    let version = 1;
+    try { version = JSON.parse(fs.readFileSync(versionFile, 'utf8')).version || 1; } catch (e) {}
+    function persistVersion() { try { atomicWrite(versionFile, JSON.stringify({ version: t.version })); } catch (e) {} }
+    function readDevices() { try { return JSON.parse(fs.readFileSync(devicesFile, 'utf8')); } catch (e) { return {}; } }
+    function writeDevices(d) { atomicWrite(devicesFile, JSON.stringify(d, null, 2)); }
+    const sha = function (x) { return crypto.createHash('sha256').update(String(x)).digest('hex'); };
+
     const t = {
-      slug: slug, meta: meta, dir: dir, state: state, mtime: -1, checkedAt: Date.now(),
+      slug: slug, meta: meta, dir: dir, state: state, mtime: -1, checkedAt: Date.now(), version: version,
+      // Appareils (PC Windows liés à cet établissement) : jeton long, stocké haché, révocable.
+      devices: {
+        list: function () { const d = readDevices(); return Object.keys(d).map(function (id) { return { id: id, nom: d[id].nom, creeLe: d[id].creeLe, vuLe: d[id].vuLe }; }); },
+        add: function (nom) {
+          const d = readDevices();
+          const id = crypto.randomBytes(4).toString('hex');
+          const token = crypto.randomBytes(32).toString('hex');
+          d[id] = { nom: nom || 'PC', hash: sha(token), creeLe: new Date().toISOString(), vuLe: null };
+          writeDevices(d);
+          return { id: id, token: token };
+        },
+        verify: function (id, token) {
+          const d = readDevices();
+          const dev = d[id];
+          if (!dev) return null;
+          const a = Buffer.from(sha(token)), b = Buffer.from(dev.hash);
+          if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+          const now = Date.now();
+          if (!dev.vuLe || now - Date.parse(dev.vuLe) > 60000) { dev.vuLe = new Date(now).toISOString(); try { writeDevices(d); } catch (e) {} }
+          return { id: id, nom: dev.nom };
+        },
+        revoke: function (id) {
+          const d = readDevices();
+          if (!d[id]) return false;
+          delete d[id]; writeDevices(d);
+          try { fs.unlinkSync(path.join(dir, 'sync-base-' + id + '.json')); } catch (e) {}
+          return true;
+        }
+      },
       journal: function (ligne) {
         try { fs.appendFileSync(logFile, '[' + new Date().toISOString() + '] ' + ligne + '\n'); } catch (e) {}
       },
       save: function () {
         try { if (fs.existsSync(dataFile)) fs.copyFileSync(dataFile, backupFile); } catch (e) { console.error('[' + slug + '] copie de secours impossible :', e.message); }
         atomicWrite(dataFile, JSON.stringify(t.state));
+        t.version++; persistVersion();
         try { t.mtime = fs.statSync(dataFile).mtimeMs; } catch (e) {}
         dailyBackup(slug, dataFile);
       },

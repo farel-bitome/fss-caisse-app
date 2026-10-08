@@ -117,6 +117,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
     }
 
     function saveState(state) {
+      if (!silentSave && syncAgent) syncAgent.notifyChange(); // changement local : à envoyer au web à la prochaine synchro
       const json = JSON.stringify(state, null, 2);
       // Garde une copie de secours du dernier état VALIDE avant d'écraser —
       // sert de filet de récupération si jamais la prochaine écriture est
@@ -168,7 +169,23 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       return data.access_token;
     }
 
+    // ---- Synchronisation avec la version web (optionnelle : active seulement si l'ordinateur est « lié ») ----
+    let syncAgent = null;
+    let silentSave = false;
+
     let state = loadState();
+
+    syncAgent = require('./sync-cloud')({
+      dir: userDataDir,
+      log: ecrireJournal,
+      getState: function () { return state; },
+      persist: function () { silentSave = true; try { saveState(state); } finally { silentSave = false; } },
+      applyState: function (nouvelEtat) {
+        silentSave = true;
+        try { state = nouvelEtat; saveState(state); } finally { silentSave = false; }
+        io.emit('state:changed', state); // les postes du réseau local reçoivent aussitôt les changements venus du web
+      }
+    });
 
     const expressApp = express();
     const server = http.createServer(expressApp);
@@ -367,6 +384,47 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       }
     });
 
+    // ---- Synchronisation en ligne : réservée à cet ordinateur (fenêtre de l'application) ----
+    function cetOrdinateurSeulement(req, res, next) {
+      const ip = req.socket && req.socket.remoteAddress;
+      if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') return res.status(403).json({ ok: false, erreur: 'Réservé à l\'ordinateur serveur.' });
+      // Une page web quelconque ouverte sur ce PC ne doit pas pouvoir piloter la synchronisation.
+      const origin = req.headers.origin;
+      if (origin) {
+        let o = null;
+        try { o = new URL(origin); } catch (e) {}
+        if (!o || (o.hostname !== 'localhost' && o.hostname !== '127.0.0.1') || String(o.port || '80') !== String(req.socket.localPort)) {
+          return res.status(403).json({ ok: false, erreur: 'Origine refusée.' });
+        }
+      }
+      next();
+    }
+    expressApp.get('/cloud-link.html', cetOrdinateurSeulement, function (req, res) {
+      res.sendFile(path.join(appRootDir, 'cloud-link.html'));
+    });
+    expressApp.get('/api/cloud/status', cetOrdinateurSeulement, function (req, res) { res.json(syncAgent.status()); });
+    expressApp.post('/api/cloud/link', cetOrdinateurSeulement, async function (req, res) {
+      const b = req.body || {};
+      res.json(await syncAgent.link({ url: b.url, nom: b.nom, mdp: b.mdp, mode: b.mode, appareil: b.appareil }));
+    });
+    expressApp.post('/api/cloud/unlink', cetOrdinateurSeulement, function (req, res) { syncAgent.unlink(); res.json({ ok: true }); });
+    expressApp.post('/api/cloud/sync-now', cetOrdinateurSeulement, async function (req, res) { await syncAgent.syncNow(); res.json(syncAgent.status()); });
+
+    // Comptes créés en ligne (mot de passe haché) : vérification sur le PC, donc possible sans Internet.
+    const essaisConnexion = {};
+    expressApp.post('/api/verify-login', function (req, res) {
+      const ip = req.socket && req.socket.remoteAddress;
+      const f = essaisConnexion[ip];
+      if (f && f.n >= 10 && Date.now() - f.t < 5 * 60 * 1000) return res.status(429).json({ ok: false, erreur: 'Trop d\'essais, réessayez dans quelques minutes.' });
+      const nom = String((req.body && req.body.nom) || '').toLowerCase();
+      const mdp = String((req.body && req.body.mdp) || '');
+      const u = (state.users || []).find(function (x) { return String(x.nom).toLowerCase() === nom; });
+      const ok = !!(u && u.mdpHash && syncAgent.verifyHash(mdp, u.mdpHash));
+      if (!ok) { const n = (f && Date.now() - f.t < 5 * 60 * 1000) ? f.n + 1 : 1; essaisConnexion[ip] = { n: n, t: (f && n > 1) ? f.t : Date.now() }; }
+      else delete essaisConnexion[ip];
+      res.json({ ok: ok, id: ok ? u.id : undefined });
+    });
+
     // ---- Routes Airtel Money ----
     expressApp.get('/api/airtel/config-status', (req, res) => {
       const cfg = loadAirtelConfig();
@@ -527,6 +585,6 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
     });
 
     server.on('error', reject);
-    server.listen(port, '0.0.0.0', () => resolve(server));
+    server.listen(port, '0.0.0.0', () => { syncAgent.start(); resolve(server); });
   });
 };

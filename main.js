@@ -276,6 +276,17 @@ function buildMenu() {
             }
           }
         },
+        {
+          label: 'Synchronisation en ligne (lier à mon compte web)',
+          click: () => {
+            const cfg = loadConfig();
+            if (cfg.role !== 'server') {
+              dialog.showMessageBox(win, { type: 'info', title: 'Synchronisation en ligne', message: "La liaison avec le web se fait sur l'ordinateur « Serveur » uniquement." });
+              return;
+            }
+            win.loadURL('http://localhost:' + PORT + '/cloud-link.html');
+          }
+        },
         { label: 'Recharger', click: () => global.rechargerEnAttendantSync ? global.rechargerEnAttendantSync() : boot(true) },
         {
           label: 'Licence / Activation',

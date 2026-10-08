@@ -142,7 +142,29 @@
     var u = (window.users || []).find(function (x) {
       return x.nom.toLowerCase() === nom.toLowerCase() && x.mdp === mdp;
     });
-    if (!u) { err.textContent = 'Identifiant ou mot de passe incorrect'; return; }
+    if (!u) {
+      // Compte créé en ligne (synchronisation avec la version web) : seul le haché du mot de passe
+      // existe sur ce PC ; le serveur de la caisse le vérifie — sans avoir besoin d'Internet.
+      var cand = (window.users || []).find(function (x) {
+        return x.nom.toLowerCase() === nom.toLowerCase() && !x.mdp && x.mdpHash;
+      });
+      if (cand) {
+        fetch('/api/verify-login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nom: nom, mdp: mdp })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (!j.ok) { err.textContent = j.erreur || 'Identifiant ou mot de passe incorrect'; return; }
+          finishLogin(cand, err);
+        }).catch(function () { err.textContent = 'Serveur injoignable'; });
+        return;
+      }
+      err.textContent = 'Identifiant ou mot de passe incorrect';
+      return;
+    }
+    finishLogin(u, err);
+  }
+
+  function finishLogin(u, err) {
     err.textContent = '';
     currentUser = u;
     window.currentUser = u;

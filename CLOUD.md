@@ -46,6 +46,35 @@ Un nouvel établissement démarre vide (catalogue, tables, clients à saisir ou 
 Les mots de passe existants sont **hachés** (plus jamais stockés en clair) ; chaque employé choisit un nouveau
 mot de passe à sa prochaine connexion. Un compte `admin` de secours est créé (mot de passe affiché une fois).
 
+## Lier la version Windows (travail sans Internet, mise à jour automatique)
+
+La caisse Windows reste le poste de travail : **elle fonctionne sans Internet**, et dès que la connexion est là elle
+envoie ses changements au web et reprend ceux faits en ligne (stock, catalogue, clients, comptes, ventes…).
+
+**Sur le PC « Serveur »** (une seule fois, avec Internet) :
+1. Menu **FSS-CAISSE → Synchronisation en ligne (lier à mon compte web)**.
+2. Saisir l'adresse de l'établissement (`https://afrolounge.votre-domaine.com`) et l'identifiant/mot de passe d'un **administrateur**.
+3. Choisir : **« Ce PC contient déjà les données »** (envoi vers le web, pour une caisse déjà en service) ou
+   **« Nouvel ordinateur »** (récupère les données du web — remplace celles du PC).
+4. Terminé : le PC reçoit un jeton propre à lui (le mot de passe n'est pas conservé). Les comptes du PC sont publiés en ligne
+   avec des mots de passe **hachés** ; les employés utilisent les mêmes identifiants partout, et les comptes créés sur le web
+   fonctionnent aussi sur le PC **sans Internet**.
+
+Les postes du réseau local (téléphones, autres PC) ne changent rien : ils continuent de se connecter au PC Serveur.
+
+**Règles de fusion** (quand les deux côtés ont changé pendant une coupure) :
+- Ce qui est **ajouté** d'un côté est gardé (ventes, clients, articles, mouvements de stock…). Deux ventes créées au même numéro des deux côtés sont **toutes les deux gardées** (la seconde reçoit le suffixe `-W`).
+- Ce qui est **supprimé** d'un côté l'est aussi, sauf si l'autre côté l'a modifié entre-temps.
+- Un élément **modifié des deux côtés** : la version du **PC de caisse** l'emporte (le détail est écrit dans le journal du web).
+- Les compteurs (n° de ticket…) gardent toujours la plus grande valeur.
+
+**Gérer les ordinateurs liés** (sur le VPS) :
+```bash
+docker compose -f docker-compose.cloud.yml exec app node cloud/admin.js appareils afrolounge
+docker compose -f docker-compose.cloud.yml exec app node cloud/admin.js revoquer afrolounge <id-appareil>   # PC volé ou remplacé
+```
+Un PC révoqué est refusé et l'affiche clairement ; ses données locales restent intactes.
+
 ## Données et sauvegardes
 
 - Tout est dans le volume Docker `fss-data` : `/data/tenants/<code>/data.json` + une **sauvegarde automatique par jour**
@@ -69,10 +98,12 @@ mot de passe à sa prochaine connexion. Un compte `admin` de secours est créé 
 - **Impression automatique** (bons cuisine/bar, tickets) : sur la version Windows, c'est le PC « Serveur » qui imprime en silence.
   En version web, l'impression passe par le navigateur (boîte d'impression). Pour l'impression automatique en cuisine,
   il faudra un petit agent d'impression local — non inclus.
-- Pas de mode hors-ligne : sans Internet, la caisse web ne fonctionne pas (la version Windows en réseau local reste disponible).
+- La caisse **web** (navigateur) n'a pas de mode hors-ligne : sans Internet, c'est la version Windows liée qui assure le travail.
+- **Stock et ventes des deux côtés en même temps** : si le même article est vendu sur le PC (hors-ligne) ET sur le web pendant la coupure, la quantité en stock du PC l'emporte (les ventes, elles, sont toutes conservées). Pour un stock toujours exact, vendre depuis un seul côté à la fois, ou recalculer le stock à partir des mouvements (évolution possible).
 - Le serveur tourne sur **une seule instance** (pas de répartition de charge) : très largement suffisant pour des dizaines
   d'établissements, mais à revoir au-delà.
 
 ## Tests
 
-`npm install && npm run cloud:test` — 60 vérifications automatiques (accès, sessions, isolation, droits, temps réel, import…).
+`npm install && npm run cloud:test` — 60 vérifications (accès, sessions, isolation, droits, temps réel, import…).
+`npm run cloud:test:sync` — 34 vérifications de la synchronisation PC ↔ web (fusion, coupure d'Internet, comptes, appareils révoqués…).

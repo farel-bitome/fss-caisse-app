@@ -5,6 +5,7 @@
 //   node cloud/admin.js liste
 //   node cloud/admin.js suspendre <code>      |  reactiver <code>
 //   node cloud/admin.js mot-de-passe <code> [identifiant]   (génère un nouveau mot de passe, à changer à la connexion)
+//   node cloud/admin.js appareils <code>      |  revoquer <code> <id-appareil>   (PC Windows liés à l'établissement)
 'use strict';
 const path = require('path');
 const fs = require('fs');
@@ -51,8 +52,20 @@ try {
     const nom = b || 'admin';
     const pwd = store.resetPassword(a.toLowerCase(), nom);
     console.log('Nouveau mot de passe pour ' + nom + ' (' + a + ') : ' + pwd + '   (à changer à la prochaine connexion)');
+  } else if (cmd === 'appareils') {
+    if (!a) fail('code manquant');
+    const t = store.open(a.toLowerCase());
+    if (!t) fail('Établissement introuvable.');
+    const l = t.devices.list();
+    if (!l.length) console.log('Aucun ordinateur lié.');
+    l.forEach(function (d) { console.log(d.id + '  ' + String(d.nom).padEnd(24) + ' lié le ' + d.creeLe + '  dernière synchro : ' + (d.vuLe || 'jamais')); });
+  } else if (cmd === 'revoquer') {
+    if (!a || !b) fail('Usage : revoquer <code> <id-appareil>');
+    const t = store.open(a.toLowerCase());
+    if (!t) fail('Établissement introuvable.');
+    console.log(t.devices.revoke(b) ? 'Ordinateur ' + b + ' révoqué : il ne pourra plus se synchroniser.' : 'Appareil introuvable.');
   } else {
-    console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 8).map(function (l) { return l.replace(/^\/\/ ?/, ''); }).join('\n'));
+    console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 9).map(function (l) { return l.replace(/^\/\/ ?/, ''); }).join('\n'));
     process.exit(cmd ? 1 : 0);
   }
 } catch (e) { fail(e.message); }

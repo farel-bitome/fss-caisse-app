@@ -17,6 +17,7 @@ const path = require('path');
 const { Server } = require('socket.io');
 const security = require('./security');
 const { createStore, publicState } = require('./store');
+const { merge3 } = require('../sync-merge');
 
 const APP_DIR = path.join(__dirname, '..', 'app');
 const COOKIE = 'fss_sid';
@@ -32,6 +33,7 @@ function createApp(opts) {
   const store = createStore(opts.dataDir);
   const sessions = security.makeSessions(opts.sessionSecret);
   const loginLimiter = security.makeLimiter(8, 15 * 60 * 1000);
+  const deviceLimiter = security.makeLimiter(60, 15 * 60 * 1000); // séparé : un PC révoqué ne doit pas bloquer les autres PC du même restaurant (même adresse IP)
   const DUMMY_HASH = security.hashPasswordSync('fss-dummy');
 
   const indexHtml = fs.readFileSync(path.join(APP_DIR, 'index.html'), 'utf8')
@@ -89,6 +91,7 @@ function createApp(opts) {
     }
     next();
   });
+  app.use('/api/sync', express.json({ limit: '100mb' })); // l'état complet d'un PC peut être volumineux (gzip accepté)
   app.use(express.json({ limit: '10mb' }));
 
   // ---------- Résolution de l'établissement ----------
@@ -459,6 +462,103 @@ function createApp(opts) {
       req.tenant.journal('PVIT : paiement ' + r.body.paiement.reference + ' ' + r.body.paiement.montant + ' F -> ' + r.body.paiement.statut);
     }
     res.status(r.status).json(r.body);
+  });
+
+
+  // ---------- Synchronisation avec les PC Windows (mode hors-ligne -> en ligne) ----------
+  // Un PC se « lie » une fois avec un compte administrateur ; il reçoit alors un jeton d'appareil
+  // (révocable) et n'a plus besoin du mot de passe pour se synchroniser.
+  app.post('/api/sync/link', async function (req, res) {
+    const t = req.tenant;
+    const nom = String((req.body && req.body.nom) || '').trim();
+    const mdp = String((req.body && req.body.mdp) || '');
+    if (!nom || !mdp) return res.status(400).json({ ok: false, erreur: 'Identifiant et mot de passe requis' });
+    const kIp = req.slug + '|ip|' + req.ip, kUser = req.slug + '|u|' + nom.toLowerCase();
+    if (loginLimiter.blocked(kIp) || loginLimiter.blocked(kUser)) return res.status(429).json({ ok: false, erreur: 'Trop d\'essais. Réessayez dans 15 minutes.' });
+    const u = (t.state.users || []).find(function (x) { return String(x.nom).toLowerCase() === nom.toLowerCase(); });
+    const ok = await security.verifyPassword(mdp, u && u.mdpHash ? u.mdpHash : DUMMY_HASH) && !!u && !!u.mdpHash;
+    if (!ok) { loginLimiter.fail(kIp); loginLimiter.fail(kUser); return res.status(401).json({ ok: false, erreur: 'Identifiant ou mot de passe incorrect' }); }
+    if (!(u.super || u.full)) return res.status(403).json({ ok: false, erreur: 'Un compte administrateur est nécessaire pour lier un ordinateur.' });
+    loginLimiter.reset(kUser);
+    const d = t.devices.add(String((req.body && req.body.appareil) || 'PC').slice(0, 60));
+    t.journal('Appareil lié : ' + d.id + ' (' + String((req.body && req.body.appareil) || 'PC').slice(0, 60) + ') par ' + u.nom);
+    res.json({ ok: true, token: d.id + '.' + d.token, appareil: d.id, etablissement: { slug: req.slug, nom: (t.state.etab && t.state.etab.nom) || t.meta.nom }, version: t.version });
+  });
+
+  function deviceAuth(req, res, next) {
+    const m = String(req.headers.authorization || '').match(/^Bearer ([a-f0-9]{8})\.([a-f0-9]{64})$/);
+    const k = req.slug + '|dev|' + req.ip;
+    if (deviceLimiter.blocked(k)) return res.status(429).json({ ok: false, erreur: 'Trop d\'essais.' });
+    const dev = m ? req.tenant.devices.verify(m[1], m[2]) : null;
+    if (!dev) { deviceLimiter.fail(k); return res.status(401).json({ ok: false, erreur: 'Appareil non reconnu ou révoqué — liez de nouveau cet ordinateur.' }); }
+    req.device = dev;
+    next();
+  }
+  app.get('/api/sync/ping', deviceAuth, function (req, res) {
+    res.json({ ok: true, version: req.tenant.version, appareil: req.device.nom, etablissement: (req.tenant.state.etab && req.tenant.state.etab.nom) || req.tenant.meta.nom });
+  });
+
+  function readBase(t, id) { try { return JSON.parse(fs.readFileSync(t.file('sync-base-' + id + '.json'), 'utf8')); } catch (e) { return null; } }
+  function writeBase(t, id, state) {
+    const f = t.file('sync-base-' + id + '.json');
+    fs.writeFileSync(f + '.tmp', JSON.stringify(state)); fs.renameSync(f + '.tmp', f);
+  }
+  const clone = function (o) { return JSON.parse(JSON.stringify(o)); };
+
+  app.post('/api/sync', deviceAuth, function (req, res) {
+    const t = req.tenant, dev = req.device, b = req.body || {};
+    try {
+      const cur = t.state;
+      // Nouvel ordinateur : on reprend les données du web telles quelles.
+      if (b.mode === 'pull') {
+        writeBase(t, dev.id, cur);
+        t.journal('Synchro [' + dev.nom + '] : récupération complète des données du web');
+        return res.json({ ok: true, state: cur, version: t.version });
+      }
+      const base = readBase(t, dev.id);
+      // Le PC n'a rien changé depuis la dernière synchro.
+      if (!b.dirty) {
+        if (base && b.baseVersion === t.version) return res.json({ ok: true, unchanged: true, version: t.version });
+        writeBase(t, dev.id, cur);
+        return res.json({ ok: true, state: cur, version: t.version });
+      }
+      // Le PC a des changements : fusion à 3 voies (base / PC / web).
+      const local = b.state;
+      if (!local || typeof local !== 'object' || Array.isArray(local)) return res.status(400).json({ ok: false, erreur: 'État invalide' });
+      local.users = (Array.isArray(local.users) ? local.users : []).filter(function (u) {
+        return u && typeof u.nom === 'string' && u.nom.trim() && typeof u.mdpHash === 'string' && /^scrypt\$[a-f0-9]+\$[a-f0-9]+$/.test(u.mdpHash);
+      }).map(function (u) { const c = Object.assign({}, u); delete c.mdp; delete c.mdpHashOf; return c; });
+      const res3 = merge3(base, local, cur);
+      const merged = res3.state;
+      // Comptes : sessions du web invalidées seulement si un mot de passe a réellement changé ; ids uniques.
+      const prevByNom = {};
+      (cur.users || []).forEach(function (u) { prevByNom[String(u.nom).toLowerCase()] = u; });
+      let maxId = 0;
+      const usedIds = {};
+      merged.users = (merged.users || []).map(function (u) {
+        const c = Object.assign({}, u);
+        const prev = prevByNom[String(c.nom).toLowerCase()];
+        c.pwdAt = (prev && prev.mdpHash === c.mdpHash) ? (prev.pwdAt || 0) : Date.now();
+        if (prev && typeof prev.doitChangerMdp === 'boolean' && prev.mdpHash === c.mdpHash) c.doitChangerMdp = prev.doitChangerMdp;
+        return c;
+      });
+      merged.users.forEach(function (u) { if (typeof u.id === 'number') maxId = Math.max(maxId, u.id); });
+      merged.users.forEach(function (u) {
+        if (typeof u.id !== 'number' || usedIds[u.id]) u.id = ++maxId;
+        usedIds[u.id] = true;
+      });
+      merged.nextUserId = Math.max(merged.nextUserId || 1, maxId + 1);
+      if (!merged.users.some(function (u) { return u.super || u.full; })) merged.users = cur.users; // jamais sans administrateur
+      t.state = merged;
+      t.save();
+      writeBase(t, dev.id, merged);
+      broadcast(t);
+      t.journal('Synchro [' + dev.nom + '] : fusion effectuée (' + res3.conflicts.length + ' conflit(s))' + (res3.conflicts.length ? ' ' + JSON.stringify(res3.conflicts.slice(0, 20)) : ''));
+      res.json({ ok: true, state: merged, version: t.version, conflits: res3.conflicts.length });
+    } catch (e) {
+      console.error('[' + req.slug + '] Erreur synchro :', e);
+      res.status(500).json({ ok: false, erreur: 'Erreur serveur' });
+    }
   });
 
   app.use('/api', function (req, res) { res.status(404).json({ ok: false, erreur: 'Route inconnue' }); });
