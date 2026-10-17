@@ -357,6 +357,18 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
           nouvelEtat.arts = state.arts;
           nouvelEtat.artsUpdatedAt = ancienHorodatageArts;
         }
+        // Comptes utilisateurs : un poste en retard (ancienne copie des comptes)
+        // ne doit JAMAIS écraser un changement plus récent (mot de passe,
+        // droits, nouveau compte). Chaque modification incrémente usersRev ;
+        // le serveur refuse une liste dont le numéro est plus ancien.
+        const revServeur = (state && state.usersRev) || 0;
+        const revRecue = nouvelEtat.usersRev || 0;
+        if (state && state.users && revRecue < revServeur) {
+          nouvelEtat.users = state.users;
+          nouvelEtat.nextUserId = state.nextUserId;
+          nouvelEtat.usersRev = revServeur;
+          ecrireJournal('Comptes : liste reçue plus ancienne (rév. ' + revRecue + ' < ' + revServeur + ') — ignorée, version du serveur conservée');
+        }
         state = nouvelEtat;
         saveState(state);
         io.emit('state:changed', state);

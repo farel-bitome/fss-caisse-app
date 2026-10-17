@@ -36,7 +36,7 @@
     return {
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
       prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
-      users: users, nextUserId: nextUserId, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches,
+      users: users, nextUserId: nextUserId, usersRev: window.usersRev || 0, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches,
       clotureHistorique: clotureHistorique,
       categoryAlerteActive: categoryAlerteActive,
       artsUpdatedAt: window.artsUpdatedAt || 0,
@@ -121,6 +121,7 @@
     nextTk = s.nextTk || 1;
     attenteSeq = s.attenteSeq || 1;
     users = s.users || [];
+    window.usersRev = s.usersRev || 0;
     nextUserId = s.nextUserId || 1;
     logoData = s.logo || null;
     etabInfo = s.etab || { nom: 'FSS-CAISSE', tel: '', adr: '', rccm: '', nif: '', msgFin: 'Merci pour votre visite !' };
