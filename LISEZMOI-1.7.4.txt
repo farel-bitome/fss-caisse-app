@@ -1,0 +1,12 @@
+FSS-CAISSE 1.7.4 - fichiers modifies par rapport a la 1.7.3
+==========================================================
+Copiez ces fichiers PAR-DESSUS votre dossier de code source (memes chemins), puis poussez sur GitHub :
+
+  main.js              (imprimantes : IPC, detection automatique, aiguillage)
+  preload.js           (expose les fonctions imprimantes a l'application)
+  printers.js          (NOUVEAU : Windows + reseau IP, Xprinter/Epson ESC/POS, scan reseau)
+  embedded-server.js   (postes connectes, erreurs d'impression, archivage des clotures)
+  package.json         (version 1.7.4, printers.js + dossier drivers dans l'installateur)
+  app/index.html       (correctifs du TPE + ecran Parametres > Peripheriques)
+  app/network.js       (identifiant du poste, envoi des bons avec le poste emetteur)
+  drivers/             (NOUVEAU : mettez ici vos dossiers de pilotes Xprinter / Epson)

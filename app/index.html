@@ -605,8 +605,12 @@ td{padding:8px 11px;vertical-align:middle}
       <button class="btn btn-r" onclick="doCloture()">🔒 Clôturer</button>
       <button class="btn btn-o sm" onclick="toast('Saisissez le montant dans Prélèvements','i')">💸 Prélèvement</button>
       <button class="btn btn-o sm" onclick="razCaisse()">🔄 RAZ Caisse</button>
+      <button class="btn btn-b sm" onclick="print58()">🖨️ 58mm</button>
       <button class="btn btn-b sm" onclick="print80()">🖨️ 80mm</button>
+      <button class="btn btn-o sm" onclick="archiverClotureManuel()">🗄️ Archiver</button>
       <button class="btn btn-o sm" onclick="printA4()">📄 A4</button>
+      <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:4px">Ticket auto :
+        <select class="ms" id="selFmtCloture" onchange="enregistrerFormatCloture(this.value)"><option value="80mm">80mm</option><option value="58mm">58mm</option></select></label>
       <button class="btn btn-o sm" onclick="ouvrirHistoriqueClotures()">🗂️ Historique</button>
     </div>
     <div class="cgrid">
@@ -771,6 +775,40 @@ td{padding:8px 11px;vertical-align:middle}
     </div>
     <div class="sub" id="sub-params-dev">
       <div class="slay">
+        <div class="ssect" id="secPrintersServer" style="display:none"><div class="ssti">🖨️ Imprimantes du restaurant — à configurer une seule fois (poste Serveur)</div>
+          <div id="prtBanner" style="display:none;background:#2a1a00;border:1px solid #FFAA00;color:#FFCC66;border-radius:6px;padding:10px 12px;font-size:12px;margin-bottom:12px">⚠️ <strong>Première utilisation</strong> — vérifiez la liste ci-dessous, choisissez l'imprimante de caisse et indiquez, pour chaque poste, sur quelle(s) imprimante(s) il envoie ses bons de commande. Ensuite, tout est automatique : plus aucune question.</div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px">Les imprimantes USB (Xprinter, Epson… avec pilote Windows) sont détectées et ajoutées automatiquement dès qu'elles sont branchées. Les imprimantes réseau (IP) se recherchent sur le réseau ou s'ajoutent à la main. Tous les modèles Xprinter et Epson ESC/POS sont pris en charge.</div>
+          <div class="fl" style="margin:6px 0">1. Imprimantes</div>
+          <div id="prtListe" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+            <button class="btn btn-b sm" onclick="prtRechercherReseau()">🔍 Rechercher les imprimantes réseau (IP)</button>
+            <button class="btn btn-o sm" onclick="prtOuvrirForm(null)">➕ Ajouter une imprimante IP</button>
+            <button class="btn btn-o sm" onclick="prtOuvrirPilotes()">📂 Dossier des pilotes (Xprinter / Epson)</button>
+            <button class="btn btn-o sm" onclick="prtCharger()">🔄 Actualiser</button>
+            <span id="prtScanStatus" style="font-size:12px;color:#888"></span>
+          </div>
+          <div id="prtTrouvees" style="margin-bottom:10px"></div>
+          <label style="font-size:12px;display:flex;gap:6px;align-items:center;margin:6px 0 14px"><input type="checkbox" id="prtAutoAdd" onchange="prtChangerAuto()"> Ajouter automatiquement les imprimantes USB / Windows dès qu'elles sont branchées</label>
+          <div id="prtForm" style="display:none;border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:14px">
+            <div class="sg">
+              <div class="fg"><label class="fl">Nom (ex : Cuisine, Bar, Salle)</label><input class="fi" id="prtFNom"></div>
+              <div class="fg"><label class="fl">Adresse IP</label><input class="fi" id="prtFIp" placeholder="192.168.1.50"></div>
+              <div class="fg"><label class="fl">Port</label><input class="fi" id="prtFPort" value="9100"></div>
+              <div class="fg"><label class="fl">Marque</label><select class="fi" id="prtFMarque" onchange="prtMajModeles()"></select></div>
+              <div class="fg"><label class="fl">Modèle</label><select class="fi" id="prtFModele" onchange="prtModeleChoisi()"></select></div>
+              <div class="fg"><label class="fl">Largeur du papier</label><select class="fi" id="prtFPapier"><option value="80">80 mm</option><option value="58">58 mm</option></select></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-r sm" onclick="prtSauverForm()">💾 Enregistrer l'imprimante</button><button class="btn btn-o sm" onclick="prtFermerForm()">Annuler</button></div>
+          </div>
+          <div class="fl" style="margin:6px 0">2. Imprimante de caisse <span style="color:#666;font-weight:400">(tickets de caisse, additions, clôtures, prélèvements)</span></div>
+          <select class="fi" id="prtCaisse" onchange="prtChangerCaisse()" style="max-width:360px;margin-bottom:14px"></select>
+          <div class="fl" style="margin:6px 0">3. Bons de commande : quel poste imprime sur quelle(s) imprimante(s) ?</div>
+          <div id="prtPostes" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-o sm" onclick="prtTousSurToutes()">Tous les postes → toutes les imprimantes</button>
+            <button class="btn btn-r sm" onclick="prtEnregistrerTout()">💾 Enregistrer la configuration</button>
+          </div>
+        </div>
         <div class="ssect"><div class="ssti">🖨️ Imprimante</div>
           <div style="font-size:12px;color:#888;margin-bottom:14px">Configurez l'imprimante de tickets utilisée pour les reçus.</div>
           <div class="sg">
@@ -1033,7 +1071,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 <div class="ov" id="ovRecu"><div class="md" style="max-width:420px;max-height:90vh;overflow-y:auto">
   <div class="mh"><span class="mt">🧾 Reçu</span><button class="mc" onclick="closeM('ovRecu')">✕</button></div>
   <div class="mb" style="padding:0">
-    <div id="recuContent" style="background:#fff;color:#000;font-family:'Courier New',monospace;font-size:12px;padding:16px;line-height:1.6"></div>
+    <div id="recuContent" style="background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:16px;line-height:1.6"></div>
   </div>
   <div class="mf" style="gap:8px">
     <button class="btn btn-o" onclick="closeM('ovRecu')">✕ Fermer</button>
@@ -1076,7 +1114,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
       <span style="font-size:24px;font-weight:900;color:#CC0000" id="bilanTotal">0 FCFA</span>
     </div>
   </div>
-  <div class="mf"><button class="btn btn-o" onclick="closeM('ovClotureBilan')">Fermer</button><button class="btn btn-r" onclick="print80()">🖨️ Imprimer 80mm</button><button class="btn btn-r" onclick="printA4()">📄 Imprimer A4</button></div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('ovClotureBilan')">Fermer</button><button class="btn btn-r" onclick="print58()">🖨️ Imprimer 58mm</button><button class="btn btn-r" onclick="print80()">🖨️ Imprimer 80mm</button><button class="btn btn-r" onclick="printA4()">📄 Imprimer A4</button></div>
 </div></div>
 
 <div class="ov" id="ovAirtel"><div class="md"><div class="mh"><span class="mt">📱 Paiement Airtel Money</span><button class="mc" onclick="fermerAirtelModal()">✕</button></div>
@@ -1318,6 +1356,7 @@ function goSub(page,sub,btn){
   if(btn)btn.classList.add('on');
   if(page==='params'&&sub==='airtel')loadPvitStatus();
   if(page==='params'&&sub==='sauv')renderHistoriqueSauvegardes();
+  if(page==='params'&&sub==='dev')prtCharger();
   if(page==='params'&&sub==='cats')initCategories();
   if(page==='personnel'&&sub==='archives')renderArchives();
 }
@@ -1608,12 +1647,12 @@ var clotureHistorique=[];
 var resumingAttenteId=null,resumingBaseItems=null,resumingSentQty=null,resumingNumero=null;
 function imprimerTicketAttente(batch){
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
-  var css='@page{size:80mm auto;margin:0}'+
+  var css='@page{size:'+formatCloture()+' auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
-    'html,body{width:80mm}'+
-    'body{font-family:"Courier New",monospace;font-size:13px;font-weight:900;padding:3mm 4mm}'+
-    'table{width:100%;border-collapse:collapse;margin:2px 0}'+
-    'td{padding:2px 0;vertical-align:top}'+
+    'html,body{width:100%}'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:900;padding:2mm 1mm;-webkit-text-stroke:0.35px currentColor}'+
+    'table{width:100%;border-collapse:collapse;margin:0}'+
+    'td{padding:0;vertical-align:top}'+
     'td.l{text-align:left}'+
     'td.r{text-align:right;padding-left:10px}'+
     '.sep{border-top:1px dashed #000;margin:6px 0}'+
@@ -1621,24 +1660,28 @@ function imprimerTicketAttente(batch){
   function ligne(label,val){
     return '<table><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';
   }
+  function ligneG(label,val){
+    return '<div style="text-align:left;margin-bottom:3px"><span style="display:inline-block;width:11ch">'+label+'</span>: '+val+'</div>';
+  }
   var attId=batch.attenteId||batch.id;
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
-  html+='<div class="c" style="font-size:15px">'+etab+'</div>';
-  html+='<div class="c" style="font-size:14px;margin:4px 0">'+(batch.reimpression?'🔁 RAPPEL — BON COMPLET':(batch.ajout?'📨 AJOUT À LA COMMANDE':'📨 BON DE COMMANDE'))+'</div>';
+  html+='<div class="c" style="font-size:15px"><strong>'+etab+'</strong></div>';
+  html+='<div class="c" style="font-size:14px;margin:4px 0">'+'<strong>'+(batch.reimpression?'RAPPEL — BON COMPLET':(batch.ajout?'AJOUT À LA COMMANDE':'BON DE COMMANDE'))+'</strong>'+'</div>';
   html+='<div class="sep"></div>';
-  html+='<div class="c" style="font-size:26px;line-height:1.15">'+(batch.tableNom||'—')+'</div>';
-  html+='<div class="c" style="font-size:16px;margin-top:2px">👤 '+(batch.srv||'—')+'</div>';
+  html+='<div class="c" style="font-size:22px;line-height:1.15"><strong>'+(batch.tableNom||'—')+'</strong></div>';
+  html+='<div class="c" style="font-size:14px;margin-top:2px">'+(batch.srv||'—')+'</div>';
   html+='<div class="sep"></div>';
-  html+=ligne('N° Commande','<strong>'+(batch.numero!=null?batch.numero:(batch.attenteId||batch.id))+'</strong>');
-  html+=ligne('Heure',batch.heure||'');
+  html+=ligneG('N° Commande','<strong>'+(batch.numero!=null?batch.numero:(batch.attenteId||batch.id))+'</strong>');
+  html+=ligneG('Heure',batch.heure||'');
+  if(batch.posteNom)html+=ligneG('Poste',batch.posteNom);
   html+='<div class="sep"></div>';
   (batch.items||[]).forEach(function(it){
-    html+='<div style="font-size:15px;padding:2px 0">▸ '+(it.qty||it.qt||1)+'x '+it.nom+'</div>';
+    html+='<div style="font-size:12px;padding:1px 0">'+(it.qty||it.qt||1)+'x '+it.nom+'</div>';
   });
   html+='<div class="sep"></div>';
   html+='<div class="c" style="font-size:10px">Impression automatique — poste serveur</div>';
   html+='</body></html>';
-  imprimerSilencieux(html);
+  imprimerSilencieux(html,{kind:'commande',posteId:batch.posteId,libelle:'bon de commande '+(batch.tableNom||'')});
 }
 var additionSplitAttId=null;
 function ouvrirModaleAddition(attId){
@@ -1662,6 +1705,11 @@ function imprimerAddition(attId,nbParts){
   if(window.isWaiterOnly&&window.isWaiterOnly()){toast("Ce compte ne peut pas sortir l'addition","e");return;}
   var c=cmdAttente.find(function(x){return x.id===attId;});
   if(!c){toast('Commande introuvable','e');return;}
+  var manqueAdd=[];
+  if(!c.tableNom||c.tableNom==='—')manqueAdd.push('la table');
+  if(!c.srv||c.srv==='—')manqueAdd.push('le serveur');
+  if(('caisse' in c)&&!c.caisse)manqueAdd.push('la caisse');
+  if(manqueAdd.length){toast('Addition impossible : '+manqueAdd.join(', ')+' non renseigné(e) sur cette commande — reprenez-la et complétez','e');return;}
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
   var tvaOn=typeof tvaActif!=='undefined'?tvaActif:false;
   var tvaPct=typeof tvaRate!=='undefined'?Math.round(tvaRate*100):18;
@@ -1670,10 +1718,10 @@ function imprimerAddition(attId,nbParts){
   var tva=ttc-ht;
   var css='@page{size:80mm auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
-    'html,body{width:80mm}'+
-    'body{font-family:"Courier New",monospace;font-size:12px;font-weight:700;padding:3mm 4mm}'+
-    'table{width:100%;border-collapse:collapse;margin:2px 0}'+
-    'td{padding:2px 0;vertical-align:top}'+
+    'html,body{width:100%}'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:900;padding:2mm 1mm;-webkit-text-stroke:0.35px currentColor}'+
+    'table{width:100%;border-collapse:collapse;margin:0}'+
+    'td{padding:0;vertical-align:top}'+
     'td.l{text-align:left}'+
     'td.r{text-align:right;padding-left:10px}'+
     '.sep{border-top:1px dashed #000;margin:6px 0}'+
@@ -1682,14 +1730,17 @@ function imprimerAddition(attId,nbParts){
   function ligne(label,val){
     return '<table><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';
   }
+  function ligneG(label,val){
+    return '<div style="text-align:left;margin-bottom:3px"><span style="display:inline-block;width:14ch">'+label+'</span>: '+val+'</div>';
+  }
   function buildAdditionBody(numeroPart){
     var html='<div class="c" style="font-size:16px">'+etab+'</div>';
-    html+='<div class="c" style="font-size:13px;margin:4px 0;border:1.5px solid #000;padding:3px">🧾 ADDITION — APERÇU</div>';
+    html+='<div class="c" style="font-size:13px;margin:4px 0;border:1.5px solid #000;padding:3px">ADDITION — APERÇU</div>';
     html+='<div class="c" style="font-size:10px">Document non définitif, non fiscal</div>';
     html+='<div class="sep"></div>';
-    html+=ligne('Table',c.tableNom||'—');
-    if(c.srv&&c.srv!=='—')html+=ligne('Serveur',c.srv);
-    html+=ligne('Heure commande',c.heure||'');
+    html+=ligneG('Table',c.tableNom||'—');
+    if(c.srv&&c.srv!=='—')html+=ligneG('Serveur',c.srv);
+    html+=ligneG('Heure commande',c.heure||'');
     html+='<div class="sep"></div>';
     if(nbParts<=1){
       (c.items||[]).forEach(function(it){
@@ -1702,7 +1753,7 @@ function imprimerAddition(attId,nbParts){
         html+=ligne('TVA '+tvaPct+'%',tva.toLocaleString('fr-FR')+' F');
         html+='<div class="sep"></div>';
       }
-      html+='<div style="font-size:16px">'+ligne('<strong>TOTAL À PAYER</strong>','<strong>'+ttc.toLocaleString('fr-FR')+' F</strong>')+'</div>';
+      html+='<div style="font-size:13px;text-align:left"><strong>TOTAL À PAYER : '+ttc.toLocaleString('fr-FR')+' F</strong></div>';
     }else{
       // Addition divisée : chaque exemplaire affiche sa part, pas la liste
       // complète des articles (chaque groupe paiera sa portion séparément).
@@ -1736,7 +1787,7 @@ function imprimerAddition(attId,nbParts){
     // l'impression silencieuse dès qu'il y a plus d'une page).
     pages.forEach(function(corpsPage,idx){
       var htmlPage='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'+corpsPage+'</body></html>';
-      setTimeout(function(){imprimerSilencieux(htmlPage);},idx*300);
+      setTimeout(function(){imprimerSilencieux(htmlPage,{kind:'addition'});},idx*300);
     });
   }else{
     var lotAddition={batchId:'TICKET-'+Date.now(),type:'ticket',html:html,copies:pages,css:css};
@@ -1744,9 +1795,31 @@ function imprimerAddition(attId,nbParts){
   }
   toast('Addition imprimée','s');
 }
-function imprimerSilencieux(html){
-  if(window.electronAPI&&window.electronAPI.printSilent){
-    window.electronAPI.printSilent(html);
+function imprimerSilencieux(html,opts){
+  opts=opts||{};
+  var api=window.electronAPI;
+  // Poste Serveur avec imprimantes configurées : aiguillage automatique (imprimante de caisse,
+  // ou imprimantes affectées au poste émetteur pour les bons de commande) — voir printers.js.
+  if(api&&api.printers&&window.FSS_IS_SERVER){
+    return api.printers.route({kind:opts.kind||'ticket',posteId:opts.posteId||window.FSS_POSTE_ID,html:html}).then(function(r){
+      if(r&&r.avertissement)toastLong('⚠️ '+r.avertissement,'i',9000);
+      var ko=((r&&r.resultats)||[]).filter(function(x){return !x.ok;});
+      if(ko.length){
+        var msg='Impression impossible'+(opts.libelle?' ('+opts.libelle+')':'')+' sur « '+ko.map(function(x){return x.nom;}).join(', ')+' » : '+(ko[0].error||'imprimante indisponible');
+        toastLong(msg,'e',10000);
+        // Prévient le poste qui avait envoyé le bon (s'il s'agit d'un autre poste)
+        if(opts.posteId&&opts.posteId!==window.FSS_POSTE_ID){
+          fetch('/api/printerrors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({posteId:opts.posteId,message:msg})}).catch(function(){});
+        }
+      }
+      return {success:!!(r&&r.ok),error:ko.length?ko[0].error:null};
+    }).catch(function(e){
+      toastLong('Impression impossible : '+(e&&e.message?e.message:e),'e',10000);
+      return {success:false,error:String(e)};
+    });
+  }
+  if(api&&api.printSilent){
+    return api.printSilent(html);
   }else{
     var w=window.open('','_blank','width=380,height=600');
     w.document.write(html);w.document.close();
@@ -1759,7 +1832,7 @@ function imprimerTicketCommande(tx){
   var css='@page{size:80mm auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
     'html,body{width:80mm}'+
-    'body{font-family:"Courier New",monospace;font-size:13px;font-weight:900;padding:3mm 4mm}'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:900;padding:2mm 1mm;-webkit-text-stroke:0.35px currentColor}'+
     'table{width:100%;border-collapse:collapse;margin:2px 0}'+
     'td{padding:2px 0;vertical-align:top}'+
     'td.l{text-align:left}'+
@@ -1790,8 +1863,27 @@ function imprimerTicketCommande(tx){
   html+='</body></html>';
   imprimerSilencieux(html);
 }
+function verifierSelectionsObligatoires(action){
+  var champs=[
+    {id:'selTable',nom:'la table',vide:function(v){return !v||v==='0';}},
+    {id:'selSrv',nom:'le serveur',vide:function(v){return !v;}},
+    {id:'selCaisse',nom:'la caisse',vide:function(v){return !v;}}
+  ];
+  var manquants=[];
+  champs.forEach(function(c){
+    var el=g(c.id);if(!el)return;
+    var manque=c.vide(el.value);
+    el.style.outline=manque?'2px solid #FF3333':'';
+    if(manque)manquants.push(c);
+  });
+  if(!manquants.length)return true;
+  toast('Sélectionnez '+manquants.map(function(c){return c.nom;}).join(', ')+' avant '+(action||'de continuer'),'e');
+  try{g(manquants[0].id).focus();}catch(e){}
+  return false;
+}
 function mettreEnAttente(){
   if(!tkt.length){toast('Ticket vide','e');return;}
+  if(!verifierSelectionsObligatoires("d'envoyer le bon de commande"))return;
   var tableNom=tableNomAffiche();
   var tableVal=tableValCombine();
   var srv=g('selSrv').value||'—';
@@ -1826,7 +1918,8 @@ function mettreEnAttente(){
     numeroAffiche=attenteSeq++;
     deltaItems=tkt.map(function(i){return{nom:i.nom,qty:i.qty||i.qt||1};});
   }
-  var nouvelleCommandeAttente={id:id,numero:numeroAffiche,tableNom:tableNom,tableVal:tableVal,srv:srv,items:JSON.parse(JSON.stringify(tkt)),sentQty:qtyMapNow,total:total,heure:heure,ts:Date.now()};
+  var nouvelleCommandeAttente={id:id,numero:numeroAffiche,tableNom:tableNom,tableVal:tableVal,srv:srv,caisse:(g('selCaisse')?g('selCaisse').value:''),items:JSON.parse(JSON.stringify(tkt)),sentQty:qtyMapNow,total:total,heure:heure,ts:Date.now()};
+  cmdAttente=cmdAttente.filter(function(c){return c.id!==id;});
   cmdAttente.push(nouvelleCommandeAttente);
   // Le bon de commande cuisine s'imprime bien à l'envoi (comme d'habitude).
   // Il ne s'imprime PAS au moment du paiement — ces deux impressions sont
@@ -1878,8 +1971,8 @@ function reprendreAttente(id){
     resumingSentQty={};
     c.items.forEach(function(it){resumingSentQty[it.id]=(resumingSentQty[it.id]||0)+(it.qty||it.qt||1);});
   }
-  cmdAttente.splice(idx,1);
-  if(window.fssRetirerCmdAttente)window.fssRetirerCmdAttente(id);
+  // La commande n'est PLUS retirée de « En attente » pendant qu'on la modifie : elle ne disparaît
+  // (et sa table ne redevient libre) que lorsqu'elle est PAYÉE ou ANNULÉE (✕).
   // c.tableVal peut être "5" (table seule) ou "5-B" (table + sous-facture) :
   // on décompose pour sélectionner correctement les deux champs. On retire
   // d'abord la commande de la liste (ligne au-dessus) pour que sa propre
@@ -1888,6 +1981,9 @@ function reprendreAttente(id){
   var sel=g('selTable');sel.value=parts[0];onTableChange();
   var selS=g('selSrv');
   for(var j=0;j<selS.options.length;j++){if(selS.options[j].text===c.srv){selS.value=selS.options[j].value;break;}}
+  // Restaure aussi la caisse mémorisée avec la commande (sauf compte dont la caisse est imposée).
+  var selCx=g('selCaisse');
+  if(c.caisse&&selCx&&!selCx.disabled)selCx.value=c.caisse;
   renderTkt();updTotal();renderAttenteBar();updateTableOptions();
   toast('Commande '+c.id+' reprise ▶ — ajoutez vos articles puis "Envoyer" ou payez directement','s');
 }
@@ -1895,6 +1991,11 @@ function supprimerAttente(id){
   if(window.hasSuppressionAttentePermission&&!window.hasSuppressionAttentePermission()){toast('Vous n\'avez pas le droit de supprimer une commande en attente','e');return;}
   if(!confirm('Supprimer ?'))return;
   cmdAttente=cmdAttente.filter(function(c){return c.id!==id;});
+  if(resumingAttenteId===id){
+    // On annule explicitement la commande qu'on était en train de modifier : on vide aussi le ticket.
+    resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;resumingNumero=null;
+    tkt=[];renderTkt();updTotal();libererTable();
+  }
   renderAttenteBar();updateTableOptions();toast('Supprimé','i');
   if(window.fssRetirerCmdAttente)window.fssRetirerCmdAttente(id);
 }
@@ -1952,6 +2053,225 @@ function renderAttenteBar(){
     list.appendChild(div);
   });
 }
+// ============================================================
+// IMPRIMANTES DU RESTAURANT (poste Serveur) — Paramètres → Périphériques
+// La configuration est enregistrée sur le Serveur (printers.json) : une seule fois.
+// ============================================================
+var prt={cfg:null,windows:[],modeles:[],postes:[],trouvees:[],edit:null,demande:false};
+function prtDispo(){return !!(window.FSS_IS_SERVER&&window.electronAPI&&window.electronAPI.printers);}
+function prtEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function toastLong(msg,typ,ms){
+  var el=document.createElement('div');
+  el.className='toast '+(typ||'i');
+  el.textContent=(typ==='s'?'✅':typ==='e'?'❌':'ℹ️')+' '+msg;
+  g('toasts').appendChild(el);
+  setTimeout(function(){el.remove();},ms||8000);
+}
+function prtCharger(){
+  if(!prtDispo())return Promise.resolve();
+  g('secPrintersServer').style.display='';
+  return Promise.all([
+    window.electronAPI.printers.get(),
+    fetch('/api/postes').then(function(r){return r.json();}).catch(function(){return [];})
+  ]).then(function(r){
+    prt.cfg=r[0].config;prt.windows=r[0].windows;prt.modeles=r[0].modeles;prt.postes=r[1];
+    prtRender();
+  }).catch(function(e){toast('Imprimantes : '+(e&&e.message||e),'e');});
+}
+function prtPersist(){
+  if(!prt.cfg)return Promise.resolve();
+  return window.electronAPI.printers.save(prt.cfg);
+}
+function prtRender(){
+  var cfg=prt.cfg;if(!cfg)return;
+  g('prtBanner').style.display=cfg.configure?'none':'';
+  g('prtAutoAdd').checked=cfg.autoAjoutWindows!==false;
+  // --- liste
+  var l=g('prtListe');
+  if(!cfg.printers.length){
+    l.innerHTML='<div style="color:#888;font-size:12px;padding:8px 0">Aucune imprimante pour le moment. Branchez une imprimante USB (elle sera ajoutée toute seule) ou recherchez/ajoutez une imprimante réseau ci-dessous.</div>';
+  }else{
+    l.innerHTML='';
+    cfg.printers.forEach(function(p){
+      var d=document.createElement('div');
+      d.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid #2a2a2a;border-radius:6px;padding:8px 10px;margin-bottom:6px';
+      var etat='';
+      if(p.type==='windows')etat=p.presente?'<span style="color:#44FF88">● branchée</span>':'<span style="color:#FF6666">○ non détectée</span>';
+      else etat='<span style="color:#88AAFF">IP '+prtEsc(p.ip)+':'+prtEsc(p.port||9100)+'</span>';
+      d.innerHTML='<label style="display:flex;align-items:center;gap:6px;flex:1;min-width:220px"><input type="checkbox" '+(p.actif!==false?'checked':'')+' onchange="prtActif(\''+p.id+'\',this.checked)"><span><strong>'+prtEsc(p.nom)+'</strong> <span style="color:#888;font-size:11px">'+prtEsc((p.marque||'')+' '+(p.modele||''))+' · '+(p.papier||80)+' mm'+(p.type==='windows'?' · USB/Windows':' · Réseau')+'</span></span></label>'+
+        '<span style="font-size:12px">'+etat+'</span>'+
+        '<button class="btn btn-o sm" onclick="prtTester(\''+p.id+'\')">🖨️ Test</button>'+
+        '<button class="btn btn-o sm" onclick="prtOuvrirForm(\''+p.id+'\')">✏️</button>'+
+        '<button class="btn btn-o sm" onclick="prtSupprimer(\''+p.id+'\')">🗑️</button>';
+      l.appendChild(d);
+    });
+  }
+  // --- imprimante de caisse
+  var sc=g('prtCaisse');sc.innerHTML='<option value="">— Imprimante Windows par défaut —</option>';
+  cfg.printers.forEach(function(p){var o=document.createElement('option');o.value=p.id;o.textContent=p.nom;sc.appendChild(o);});
+  sc.value=cfg.imprimanteCaisse||'';
+  // --- trouvées sur le réseau (pas encore ajoutées)
+  var t=g('prtTrouvees');t.innerHTML='';
+  prt.trouvees.filter(function(x){return !cfg.printers.some(function(p){return p.type==='network'&&p.ip===x.ip;});}).forEach(function(x){
+    var d=document.createElement('div');
+    d.style.cssText='display:flex;gap:8px;align-items:center;font-size:12px;padding:4px 0';
+    d.innerHTML='🔎 Imprimante détectée : <strong>'+prtEsc(x.ip)+':'+x.port+'</strong> <button class="btn btn-b sm" onclick="prtAjouterTrouvee(\''+x.ip+'\','+x.port+')">➕ Ajouter</button>';
+    t.appendChild(d);
+  });
+  // --- postes
+  var pp=g('prtPostes');pp.innerHTML='';
+  var postes=prt.postes.slice().sort(function(a,b){return (b.serveur?1:0)-(a.serveur?1:0)||String(a.nom).localeCompare(String(b.nom));});
+  if(!postes.length)pp.innerHTML='<div style="color:#888;font-size:12px">Aucun poste connecté pour le moment. Les postes clients apparaissent ici dès qu\'ils se connectent au Serveur.</div>';
+  postes.forEach(function(po){
+    var r=cfg.routes[po.id]||null;
+    var mode=r?r.mode:'';
+    var enLigne=(Date.now()-po.vu)<150000;
+    var d=document.createElement('div');
+    d.style.cssText='border:1px solid #2a2a2a;border-radius:6px;padding:8px 10px;margin-bottom:6px';
+    var h='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><strong style="min-width:160px">'+(po.serveur?'🖥️ ':'💻 ')+prtEsc(po.nom)+(po.serveur?' <span style="color:#888;font-weight:400">(ce poste Serveur)</span>':'')+'</strong>'+
+      '<span style="font-size:11px;color:'+(enLigne?'#44FF88':'#888')+'">'+(enLigne?'● en ligne':'○ hors ligne')+'</span>'+
+      '<select class="fi" style="max-width:300px" onchange="prtModePoste(\''+po.id+'\',this.value)">'+
+      '<option value=""'+(mode===''?' selected':'')+'>Non configuré (→ imprimante de caisse)</option>'+
+      '<option value="all"'+(mode==='all'?' selected':'')+'>Toutes les imprimantes</option>'+
+      '<option value="some"'+(mode==='some'?' selected':'')+'>Seulement les imprimantes choisies…</option></select></div>';
+    if(mode==='some'){
+      h+='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;padding-left:4px">';
+      cfg.printers.forEach(function(p){
+        var coche=(r.ids||[]).indexOf(p.id)!==-1;
+        h+='<label style="font-size:12px;display:flex;gap:5px;align-items:center"><input type="checkbox" '+(coche?'checked':'')+' onchange="prtImprimantePoste(\''+po.id+'\',\''+p.id+'\',this.checked)">'+prtEsc(p.nom)+'</label>';
+      });
+      h+='</div>';
+    }
+    d.innerHTML=h;pp.appendChild(d);
+  });
+}
+function prtActif(id,v){var p=prt.cfg.printers.find(function(x){return x.id===id;});if(p){p.actif=v;prtPersist();}}
+function prtChangerAuto(){prt.cfg.autoAjoutWindows=g('prtAutoAdd').checked;prtPersist();}
+function prtChangerCaisse(){prt.cfg.imprimanteCaisse=g('prtCaisse').value||null;prtPersist();}
+function prtModePoste(id,mode){
+  if(!mode)delete prt.cfg.routes[id];
+  else if(mode==='all')prt.cfg.routes[id]={mode:'all'};
+  else prt.cfg.routes[id]={mode:'some',ids:(prt.cfg.routes[id]&&prt.cfg.routes[id].ids)||[]};
+  prtPersist();prtRender();
+}
+function prtImprimantePoste(posteId,pid,coche){
+  var r=prt.cfg.routes[posteId];if(!r)return;
+  r.ids=(r.ids||[]).filter(function(x){return x!==pid;});
+  if(coche)r.ids.push(pid);
+  prtPersist();
+}
+function prtTousSurToutes(){
+  prt.postes.forEach(function(po){prt.cfg.routes[po.id]={mode:'all'};});
+  prtPersist();prtRender();toast('Tous les postes impriment sur toutes les imprimantes','s');
+}
+function prtEnregistrerTout(){
+  prtPersist().then(function(){prt.cfg.configure=true;prtRender();toast('Configuration des imprimantes enregistrée — tout est maintenant automatique','s');});
+}
+function prtTester(id){
+  var p=prt.cfg.printers.find(function(x){return x.id===id;});if(!p)return;
+  toast('Test en cours sur « '+p.nom+' »…','i');
+  window.electronAPI.printers.test(p).then(function(r){
+    if(r&&r.ok)toast('Test envoyé sur « '+p.nom+' »','s');
+    else toastLong('Test impossible sur « '+p.nom+' » : '+((r&&r.error)||'erreur inconnue'),'e');
+  });
+}
+function prtSupprimer(id){
+  var p=prt.cfg.printers.find(function(x){return x.id===id;});if(!p)return;
+  if(!confirm('Retirer l\'imprimante « '+p.nom+' » ?'))return;
+  prt.cfg.printers=prt.cfg.printers.filter(function(x){return x.id!==id;});
+  if(p.type==='windows'){prt.cfg.ignorees=(prt.cfg.ignorees||[]).concat([p.winName]);}
+  if(prt.cfg.imprimanteCaisse===id)prt.cfg.imprimanteCaisse=null;
+  Object.keys(prt.cfg.routes).forEach(function(k){var r=prt.cfg.routes[k];if(r.ids)r.ids=r.ids.filter(function(x){return x!==id;});});
+  prtPersist();prtRender();
+}
+// --- formulaire d'ajout / modification
+function prtOuvrirForm(id,ipPrefill,portPrefill){
+  prt.edit=id||null;
+  var p=id?prt.cfg.printers.find(function(x){return x.id===id;}):null;
+  var marques=[];prt.modeles.forEach(function(m){if(marques.indexOf(m.marque)===-1)marques.push(m.marque);});
+  g('prtFMarque').innerHTML=marques.map(function(m){return '<option>'+prtEsc(m)+'</option>';}).join('');
+  g('prtFNom').value=p?p.nom:'';
+  g('prtFIp').value=p&&p.type==='network'?p.ip:(ipPrefill||'');
+  g('prtFPort').value=p&&p.type==='network'?(p.port||9100):(portPrefill||9100);
+  g('prtFIp').disabled=!!(p&&p.type==='windows');g('prtFPort').disabled=g('prtFIp').disabled;
+  g('prtFMarque').value=p&&p.marque&&marques.indexOf(p.marque)!==-1?p.marque:'Xprinter';
+  prtMajModeles(p&&p.modele);
+  if(p)g('prtFPapier').value=String(p.papier||80);
+  g('prtForm').style.display='';
+  g('prtFNom').focus();
+}
+function prtFermerForm(){g('prtForm').style.display='none';prt.edit=null;}
+function prtMajModeles(modeleChoisi){
+  var marque=g('prtFMarque').value;
+  var l=prt.modeles.filter(function(m){return m.marque===marque;});
+  g('prtFModele').innerHTML=l.map(function(m){return '<option value="'+prtEsc(m.modele)+'">'+prtEsc(m.modele)+' ('+m.papier+' mm)</option>';}).join('');
+  if(modeleChoisi&&typeof modeleChoisi==='string'&&l.some(function(m){return m.modele===modeleChoisi;}))g('prtFModele').value=modeleChoisi;
+  prtModeleChoisi();
+}
+function prtModeleChoisi(){
+  var m=prt.modeles.find(function(x){return x.marque===g('prtFMarque').value&&x.modele===g('prtFModele').value;});
+  if(m)g('prtFPapier').value=String(m.papier);
+}
+function prtSauverForm(){
+  var nom=g('prtFNom').value.trim();
+  var ip=g('prtFIp').value.trim();
+  var port=parseInt(g('prtFPort').value)||9100;
+  var p=prt.edit?prt.cfg.printers.find(function(x){return x.id===prt.edit;}):null;
+  var estWin=!!(p&&p.type==='windows');
+  if(!nom){toast('Donnez un nom à l\'imprimante (ex : Cuisine)','e');return;}
+  if(!estWin&&!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)){toast('Adresse IP invalide (ex : 192.168.1.50)','e');return;}
+  var data={nom:nom,marque:g('prtFMarque').value,modele:g('prtFModele').value,papier:parseInt(g('prtFPapier').value)||80};
+  if(p){for(var k in data)p[k]=data[k];if(!estWin){p.ip=ip;p.port=port;}}
+  else{
+    var n={id:'P'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),type:'network',ip:ip,port:port,actif:true};
+    for(var k2 in data)n[k2]=data[k2];
+    prt.cfg.printers.push(n);
+    if(!prt.cfg.imprimanteCaisse)prt.cfg.imprimanteCaisse=n.id;
+  }
+  prtPersist();prtFermerForm();prtRender();toast('Imprimante enregistrée','s');
+}
+function prtAjouterTrouvee(ip,port){prtOuvrirForm(null,ip,port);}
+function prtRechercherReseau(){
+  var st=g('prtScanStatus');st.textContent='Recherche en cours…';st.style.color='#FFCC00';
+  window.electronAPI.printers.scan().then(function(r){
+    prt.trouvees=r.trouvees||[];
+    st.textContent=prt.trouvees.length?(prt.trouvees.length+' appareil(s) trouvé(s) sur '+r.reseaux.join(', ')):'Aucune imprimante réseau trouvée sur '+r.reseaux.join(', ')+' — vérifiez qu\'elle est allumée et branchée au même réseau, ou ajoutez-la avec son adresse IP.';
+    st.style.color=prt.trouvees.length?'#44FF88':'#FF8888';
+    prtRender();
+  }).catch(function(e){st.textContent='Recherche impossible : '+(e&&e.message||e);st.style.color='#FF6666';});
+}
+function prtOuvrirPilotes(){
+  window.electronAPI.printers.openDrivers().then(function(r){
+    if(!r||!r.ok)toast('Dossier des pilotes introuvable dans cette installation','e');
+  });
+}
+// --- automatismes
+function prtInitAuto(){
+  if(!prtDispo())return;
+  window.electronAPI.printers.onChanged(function(d){
+    if(d&&d.ajouts&&d.ajouts.length)toastLong('🖨️ Nouvelle imprimante détectée et ajoutée : '+d.ajouts.join(', '),'s',9000);
+    if(g('sub-params-dev')&&g('sub-params-dev').classList.contains('on'))prtCharger();
+  });
+  window.electronAPI.printers.onScanProgress(function(p){
+    var st=g('prtScanStatus');if(st&&p&&p.total)st.textContent='Recherche en cours… '+Math.round(p.faits*100/p.total)+' %';
+  });
+  // Première utilisation : propose d'ouvrir la configuration (une seule fois, après connexion)
+  var essais=0;
+  var iv=setInterval(function(){
+    essais++;
+    if(essais>400||prt.demande){clearInterval(iv);return;}
+    if(!window.currentUser)return;
+    clearInterval(iv);prt.demande=true;
+    window.electronAPI.printers.get().then(function(r){
+      if(r.config.configure)return;
+      if(confirm('🖨️ Première utilisation : configurer maintenant les imprimantes (cuisine, bar, salle, caisse…) ?\n\nCette configuration se fait une seule fois, ensuite tout est automatique.')){
+        goPage('params');
+        var btn=Array.prototype.slice.call(document.querySelectorAll('#pg-params .it')).filter(function(b){return /Périphériques/.test(b.textContent);})[0];
+        goSub('params','dev',btn);
+      }
+    }).catch(function(){});
+  },3000);
+}
 // ---- PÉRIPHÉRIQUES ----
 function saveDevSettings(){
   var type=g('devPrintType').value;
@@ -1990,7 +2310,7 @@ function testPrint(){
     var fmt=g('devPrintFmt').value;
     var w=window.open('','_blank',fmt==='80mm'?'width=320,height=400':'');
     var css=fmt==='80mm'?
-      '*{margin:0;padding:0}body{font-family:"Courier New",monospace;font-size:11px;width:80mm;padding:4mm;text-align:center}':
+      '*{margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-size:11px;width:80mm;padding:4mm;text-align:center}':
       '*{margin:0;padding:0}body{font-family:Arial;font-size:14px;padding:20mm;text-align:center}';
     w.document.write('<!DOCTYPE html><html><head><style>'+css+'</style></head><body><h3>TEST IMPRESSION</h3><p>FSS-CAISSE</p><p>'+new Date().toLocaleString('fr-FR')+'</p><p>✅ Imprimante fonctionnelle</p></body></html>');
     w.document.close();
@@ -2021,24 +2341,32 @@ function clearTk(silent){
   // caisse/cuisine), "Annuler" ne doit jamais la faire disparaître purement
   // et simplement — elle est remise dans "Commandes en attente" telle
   // qu'elle était, comme si on n'avait jamais cliqué sur "Reprendre".
-  if(resumingAttenteId&&tkt.length){
-    var sel=g('selTable');
-    var commandeRemise={
-      id:resumingAttenteId,
-      numero:resumingNumero,
-      tableNom:tableNomAffiche?tableNomAffiche():(sel?sel.options[sel.selectedIndex].text:'—'),
-      tableVal:tableValCombine?tableValCombine():(sel?sel.value:'0'),
-      srv:g('selSrv')?g('selSrv').value:'—',
-      items:JSON.parse(JSON.stringify(tkt)),
-      sentQty:(function(){var m={};tkt.forEach(function(it){m[it.id]=(m[it.id]||0)+(it.qty||it.qt||1);});return m;})(),
-      total:tkt.reduce(function(s,i){return s+i.pv*(i.qty||i.qt||1);},0),
-      heure:new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'}),
-      ts:Date.now()
-    };
-    cmdAttente.push(commandeRemise);
-    if(window.fssEnvoyerCmdAttente)window.fssDerniereEnvoyerCmdAttentePromise=window.fssEnvoyerCmdAttente(commandeRemise);
-    if(!silent)toast('Commande remise en attente (rien n\'a été supprimé)','i');
-    renderAttenteBar();
+  if(resumingAttenteId){
+    // La commande reprise est restée dans « En attente » pendant toute la modification (voir
+    // reprendreAttente) : annuler les modifications la laisse telle qu'elle était à son dernier
+    // envoi. Repli : si elle a disparu entre-temps (supprimée ailleurs), on la remet à partir de
+    // son contenu d'origine.
+    var idRepris=resumingAttenteId;
+    if(!cmdAttente.some(function(c){return c.id===idRepris;})&&resumingBaseItems&&resumingBaseItems.length){
+      var selR=g('selTable');
+      var commandeRemise={
+        id:idRepris,
+        numero:resumingNumero,
+        tableNom:tableNomAffiche?tableNomAffiche():(selR?selR.options[selR.selectedIndex].text:'—'),
+        tableVal:tableValCombine?tableValCombine():(selR?selR.value:'0'),
+        srv:g('selSrv')?g('selSrv').value:'—',
+        caisse:g('selCaisse')?g('selCaisse').value:'',
+        items:JSON.parse(JSON.stringify(resumingBaseItems)),
+        sentQty:JSON.parse(JSON.stringify(resumingSentQty||{})),
+        total:resumingBaseItems.reduce(function(s,i){return s+i.pv*(i.qty||i.qt||1);},0),
+        heure:new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'}),
+        ts:Date.now()
+      };
+      cmdAttente.push(commandeRemise);
+      if(window.fssEnvoyerCmdAttente)window.fssDerniereEnvoyerCmdAttentePromise=window.fssEnvoyerCmdAttente(commandeRemise);
+    }
+    if(!silent)toast('Modifications annulées — la commande reste en attente (rien n\'a été supprimé)','i');
+    renderAttenteBar();updateTableOptions();
   }else if(!silent){
     toast('Ticket annulé','i');
   }
@@ -2077,7 +2405,7 @@ function renderSousFactureSelect(){
   sel.innerHTML='<option value="">Sous-facture —</option>';
   if(!tv||tv==='0'){sel.disabled=true;return;}
   sel.disabled=false;
-  var occupees=cmdAttente.filter(function(c){return String(c.tableVal).indexOf(tv+'-')===0;}).map(function(c){return String(c.tableVal).split('-')[1];});
+  var occupees=cmdAttente.filter(function(c){return c.id!==resumingAttenteId&&String(c.tableVal).indexOf(tv+'-')===0;}).map(function(c){return String(c.tableVal).split('-')[1];});
   LETTRES_SOUS_FACTURE.forEach(function(l){
     var opt=document.createElement('option');
     opt.value=l;opt.text=occupees.indexOf(l)>=0?(l+' 🔴 (occupée)'):l;
@@ -2166,12 +2494,7 @@ function majApercuDivision(){
 function openPay(mode){
   if(window.isWaiterOnly&&window.isWaiterOnly()){toast('Ce compte ne peut pas encaisser — utilisez "En attente"','e');return;}
   if(!tkt.length){toast('Aucun article','e');return;}
-  var tblVal=g('selTable')?g('selTable').value:'';
-  if(!tblVal||tblVal==='0'){toast('Veuillez sélectionner une table avant de facturer','e');return;}
-  var srvVal=g('selSrv')?g('selSrv').value:'';
-  if(!srvVal){toast('Veuillez sélectionner un serveur avant de facturer','e');return;}
-  var cxVal=g('selCaisse')?g('selCaisse').value:'';
-  if(!cxVal){toast('Veuillez sélectionner une caisse avant de facturer','e');return;}
+  if(!verifierSelectionsObligatoires('de facturer'))return;
   if(mode==='airtel'){ouvrirAirtelModal();return;}
   if(mode==='momo'){payerMobileMoney();return;}
   payMode=mode;recAmt=0;
@@ -2219,6 +2542,23 @@ function valPay(){
   txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tableNomAffiche(),srv:g('selSrv').value,caissier:caissier,caisse:caisseNom,arts:nb,items:itemsSnapshot,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':(payMode==='airtel'?'Airtel Money':(payMode==='momo'?libelleMomo(paiementMomo):'Carte')),recu:recu,rendu:rendu,stat:'Validé',momo:payMode==='momo'?detailsMomo(paiementMomo):undefined});
   paiementMomo=null;
   nextTk++;g('tkNum').textContent='TK-#'+('000'+nextTk).slice(-4);
+  // Commande reprise depuis « En attente » : elle est maintenant PAYÉE, c'est le seul moment (avec
+  // l'annulation ✕) où elle sort de la liste et où sa table redevient libre.
+  if(resumingAttenteId){
+    var idPayee=resumingAttenteId;
+    cmdAttente=cmdAttente.filter(function(c){return c.id!==idPayee;});
+    // ORDRE IMPORTANT : le serveur répond à /api/cmdattente/retirer en rediffusant son état à
+    // tous les postes. Si le ticket de caisse (txs) n'avait pas encore été envoyé au serveur à ce
+    // moment-là, cette rediffusion écraserait la vente toute fraîche (elle disparaîtrait des
+    // clôtures). On envoie donc d'abord l'état complet (vente comprise), et seulement ensuite on
+    // retire la commande en attente.
+    var envoiVente=window.fssSyncPushImmediate?window.fssSyncPushImmediate():null;
+    if(window.fssRetirerCmdAttente){
+      if(envoiVente&&envoiVente.then)envoiVente.then(function(){window.fssRetirerCmdAttente(idPayee);});
+      else window.fssRetirerCmdAttente(idPayee);
+    }
+    renderAttenteBar();updateTableOptions();
+  }
   resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;resumingNumero=null;
   closeM('ovPay');clearTk(true);libererTable();renderProds('');renderStk();renderTkList();renderRap();initCloture();
   afficherRecu(txs[0]);
@@ -2300,10 +2640,10 @@ function imprimerRecu(){
   var w=previsualisationActivee?window.open('','_blank','width=420,height=700'):null;
   var css='@page{size:80mm auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
-    'html,body{width:80mm}'+
-    'body{font-family:"Courier New",monospace;font-size:12px;font-weight:700;padding:3mm 4mm}'+
-    'table{width:100%;border-collapse:collapse;margin:2px 0}'+
-    'td{padding:2px 0;vertical-align:top}'+
+    'html,body{width:100%}'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:900;padding:2mm 1mm;-webkit-text-stroke:0.35px currentColor}'+
+    'table{width:100%;border-collapse:collapse;margin:0}'+
+    'td{padding:0;vertical-align:top}'+
     'td.l{text-align:left}'+
     'td.r{text-align:right;padding-left:10px}'+
     '.sep{border-top:1px dashed #000;margin:7px 0}'+
@@ -2313,6 +2653,9 @@ function imprimerRecu(){
   function ligne(label,val,cls){
     cls=cls||'';
     return '<table class="'+cls+'"><tr><td class="l">'+label+'</td><td class="r">'+val+'</td></tr></table>';
+  }
+  function ligneG(label,val){
+    return '<div style="text-align:left;margin-bottom:3px"><span style="display:inline-block;width:9ch">'+label+'</span>: '+val+'</div>';
   }
   // Si la case "Diviser l'addition" est cochée, chaque exemplaire affiche sa
   // part du total (ex: Part 1/3 : 5 000 F) au lieu du total complet répété —
@@ -2327,13 +2670,13 @@ function imprimerRecu(){
     if(rccm)body+='<span style="font-size:12px">RCCM: '+rccm+'</span><br>';
     if(nif)body+='<span style="font-size:12px">NIF: '+nif+'</span><br>';
     body+='</div><div class="sep"></div>';
-    body+=ligne('N° Ticket','<strong>'+tk.id+'</strong>');
-    body+=ligne('Date',dateStr);
-    body+=ligne('Heure',heureStr);
-    body+=ligne('Table',tk.tbl);
-    if(tk.srv&&tk.srv!=='—')body+=ligne('Serveur',tk.srv);
-    if(tk.caissier&&tk.caissier!=='—')body+=ligne('Caissier','<strong>'+tk.caissier+'</strong>');
-    if(tk.caisse)body+=ligne('Caisse',tk.caisse);
+    body+=ligneG('N° Ticket','<strong>'+tk.id+'</strong>');
+    body+=ligneG('Date',dateStr);
+    body+=ligneG('Heure',heureStr);
+    body+=ligneG('Table',tk.tbl);
+    if(tk.srv&&tk.srv!=='—')body+=ligneG('Serveur',tk.srv);
+    if(tk.caissier&&tk.caissier!=='—')body+=ligneG('Caissier','<strong>'+tk.caissier+'</strong>');
+    if(tk.caisse)body+=ligneG('Caisse',tk.caisse);
     body+='<div class="sep"></div>';
     if(tk.items&&tk.items.length){
       tk.items.forEach(function(it){
@@ -2355,7 +2698,7 @@ function imprimerRecu(){
       body+='<div class="sep"></div>';
       body+='<div style="font-size:15px">'+ligne('<span class="b">PART '+numeroPart+'/'+totalParts+'</span>','<span class="b">'+part.toLocaleString('fr-FR')+' F</span>')+'</div>';
     }else{
-      body+=ligne('<span class="b">TOTAL TTC</span>','<span class="b">'+tk.ttc.toLocaleString('fr-FR')+' F</span>');
+      body+='<div style="text-align:left"><span class="b">TOTAL TTC : '+tk.ttc.toLocaleString('fr-FR')+' F</span></div>';
     }
     body+='<div class="sep"></div>';
     body+='<div style="font-size:14px">'+ligne('<span class="b">Paiement</span>','<span class="b">'+tk.pay+'</span>')+'</div>';
@@ -3325,13 +3668,17 @@ function addPrel(){
   prls.push({mnt:mnt,motif:motif,heure:heure});
   g('prelMnt').value='';g('prelMotif').value='';
   renderPrls();initCloture();
+  // Archive automatiquement la clôture en cours (avec ce prélèvement) dans Historique / Archives.
+  try{var snapPrel=construireInstantaneCloture();if(snapPrel.tl.length)archiverCloture(snapPrel,false);}catch(e){}
   if(window.fssSyncPush)window.fssSyncPush();
-  toast(fmt(mnt)+' prélevé','s');
+  toast(fmt(mnt)+' prélevé — archivé','s');
   imprimerPrelevement(mnt,motif,heure,solde-mnt);
 }
 // Petit ticket 80mm imprimé automatiquement à chaque prélèvement, pour garder
 // une trace papier immédiate (montant, motif, heure, caissier, nouveau solde).
 function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
+  // Ne PAS appeler une variable locale "fmt" : elle masquerait la fonction globale fmt(n).
+  var papierFmt=formatCloture();
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
   var caissier=(window.currentUser&&window.currentUser.nom)?window.currentUser.nom:'—';
   var cxLbl=(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses';
@@ -3339,9 +3686,6 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
   var parArticle={};
   tl.forEach(function(t){
     (t.items||[]).forEach(function(it){
-      // Nom normalisé (espaces superflus retirés, casse ignorée) pour que
-      // deux ventes du même article ne finissent jamais sur deux lignes
-      // séparées à cause d'une différence d'espace ou de majuscule.
       var nomBrut=(it.nom||'').toString();
       var cle=nomBrut.trim().toLowerCase();
       if(!parArticle[cle])parArticle[cle]={nom:nomBrut.trim(),qty:0,total:0};
@@ -3352,31 +3696,35 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
   var articlesTries=Object.keys(parArticle).map(function(cle){
     return {nom:parArticle[cle].nom,qty:parArticle[cle].qty,total:parArticle[cle].total};
   }).sort(function(a,b){return b.qty-a.qty;});
-  var css='@page{size:80mm auto;margin:0}'+
+  // Mise en page sans tableau (voir buildBilanClotureHTML) : valeur flottante à droite pour la
+  // liste des ventes, et libellé/valeur COLLÉS l'un à l'autre pour l'en-tête et le montant prélevé.
+  var css='@page{size:'+papierFmt+' auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
-    'html,body{width:80mm}'+
-    'body{font-family:"Courier New",monospace;font-size:11px;font-weight:700;padding:2mm 3mm}'+
-    'table{width:100%;border-collapse:collapse;margin:1px 0;table-layout:fixed}'+
-    'td{padding:1px 0;overflow-wrap:break-word;word-break:break-word}'+
-    'td.r{text-align:right;white-space:nowrap}'+
+    'html,body{width:100%;max-width:100%;overflow-x:hidden}'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:900;padding:2mm 1mm;-webkit-text-stroke:0.35px currentColor;overflow-wrap:anywhere;word-break:break-word}'+
+    '.row{overflow:hidden;padding:1px 0}'+
+    '.row .v{float:right;margin-left:8px;white-space:nowrap}'+
     '.sep{border-top:1px dashed #000;margin:5px 0}'+
     '.c{text-align:center}'+
     '.stit{font-size:11px;font-weight:900;margin-top:5px}';
-  function ligne(l,v){return '<table><tr><td style="overflow-wrap:break-word;word-break:break-word">'+l+'</td><td class="r" style="white-space:nowrap">'+v+'</td></tr></table>';}
+  function sp(t){return String(t).replace(/[  ]/g,' ');}
+  function ligne(l,v){return '<div class="row"><span class="v">'+sp(v)+'</span>'+l+'</div>';}
+  function ligneG(l,v,largeurCh){
+    var lab=largeurCh?'<span style="display:inline-block;width:'+largeurCh+'ch">'+l+'</span>':l;
+    return '<div style="text-align:left;padding:1px 0">'+lab+' : '+sp(v)+'</div>';
+  }
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
   html+='<div class="c" style="font-size:13px">'+etab+'</div>';
-  html+='<div class="c" style="font-size:11px;margin:3px 0">💸 PRÉLÈVEMENT</div>';
+  html+='<div class="c" style="font-size:11px;margin:3px 0">PRÉLÈVEMENT</div>';
   html+='<div class="sep"></div>';
-  html+=ligne('Caisse',cxLbl);
-  html+=ligne('Heure',heure);
-  html+=ligne('Caissier',caissier);
-  html+=ligne('Motif',motif);
+  html+=ligneG('Caisse',cxLbl,8);
+  html+=ligneG('Heure',heure,8);
+  html+=ligneG('Caissier',caissier,8);
+  html+=ligneG('Motif',motif,8);
   html+='<div class="sep"></div>';
-  html+='<div style="font-size:13px">'+ligne('MONTANT','-'+fmt(mnt))+'</div>';
+  html+='<div style="font-size:14px">'+ligneG('MONTANT','-'+Math.round(mnt).toLocaleString('fr-FR')+' F')+'</div>';
   html+='<div class="sep"></div>';
-  html+=ligne('Solde restant',fmt(Math.max(0,nouveauSolde)));
-  // Détail de tout ce qui a été vendu depuis la dernière clôture, avec quantités
-  // (même présentation que le ticket de clôture).
+  html+=ligneG('Solde restant',Math.round(Math.max(0,nouveauSolde)).toLocaleString('fr-FR')+' F');
   html+='<div class="sep"></div>';
   html+='<div class="stit">DÉTAIL DES VENTES</div>';
   html+='<div class="sep"></div>';
@@ -3390,11 +3738,22 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
   html+='<div class="sep"></div>';
   html+='<div class="c" style="font-size:11px">Édité le '+new Date().toLocaleString('fr-FR')+'</div>';
   html+='</body></html>';
-  var w=window.open('','_blank','width=380,height=600');
-  w.document.write(html);w.document.close();
-  w.onafterprint=function(){w.close();};
-  setTimeout(function(){w.print();},400);
-  setTimeout(function(){if(!w.closed)w.close();},15000);
+  if(window.electronAPI&&window.electronAPI.printSilent){
+    if(window.FSS_IS_SERVER){
+      imprimerSilencieux(html,{kind:'prelevement'});
+    }else{
+      // Poste client : le ticket est transmis au Serveur (seul poste relié aux imprimantes).
+      var lotPrel={batchId:'TICKET-'+Date.now(),type:'ticket',html:html};
+      if(window.fssEnvoyerBonCommande)window.fssEnvoyerBonCommande(lotPrel);
+      toast('Ticket de prélèvement envoyé à l\'imprimante du serveur','i');
+    }
+  }else{
+    var w=window.open('','_blank','width=380,height=600');
+    w.document.write(html);w.document.close();
+    w.onafterprint=function(){w.close();};
+    setTimeout(function(){w.print();},400);
+    setTimeout(function(){if(!w.closed)w.close();},15000);
+  }
 }
 function renderPrls(){var w=g('prelList');if(!w)return;var tot=prls.reduce(function(s,p){return s+p.mnt;},0);if(!prls.length){w.innerHTML='<span style="color:#444">Aucun prélèvement</span>';}else{w.innerHTML='';prls.forEach(function(p){var d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #222;font-size:12px';d.innerHTML='<span>'+p.heure+' — '+p.motif+'</span><span style="color:#FF4444;font-weight:700">'+fmt(p.mnt)+'</span>';w.appendChild(d);});}g('clPrel').textContent=fmt(tot);}
 function doCloture(){
@@ -3405,16 +3764,7 @@ function doCloture(){
   // rien de réel) — permet de retrouver et réimprimer n'importe quelle
   // clôture passée plus tard, par période.
   var snapshot=construireInstantaneCloture();
-  clotureHistorique.unshift({
-    id:'HCL-'+Date.now(),
-    date:new Date().toISOString(),
-    caisse:snapshot.cxLbl,
-    nbTickets:snapshot.tl.length,
-    ttc:snapshot.ttc,
-    prelevements:snapshot.tp,
-    solde:especesDe(snapshot.tl)-snapshot.tp,
-    snapshot:snapshot
-  });
+  archiverCloture(snapshot,true);
   // Impression automatique du bilan de clôture complet (ticket 80mm) :
   // - Depuis le poste Serveur lui-même : impression directe.
   // - Depuis un téléphone ou un poste client : la demande est transmise au
@@ -3422,7 +3772,7 @@ function doCloture(){
   //   garantit qu'un ticket sort bien, même sans imprimante sur l'appareil
   //   utilisé pour clôturer.
   if(window.FSS_IS_SERVER){
-    print80();
+    ouvrirEtImprimerHTML(buildBilanClotureHTML(snapshot,snapshot.format));
   }else{
     var lotCloture={batchId:'CLO-'+Date.now(),type:'cloture',snapshot:snapshot};
     printBatches.push(lotCloture);
@@ -3437,10 +3787,7 @@ function doCloture(){
 // HISTORIQUE DES CLÔTURES — sélection de période, réimpression
 // ============================================================
 function ouvrirHistoriqueClotures(){
-  var aujourdhui=todayStr();
-  if(!g('histClDebut').value)g('histClDebut').value=aujourdhui;
-  if(!g('histClFin').value)g('histClFin').value=aujourdhui;
-  renderHistoriqueClotures();
+  periodeHistCloture(30);
   g('ovHistCloture').classList.add('on');
 }
 function periodeHistCloture(joursAvant){
@@ -3466,18 +3813,19 @@ function renderHistoriqueClotures(){
     var dt=new Date(h.date);
     var tr=document.createElement('tr');
     tr.innerHTML='<td>'+dt.toLocaleDateString('fr-FR')+' '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'</td>'+
-      '<td>'+h.caisse+'</td><td>'+h.nbTickets+'</td>'+
+      '<td>'+h.caisse+(h.officielle===false?' <span style="font-size:10px;color:#FFAA00">(en cours)</span>':'')+'</td><td>'+h.nbTickets+'</td>'+
       '<td><strong>'+fmt(h.ttc)+'</strong></td>'+
       '<td style="color:#FF4444">'+fmt(h.prelevements)+'</td>'+
       '<td style="color:#4488FF"><strong>'+fmt(h.solde)+'</strong></td>'+
-      '<td><button class="btn btn-o sm" onclick="reimprimerCloture(\''+h.id+'\')">🖨️ Réimprimer</button></td>';
+      '<td><button class="btn btn-o sm" onclick="reimprimerCloture(\''+h.id+'\',\'58mm\')">🖨️ 58mm</button> <button class="btn btn-o sm" onclick="reimprimerCloture(\''+h.id+'\',\'80mm\')">🖨️ 80mm</button></td>';
     b.appendChild(tr);
   });
 }
-function reimprimerCloture(id){
+function reimprimerCloture(id,f){
   var h=clotureHistorique.find(function(x){return x.id===id;});
   if(!h){toast('Clôture introuvable','e');return;}
-  ouvrirEtImprimerHTML(buildBilanClotureHTML(h.snapshot));
+  f=(f==='58mm'||f==='80mm')?f:formatCloture();
+  ouvrirEtImprimerHTML(buildBilanClotureHTML(h.snapshot,f));
 }
 function afficherBilanCloture(){
   var b=g('bilanBody');if(!b)return;
@@ -3519,9 +3867,11 @@ function calcCpt(){var tot=(parseInt(g('b10').value)||0)*10000+(parseInt(g('b5')
 // Construit le HTML du bilan de clôture à partir d'un instantané de données
 // (pas d'accès au DOM ici) — réutilisé à la fois pour l'impression locale et
 // pour l'impression automatique routée vers le poste Serveur.
-function buildBilanClotureHTML(snapshot){
+function buildBilanClotureHTML(snapshot,papier){
+  // NB : le paramètre ne s'appelle volontairement PAS "fmt" — ce nom est celui de la fonction
+  // globale de formatage monétaire ; le masquer ferait planter fmt(...) ("fmt is not a function").
+  papier=(papier==='58mm')?'58mm':'80mm';
   var tl=snapshot.tl,cxLbl=snapshot.cxLbl,ttc=snapshot.ttc,tp=snapshot.tp,now=snapshot.now;
-
   var parArticle={};
   tl.forEach(function(t){
     (t.items||[]).forEach(function(it){
@@ -3539,65 +3889,117 @@ function buildBilanClotureHTML(snapshot){
     return {nom:parArticle[cle].nom,qty:parArticle[cle].qty,total:parArticle[cle].total};
   }).sort(function(a,b){return b.qty-a.qty;});
 
-  var css='@page{size:80mm auto;margin:0}'+
+  // MISE EN PAGE SANS TABLEAU : chaque ligne est un bloc ordinaire (montant flottant à droite,
+  // libellé qui passe à la ligne si besoin). Un bloc ne peut jamais élargir la page, donc les
+  // montants ne sont jamais rognés, quelle que soit la largeur du papier (58mm ou 80mm).
+  var css='@page{size:'+papier+' auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
-    'html,body{width:80mm}'+
-    'body{font-family:"Courier New",monospace;font-size:9px;font-weight:700;padding:2mm 3mm}'+
-    'h2{text-align:center;font-size:12px;font-weight:900}'+
-    '.sep{border-top:1px dashed #000;margin:4px 0}'+
-    'table{width:100%;border-collapse:collapse;table-layout:fixed}'+
-    'td{padding:1px 0;overflow-wrap:break-word;word-break:break-word;font-size:9px}'+
-    '.r{text-align:right;white-space:nowrap;width:42%;font-size:9px}'+
-    '.tot{font-weight:900;font-size:11px}'+
-    '.center{text-align:center}'+
-    '.stit{font-size:9px;font-weight:900;margin-top:5px}';
+    'html,body{width:100%;max-width:100%;overflow-x:hidden}'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:900;padding:2mm 1mm;-webkit-text-stroke:0.35px currentColor;overflow-wrap:anywhere;word-break:break-word}'+
+    '.row{overflow:hidden;padding:1px 0}'+
+    '.row .v{float:right;margin-left:8px;white-space:nowrap}'+
+    '.sep{border-top:1px dashed #000;margin:6px 0}'+
+    '.c{text-align:center}.b{font-weight:900}'+
+    '.stit{font-size:11px;font-weight:900;margin-top:5px}';
+  // Espace insécable fin (U+202F) de toLocaleString -> espace simple (glyphe absent de certaines polices).
+  function nb(n){return Math.round(n||0).toLocaleString('fr-FR').replace(/[  ]/g,' ');}
+  function ligne(label,val,extraStyle){
+    return '<div class="row"'+(extraStyle?' style="'+extraStyle+'"':'')+'><span class="v">'+val+'</span>'+label+'</div>';
+  }
 
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
-  html+='<h2>FSS-CAISSE</h2>';
-  html+='<div class="center" style="font-size:10px">CLÔTURE — '+cxLbl+'</div>';
-  html+='<div class="center" style="font-size:10px">'+now+'</div>';
-  if(snapshot.origine)html+='<div class="center" style="font-size:9px">Clôturé depuis : '+snapshot.origine+'</div>';
+  html+='<div class="c" style="font-size:16px"><strong>FSS-CAISSE</strong></div>';
+  html+='<div class="c" style="font-size:15px;margin:4px 0"><strong>CLÔTURE — '+cxLbl+'</strong></div>';
+  html+='<div class="c" style="font-size:11px">'+now+'</div>';
+  if(snapshot.origine)html+='<div class="c" style="font-size:10px">Clôturé depuis : '+snapshot.origine+'</div>';
   html+='<div class="sep"></div>';
-
-  html+='<table>';
   tl.forEach(function(t){
-    html+='<tr><td>'+t.id+'</td><td>'+t.date+'</td><td class="r">'+t.ttc.toLocaleString('fr-FR')+' F</td></tr>';
+    html+=ligne(t.id+' — '+t.date,nb(t.ttc)+' F');
   });
-  html+='</table>';
-
   html+='<div class="sep"></div>';
   html+='<div class="stit">DÉTAIL DES VENTES</div>';
   html+='<div class="sep"></div>';
-  html+='<table>';
   if(articlesTries.length){
     articlesTries.forEach(function(a){
-      html+='<tr><td>'+a.qty+'x '+a.nom+'</td><td class="r">'+a.total.toLocaleString('fr-FR')+' F</td></tr>';
+      html+=ligne(a.qty+'x '+a.nom,nb(a.total)+' F');
     });
   }else{
-    html+='<tr><td colspan="2" class="center">Aucune vente</td></tr>';
+    html+='<div class="c">Aucune vente</div>';
   }
-  html+='</table>';
-
   html+='<div class="sep"></div>';
-  html+='<table class="tot">';
-  html+='<tr><td>CA TTC</td><td class="r">'+ttc.toLocaleString('fr-FR')+' F</td></tr>';
+  // Montants de la clôture en BAS du ticket.
   var espT=especesDe(tl),momoT=mobileMoneyDe(tl),carteT=ttc-espT-momoT;
-  html+='<tr><td>Dont espèces</td><td class="r">'+espT.toLocaleString('fr-FR')+' F</td></tr>';
-  if(carteT)html+='<tr><td>Dont carte</td><td class="r">'+carteT.toLocaleString('fr-FR')+' F</td></tr>';
-  if(momoT)html+='<tr><td>Dont Mobile Money</td><td class="r">'+momoT.toLocaleString('fr-FR')+' F</td></tr>';
-  if(tp)html+='<tr><td>Prélèvements</td><td class="r" style="color:red">-'+tp.toLocaleString('fr-FR')+' F</td></tr>';
-  html+='<tr><td>SOLDE ESPÈCES</td><td class="r">'+(espT-tp).toLocaleString('fr-FR')+' F</td></tr>';
-  html+='</table>';
+  html+=ligne('CA TTC','<span class="b">'+nb(ttc)+' F</span>');
+  html+=ligne('Dont espèces',nb(espT)+' F');
+  if(carteT)html+=ligne('Dont carte',nb(carteT)+' F');
+  if(momoT)html+=ligne('Dont Mobile Money',nb(momoT)+' F');
+  if(tp)html+=ligne('Prélèvements','<span class="b">-'+nb(tp)+' F</span>');
+  html+=ligne('<span class="b">SOLDE ESPÈCES</span>','<span class="b">'+nb(espT-tp)+' F</span>','font-size:14px;margin-top:2px');
   html+='<div class="sep"></div>';
-  html+='<div class="center" style="font-size:10px;margin-top:3px">Merci</div>';
+  html+='<div class="c" style="font-size:11px">Merci</div>';
   html+='</body></html>';
   return html;
 }
-// Impression locale directe (utilisée par le bouton "80mm" manuel)
-function print80(){
-  var snapshot=construireInstantaneCloture();
-  ouvrirEtImprimerHTML(buildBilanClotureHTML(snapshot));
+// Format papier du ticket de clôture/prélèvement imprimé automatiquement (choisi dans la page Clôture).
+function formatCloture(){
+  try{
+    var v=localStorage.getItem('fss-format-cloture');
+    if(v==='58mm'||v==='80mm')return v;
+  }catch(e){}
+  return '80mm';
 }
+function enregistrerFormatCloture(v){
+  try{localStorage.setItem('fss-format-cloture',(v==='58mm')?'58mm':'80mm');}catch(e){}
+}
+function imprimerClotureFormat(f){
+  f=(f==='58mm'||f==='80mm')?f:formatCloture();
+  var snapshot=construireInstantaneCloture();
+  if(snapshot.tl.length)archiverCloture(snapshot,false);
+  ouvrirEtImprimerHTML(buildBilanClotureHTML(snapshot,f));
+}
+// Enregistre la clôture dans l'Historique (= les archives). Appelée par "Clôturer", par le bouton
+// "Archiver", par chaque prélèvement et par chaque impression 58mm/80mm. Une seule ligne "en cours"
+// par jour et par caisse : chaque appel la met à jour au lieu d'en créer une nouvelle ; "Clôturer"
+// la valide (officielle=true).
+function archiverCloture(snapshot,officielle){
+  var jour=new Date().toISOString().slice(0,10);
+  var champs={
+    caisse:snapshot.cxLbl,
+    nbTickets:snapshot.tl.length,
+    ttc:snapshot.ttc,
+    prelevements:snapshot.tp,
+    solde:especesDe(snapshot.tl)-snapshot.tp,
+    snapshot:snapshot,
+    officielle:!!officielle
+  };
+  var ex=clotureHistorique.find(function(h){
+    return h.officielle===false&&h.date.slice(0,10)===jour&&h.caisse===snapshot.cxLbl;
+  });
+  var entree;
+  if(ex){
+    if(!officielle&&ex.ttc===champs.ttc&&ex.prelevements===champs.prelevements&&ex.nbTickets===champs.nbTickets)return false;
+    for(var k in champs)ex[k]=champs[k];
+    ex.date=new Date().toISOString();
+    entree=ex;
+  }else{
+    entree={id:'HCL-'+Date.now(),date:new Date().toISOString()};
+    for(var k2 in champs)entree[k2]=champs[k2];
+    clotureHistorique.unshift(entree);
+  }
+  window.clotureHistorique=clotureHistorique;
+  // Route dédiée (immédiate) : ne dépend plus de la synchronisation générale, qui pouvait
+  // effacer cette entrée avant son envoi.
+  if(window.fssEnvoyerClotureArchive)window.fssEnvoyerClotureArchive(entree);
+  else if(window.fssSyncPush)window.fssSyncPush();
+  return true;
+}
+function archiverClotureManuel(){
+  var snapshot=construireInstantaneCloture();
+  if(!snapshot.tl.length){toast('Aucune vente à archiver pour cette caisse','e');return;}
+  toast(archiverCloture(snapshot,false)?'🗄️ Clôture archivée — visible dans Historique':'Cette clôture est déjà archivée','s');
+}
+function print58(){imprimerClotureFormat('58mm');}
+function print80(){imprimerClotureFormat('80mm');}
 function construireInstantaneCloture(){
   var tl=txsCloture();
   return {
@@ -3606,6 +4008,7 @@ function construireInstantaneCloture(){
     ttc:tl.reduce(function(s,t){return s+t.ttc;},0),
     tp:prls.reduce(function(s,p){return s+p.mnt;},0),
     now:new Date().toLocaleString('fr-FR'),
+    format:formatCloture(),
     origine:(window.currentUser&&window.currentUser.nom?window.currentUser.nom+' — ':'')+(window.FSS_IS_SERVER?'Poste Serveur':'Poste distant (client/mobile)')
   };
 }
@@ -3616,14 +4019,14 @@ function ouvrirEtImprimerHTML(html){
   // déclenchée automatiquement (ex. depuis un événement réseau suite à une
   // clôture lancée par un téléphone/poste distant), car ce n'est pas une
   // action directement initiée par un clic de l'utilisateur sur CE poste.
-  imprimerSilencieux(html);
+  imprimerSilencieux(html,{kind:'cloture'});
 }
 // Appelée uniquement côté Serveur (voir network.js) quand une clôture a été
 // déclenchée depuis un autre poste (téléphone, poste client) — garantit que le
 // ticket sort bien sur l'imprimante physique du serveur, peu importe l'appareil
 // qui a validé la clôture.
 function imprimerBilanClotureAuto(snapshot){
-  ouvrirEtImprimerHTML(buildBilanClotureHTML(snapshot));
+  ouvrirEtImprimerHTML(buildBilanClotureHTML(snapshot,snapshot.format));
 }
 function printA4(){var tl=txsCloture(),cxLbl=(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses',ttc=tl.reduce(function(s,t){return s+t.ttc;},0),tp=prls.reduce(function(s,p){return s+p.mnt;},0),w=window.open('','_blank'),now=new Date().toLocaleString('fr-FR');w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;padding:20mm}h1{font-size:22px;color:#CC0000}h2{font-size:14px;margin:14px 0 6px}table{width:100%;border-collapse:collapse;margin-bottom:12px}th{background:#CC0000;color:#fff;padding:7px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#f9f9f9}.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.kc{border:1px solid #ddd;border-radius:6px;padding:10px 14px}.kl{font-size:10px;color:#666;text-transform:uppercase}.kv{font-size:20px;font-weight:700;color:#CC0000}.sep{border-top:2px solid #CC0000;margin:14px 0}.footer{text-align:center;font-size:10px;color:#666;margin-top:20px}</style></head><body>');w.document.write('<h1>FSS-CAISSE</h1><div style="font-size:12px;color:#666">RAPPORT DE CLÔTURE — '+cxLbl+' — '+now+'</div><div class="sep"></div><div class="kpi"><div class="kc"><div class="kl">Tickets</div><div class="kv" style="color:#1144CC">'+tl.length+'</div></div><div class="kc"><div class="kl">CA TTC</div><div class="kv">'+ttc.toLocaleString('fr-FR')+' F</div></div><div class="kc"><div class="kl">TVA</div><div class="kv">'+Math.round(ttc*0.18/1.18).toLocaleString('fr-FR')+' F</div></div><div class="kc"><div class="kl">Solde espèces</div><div class="kv" style="color:#1144CC">'+(especesDe(tl)-tp).toLocaleString('fr-FR')+' F</div></div></div><h2>Transactions</h2><table><thead><tr><th>N° Ticket</th><th>Date</th><th>Table</th><th>Caisse</th><th>HT</th><th>TVA</th><th>TTC</th><th>Paiement</th></tr></thead><tbody>');tl.forEach(function(t){w.document.write('<tr><td>'+t.id+'</td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.caisse||'—')+'</td><td>'+t.ht.toLocaleString('fr-FR')+'</td><td>'+t.tva.toLocaleString('fr-FR')+'</td><td><strong>'+t.ttc.toLocaleString('fr-FR')+'</strong></td><td>'+t.pay+'</td></tr>');});w.document.write('</tbody></table><div class="footer">FSS-CAISSE — '+now+'</div></body></html>');w.document.close();w.onafterprint=function(){w.close();};setTimeout(function(){w.print();},400);setTimeout(function(){if(!w.closed)w.close();},15000);}
 
@@ -4806,6 +5209,8 @@ function loadAppVersion(){
 document.addEventListener('DOMContentLoaded',function(){
   startClock();buildCats();renderProds('');
   chargerDevSettings();
+  try{if(g('selFmtCloture'))g('selFmtCloture').value=formatCloture();}catch(e){}
+  try{prtInitAuto();}catch(e){}
   renderArt();renderStk();renderMouv();
   renderCli();renderFour();
   renderTkList();renderDV();renderLV();renderReg();renderRegG();renderTopV();renderTotCat();

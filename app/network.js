@@ -243,13 +243,52 @@
       safe(function () { toast('⚠️ Impossible d\'envoyer la commande au serveur — vérifiez la connexion', 'e'); });
     });
   }
+  // Identifiant stable de CE poste (généré une fois, conservé) + nom de l'ordinateur.
+  // Sert à savoir quel poste a émis un bon de commande, pour l'envoyer sur les
+  // imprimantes que le Serveur a affectées à ce poste.
+  var posteId = null;
+  try {
+    posteId = localStorage.getItem('fss-poste-id');
+    if (!posteId) {
+      posteId = 'PC-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      localStorage.setItem('fss-poste-id', posteId);
+    }
+  } catch (e) { posteId = posteId || ('PC-' + Math.random().toString(36).slice(2, 8)); }
+  window.FSS_POSTE_ID = posteId;
+  window.FSS_POSTE_NOM = location.hostname || 'Poste';
+  function signalerPoste() {
+    var nom = window.FSS_POSTE_NOM;
+    var envoi = function (n) {
+      fetch('/api/postes/hello', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: posteId, nom: n, serveur: !!window.FSS_IS_SERVER })
+      }).catch(function () {});
+    };
+    if (window.electronAPI && window.electronAPI.getHostname) {
+      window.electronAPI.getHostname().then(function (h) { window.FSS_POSTE_NOM = h || nom; envoi(h || nom); }).catch(function () { envoi(nom); });
+    } else { envoi(nom); }
+  }
+  signalerPoste();
+  setInterval(signalerPoste, 60000);
+
   function envoyerBonCommande(batch) {
+    batch.posteId = batch.posteId || posteId;
+    batch.posteNom = batch.posteNom || window.FSS_POSTE_NOM;
     return fetch('/api/printbatches/ajouter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(batch)
     }).catch(function () {
       safe(function () { toast('⚠️ Impossible d\'envoyer le bon de commande au serveur — vérifiez la connexion', 'e'); });
+    });
+  }
+  function envoyerClotureArchive(entree) {
+    return fetch('/api/cloture/archiver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entree)
+    }).catch(function () {
+      safe(function () { toast('⚠️ Impossible d\'archiver la clôture sur le serveur — vérifiez la connexion', 'e'); });
     });
   }
   function retirerCmdAttente(id) {
@@ -285,6 +324,7 @@
   window.fssEnvoyerCmdAttente = envoyerCmdAttente;
   window.fssEnvoyerBonCommande = envoyerBonCommande;
   window.fssRetirerCmdAttente = retirerCmdAttente;
+  window.fssEnvoyerClotureArchive = envoyerClotureArchive;
   window.fssEnregistrerTable = enregistrerTable;
   window.fssSupprimerTable = supprimerTable;
   // Si l'app se ferme (fermeture manuelle, redémarrage...), on force
@@ -345,6 +385,12 @@
 
   if (socket) {
     socket.on('state:changed', function (s) { applyState(s); });
+    // Erreur d'impression renvoyée par le Serveur (imprimante éteinte, injoignable...) :
+    // affichée uniquement sur le poste qui avait envoyé le bon.
+    socket.on('print:error', function (e) {
+      if (!e || (e.posteId && e.posteId !== posteId)) return;
+      safe(function () { toast('❌ ' + (e.message || 'Erreur d\'impression'), 'e'); });
+    });
     socket.on('connect', function () {
       safe(function () { toast('Connecté au serveur FSS-CAISSE', 's'); });
     });

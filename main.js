@@ -1,8 +1,9 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const licensing = require('./licensing');
+const printers = require('./printers');
 
 const PORT = 3000;
 const configPath = path.join(app.getPath('userData'), 'config.json');
@@ -221,6 +222,7 @@ async function boot(declencheParUtilisateur) {
       return;
     }
     win.loadURL('http://localhost:' + PORT);
+    demarrerSurveillanceImprimantes();
     // Ce message (avec l'adresse IP à donner aux postes clients) s'affiche au
     // tout premier démarrage, ET à chaque fois que l'utilisateur clique
     // lui-même sur "Recharger" (utile pour retrouver l'adresse à tout
@@ -478,13 +480,13 @@ ipcMain.handle('open-backup-file-dialog', async () => {
   }
 });
 
-ipcMain.handle('print-silent', (event, html) => {
+function imprimerSilencieuxDefaut(html) {
   return new Promise((resolve) => {
     const printWin = new BrowserWindow({
       show: false,
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
-    printWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    printWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(printers.adapterHtml(html, 80)));
     printWin.webContents.on('did-finish-load', () => {
       printWin.webContents.print({ silent: true, printBackground: true, margins: { marginType: 'none' } }, (success, errorType) => {
         if (!printWin.isDestroyed()) printWin.close();
@@ -492,7 +494,79 @@ ipcMain.handle('print-silent', (event, html) => {
       });
     });
   });
+}
+
+ipcMain.handle('print-silent', (event, html) => imprimerSilencieuxDefaut(html));
+
+// ---------------------------------------------------------------------
+// IMPRIMANTES (poste Serveur) — voir printers.js
+// ---------------------------------------------------------------------
+printers.init(app.getPath('userData'));
+let surveillanceImprimantes = null;
+let dernierAvertissementPoste = {};
+
+function envoyerAuRenderer(canal, donnees) {
+  if (win && !win.isDestroyed()) win.webContents.send(canal, donnees);
+}
+
+// Surveille les imprimantes Windows : toute imprimante nouvellement branchée
+// (USB Xprinter / Epson, pilote installé...) est détectée et ajoutée toute seule.
+function demarrerSurveillanceImprimantes() {
+  if (surveillanceImprimantes) return;
+  const cycle = async () => {
+    try {
+      if (!win || win.isDestroyed()) return;
+      const liste = await printers.listerWindows(win.webContents);
+      const ajouts = printers.ajoutAutomatique(liste);
+      if (ajouts.length) envoyerAuRenderer('printers-changed', { ajouts: ajouts.map(a => a.nom) });
+    } catch (e) {}
+  };
+  setTimeout(cycle, 4000);
+  surveillanceImprimantes = setInterval(cycle, 8000);
+}
+
+ipcMain.handle('printers-get', async () => {
+  const cfg = printers.chargerConfig();
+  const windows = win && !win.isDestroyed() ? await printers.listerWindows(win.webContents) : [];
+  // état de chaque imprimante Windows configurée : branchée ou non
+  cfg.printers.forEach(p => {
+    if (p.type === 'windows') p.presente = windows.some(w => w.name === p.winName);
+  });
+  return { config: cfg, windows: windows, modeles: printers.MODELES };
 });
+ipcMain.handle('printers-save', (event, cfg) => {
+  cfg.configure = true;
+  printers.sauverConfig(cfg);
+  return { ok: true };
+});
+ipcMain.handle('printers-scan', async (event) => {
+  const trouvees = await printers.scannerReseau({
+    progress: (faits, total) => { try { event.sender.send('printers-scan-progress', { faits: faits, total: total }); } catch (e) {} }
+  });
+  return { trouvees: trouvees, reseaux: printers.sousReseauxLocaux().map(r => r.base + '.x') };
+});
+ipcMain.handle('printers-test', async (event, imp) => {
+  const r = await printers.imprimerSur({ BrowserWindow }, imp, printers.htmlTest(imp));
+  return r;
+});
+ipcMain.handle('printers-test-port', async (event, ip, port) => printers.testerPort(ip, Number(port) || 9100, 1500));
+ipcMain.handle('printers-route', async (event, demande) => {
+  const r = await printers.router({ BrowserWindow }, demande, imprimerSilencieuxDefaut);
+  // n'avertit qu'une fois par poste (pas à chaque commande)
+  if (r.avertissement) {
+    const cle = demande.posteId || '?';
+    if (dernierAvertissementPoste[cle]) r.avertissement = null; else dernierAvertissementPoste[cle] = true;
+  }
+  return r;
+});
+ipcMain.handle('printers-open-drivers', async () => {
+  const candidats = [path.join(process.resourcesPath || '', 'drivers'), path.join(__dirname, 'drivers')];
+  for (const c of candidats) {
+    try { if (fs.existsSync(c)) { await shell.openPath(c); return { ok: true, chemin: c }; } } catch (e) {}
+  }
+  return { ok: false };
+});
+ipcMain.handle('get-hostname', () => os.hostname());
 
 app.whenReady().then(() => {
   licensing.init(app.getPath('userData'));

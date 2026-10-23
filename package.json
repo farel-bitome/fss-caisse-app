@@ -1,6 +1,6 @@
 {
   "name": "fss-caisse",
-  "version": "1.7.3",
+  "version": "1.7.4",
   "description": "FSS-CAISSE - Gestion Restobar (Serveur ou Client)",
   "main": "main.js",
   "author": "FSS",
@@ -25,6 +25,7 @@
       "main.js",
       "preload.js",
       "embedded-server.js",
+      "printers.js",
       "licensing.js",
       "choice.html",
       "client.html",
@@ -44,6 +45,12 @@
       "createDesktopShortcut": true,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "drivers",
+        "to": "drivers"
+      }
+    ]
   }
 }

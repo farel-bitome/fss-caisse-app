@@ -320,6 +320,66 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       }
     });
 
+    // ---- Postes connectés (pour affecter les imprimantes à chaque poste) ----
+    // Chaque poste (serveur ou client) se signale périodiquement avec un
+    // identifiant stable et son nom d'ordinateur. Le poste Serveur s'en sert,
+    // dans Paramètres → Périphériques, pour choisir sur quelle(s) imprimante(s)
+    // chaque poste imprime ses bons de commande.
+    const postesFile = path.join(userDataDir, 'postes.json');
+    let postes = {};
+    try { postes = JSON.parse(fs.readFileSync(postesFile, 'utf8')) || {}; } catch (e) { postes = {}; }
+    expressApp.post('/api/postes/hello', (req, res) => {
+      try {
+        const b = req.body || {};
+        if (!b.id) return res.status(400).json({ ok: false });
+        const ancien = postes[b.id] || {};
+        postes[b.id] = {
+          id: String(b.id),
+          nom: String(b.nom || ancien.nom || b.id).slice(0, 60),
+          serveur: !!b.serveur,
+          vu: Date.now()
+        };
+        // enregistrement disque limité (au plus toutes les 30 s) : inutile à chaque signal
+        const maintenant = Date.now();
+        if (!postes._ecrit || maintenant - postes._ecrit > 30000 || !ancien.id) {
+          postes._ecrit = maintenant;
+          try { fs.writeFileSync(postesFile, JSON.stringify(postes)); } catch (e) {}
+        }
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    });
+    expressApp.get('/api/postes', (req, res) => {
+      res.json(Object.keys(postes).filter(function (k) { return k !== '_ecrit'; }).map(function (k) { return postes[k]; }));
+    });
+    // Erreur d'impression (imprimante éteinte, injoignable...) : diffusée à tous
+    // les postes ; seul le poste émetteur du bon l'affiche.
+    expressApp.post('/api/printerrors', (req, res) => {
+      try {
+        io.emit('print:error', req.body || {});
+        ecrireJournal('Erreur impression : ' + JSON.stringify(req.body || {}).slice(0, 300));
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    });
+
+    // ---- Archives de clôture : route dédiée (même principe que cmdAttente) ----
+    // Insère ou met à jour UNE entrée d'historique par son id, sans dépendre de
+    // la synchronisation générale (qui pouvait écraser l'entrée avant son envoi).
+    expressApp.post('/api/cloture/archiver', (req, res) => {
+      try {
+        const entree = req.body || {};
+        if (!entree.id) return res.status(400).json({ ok: false, error: 'id manquant' });
+        state.clotureHistorique = state.clotureHistorique || [];
+        const idx = state.clotureHistorique.findIndex(function (h) { return h.id === entree.id; });
+        if (idx >= 0) state.clotureHistorique[idx] = entree; else state.clotureHistorique.unshift(entree);
+        saveState(state);
+        io.emit('state:changed', state);
+        res.json({ ok: true });
+      } catch (e) {
+        console.error('[FSS-CAISSE] Erreur archivage clôture :', e);
+        res.status(500).json({ ok: false, error: e.message });
+      }
+    });
+
     // Le statut des tables (Libre/Occupée/Réservée) est désormais géré via
     // les routes dédiées /api/tables/* ci-dessous, plus robuste qu'une
     // comparaison d'horodatages entre appareils (tsModif), qui restait
@@ -346,6 +406,8 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         // dépendre d'une synchronisation débouncée qui pouvait manquer un
         // bon fraîchement créé.
         nouvelEtat.printBatches = state.printBatches || [];
+        // Même principe pour l'historique des clôtures : géré par /api/cloture/archiver.
+        nouvelEtat.clotureHistorique = state.clotureHistorique || [];
         // Le catalogue d'articles n'est accepté que s'il est réellement plus
         // récent que celui déjà connu du serveur — sinon on garde la dernière
         // vraie mise à jour. Sans ça, un poste avec une version un peu

@@ -1,0 +1,9 @@
+PILOTES D'IMPRIMANTES - FSS-CAISSE
+==================================
+
+Placez ici les installateurs de pilotes de vos imprimantes (dossiers Xprinter, Epson...).
+Ils sont copies avec l'application. Dans FSS-CAISSE : Parametres > Peripheriques >
+bouton "Dossier des pilotes" pour les ouvrir et lancer l'installation.
+
+Une fois le pilote installe et l'imprimante USB branchee, FSS-CAISSE la detecte
+et l'ajoute automatiquement. Les imprimantes reseau (IP) n'ont pas besoin de pilote.
