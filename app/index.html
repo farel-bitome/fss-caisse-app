@@ -775,7 +775,7 @@ td{padding:8px 11px;vertical-align:middle}
     </div>
     <div class="sub" id="sub-params-dev">
       <div class="slay">
-        <div class="ssect" id="secPrintersServer" style="display:none"><div class="ssti">🖨️ Imprimantes du restaurant — à configurer une seule fois (poste Serveur) · module V12</div>
+        <div class="ssect" id="secPrintersServer" style="display:none"><div class="ssti">🖨️ Imprimantes du restaurant — à configurer une seule fois (poste Serveur) · module V13</div>
           <div id="prtBanner" style="display:none;background:#2a1a00;border:1px solid #FFAA00;color:#FFCC66;border-radius:6px;padding:10px 12px;font-size:12px;margin-bottom:12px">⚠️ <strong>Première utilisation</strong> — vérifiez la liste ci-dessous, choisissez l'imprimante de caisse et indiquez, pour chaque poste, sur quelle(s) imprimante(s) il envoie ses bons de commande. Ensuite, tout est automatique : plus aucune question.</div>
           <div style="font-size:12px;color:#888;margin-bottom:10px">Les imprimantes USB (Xprinter, Epson… avec pilote Windows) sont détectées et ajoutées automatiquement dès qu'elles sont branchées. Les imprimantes réseau (IP) se recherchent sur le réseau ou s'ajoutent à la main. Tous les modèles Xprinter et Epson ESC/POS sont pris en charge.</div>
           <div class="fl" style="margin:6px 0">1. Imprimantes</div>
@@ -801,6 +801,7 @@ td{padding:8px 11px;vertical-align:middle}
               <div class="fg"><label class="fl">Modèle</label><select class="fi" id="prtFModele" onchange="prtModeleChoisi()"></select></div>
               <div class="fg"><label class="fl">Largeur du papier</label><select class="fi" id="prtFPapier"><option value="80">80 mm</option><option value="58">58 mm</option></select></div>
               <div class="fg"><label class="fl">Marge gauche/droite (points — laisser vide = auto ; augmentez si le bord est coupé)</label><input class="fi" id="prtFMarge" type="number" min="0" max="80" placeholder="auto (58 mm : 24, 80 mm : 16)"></div>
+              <div class="fg"><label class="fl">Cette imprimante imprime</label><select class="fi" id="prtFUsage"><option value="tout">Tout (tickets de caisse, additions, clôtures, prélèvements, rapports + bons de commande)</option><option value="bons">Uniquement les bons de commande (cuisine / bar)</option></select></div>
               <div class="fg" id="prtFModeBox" style="display:none"><label class="fl">Envoi à l'imprimante</label><select class="fi" id="prtFMode"><option value="pilote">Pilote Windows (graphique ; repli si l'ESC/POS direct ne fonctionne pas)</option><option value="escpos">ESC/POS direct — recommandé (largeur exacte du papier, aucun débordement)</option></select></div>
             </div>
             <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-r sm" onclick="prtSauverForm()">💾 Enregistrer l'imprimante</button><button class="btn btn-o sm" onclick="prtFermerForm()">Annuler</button></div>
@@ -809,6 +810,13 @@ td{padding:8px 11px;vertical-align:middle}
           <select class="fi" id="prtCaisse" onchange="prtChangerCaisse()" style="max-width:360px;margin-bottom:14px"></select>
           <div class="fl" style="margin:6px 0">3. Bons de commande : quel poste imprime sur quelle(s) imprimante(s) ?</div>
           <div id="prtPostes" style="margin-bottom:10px"></div>
+          <div class="fl" style="margin:10px 0 6px">4. Qui peut tout imprimer ? <span style="color:#666;font-weight:400">(tickets, additions, clôtures, prélèvements, rapports). Les profils non cochés ne peuvent imprimer que les bons de commande.</span></div>
+          <div id="prtProfils" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
+            <label style="font-size:12px;display:flex;gap:5px;align-items:center"><input type="checkbox" id="prtProf_super" onchange="prtChangerProfil()"> Super admin</label>
+            <label style="font-size:12px;display:flex;gap:5px;align-items:center"><input type="checkbox" id="prtProf_admin" onchange="prtChangerProfil()"> Admin</label>
+            <label style="font-size:12px;display:flex;gap:5px;align-items:center"><input type="checkbox" id="prtProf_caissier" onchange="prtChangerProfil()"> Caissier / Caissière</label>
+            <label style="font-size:12px;display:flex;gap:5px;align-items:center"><input type="checkbox" id="prtProf_autres" onchange="prtChangerProfil()"> Les autres profils (serveurs, téléphones…)</label>
+          </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-o sm" onclick="prtTousSurToutes()">Tous les postes → toutes les imprimantes</button>
             <button class="btn btn-r sm" onclick="prtEnregistrerTout()">💾 Enregistrer la configuration</button>
@@ -1800,14 +1808,33 @@ function imprimerAddition(attId,nbParts){
   }
   toast('Addition imprimée','s');
 }
+// Profil d'impression de l'utilisateur connecté : super / admin / caissier / autres (serveurs, téléphones…).
+function fssProfilImpression(){
+  if(window.fssProfilImprOverride)return window.fssProfilImprOverride;
+  var u=window.currentUser;
+  if(!u)return 'autres';
+  if(u.super)return 'super';
+  if(u.full)return 'admin';
+  if(u.role==='Caissier/Caissière'&&!u.waiterOnly)return 'caissier';
+  return 'autres';
+}
+window.fssProfilImpression=fssProfilImpression;
 function imprimerSilencieux(html,opts){
   opts=opts||{};
   var api=window.electronAPI;
   // Poste Serveur avec imprimantes configurées : aiguillage automatique (imprimante de caisse,
   // ou imprimantes affectées au poste émetteur pour les bons de commande) — voir printers.js.
   if(api&&api.printers&&window.FSS_IS_SERVER){
-    return api.printers.route({kind:opts.kind||'ticket',posteId:opts.posteId||window.FSS_POSTE_ID,html:html}).then(function(r){
+    return api.printers.route({kind:opts.kind||'ticket',posteId:opts.posteId||window.FSS_POSTE_ID,profil:opts.profil||fssProfilImpression(),html:html}).then(function(r){
       if(r&&r.avertissement)toastLong('⚠️ '+r.avertissement,'i',9000);
+      if(r&&r.refus){
+        var msgRefus='Impression refusée'+(opts.libelle?' ('+opts.libelle+')':'')+' : '+r.avertissement;
+        toastLong('⛔ '+msgRefus,'e',9000);
+        if(opts.posteId&&opts.posteId!==window.FSS_POSTE_ID){
+          fetch('/api/printerrors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({posteId:opts.posteId,message:msgRefus})}).catch(function(){});
+        }
+        return {success:false,error:r.avertissement};
+      }
       var ko=((r&&r.resultats)||[]).filter(function(x){return !x.ok;});
       if(ko.length){
         var msg='Impression impossible'+(opts.libelle?' ('+opts.libelle+')':'')+' sur « '+ko.map(function(x){return x.nom;}).join(', ')+' » : '+(ko[0].error||'imprimante indisponible');
@@ -2083,6 +2110,10 @@ function prtCharger(){
     prtRender();
   }).catch(function(e){toast('Imprimantes : '+(e&&e.message||e),'e');});
 }
+function prtChangerProfil(){
+  prt.cfg.profilsToutImprimer={super:g('prtProf_super').checked,admin:g('prtProf_admin').checked,caissier:g('prtProf_caissier').checked,autres:g('prtProf_autres').checked};
+  prtPersist();
+}
 function prtPersist(){
   if(!prt.cfg)return Promise.resolve();
   return window.electronAPI.printers.save(prt.cfg);
@@ -2105,6 +2136,7 @@ function prtRender(){
       if(p.type==='windows')etat=p.presente?'<span style="color:#44FF88">● branchée</span>':'<span style="color:#FF6666">○ non détectée</span>';
       else etat=(p.presente?'<span style="color:#44FF88">● en ligne</span> ':'<span style="color:#FF6666">○ injoignable</span> ')+'<span style="color:#88AAFF">IP '+prtEsc(p.ip)+':'+prtEsc(p.port||9100)+'</span>';
       d.innerHTML='<label style="display:flex;align-items:center;gap:6px;flex:1;min-width:220px"><input type="checkbox" '+(p.actif!==false?'checked':'')+' onchange="prtActif(\''+p.id+'\',this.checked)"><span><strong>'+prtEsc(p.nom)+'</strong> <span style="color:#888;font-size:11px">'+prtEsc((p.marque||'')+' '+(p.modele||''))+' · '+(p.papier||80)+' mm'+(p.type==='windows'?' · USB/Windows':' · Réseau')+'</span></span></label>'+
+        '<span style="font-size:11px;padding:2px 6px;border-radius:4px;background:'+(p.usage==='bons'?'#3a2a00':'#0e2a14')+'">'+(p.usage==='bons'?'🧾 bons de commande seulement':'🖨️ imprime tout')+'</span>'+
         '<span style="font-size:12px">'+etat+'</span>'+
         '<button class="btn btn-o sm" onclick="prtTester(\''+p.id+'\')">🖨️ Test</button>'+
         '<button class="btn btn-o sm" onclick="prtOuvrirForm(\''+p.id+'\')">✏️</button>'+
@@ -2114,8 +2146,10 @@ function prtRender(){
   }
   // --- imprimante de caisse
   var sc=g('prtCaisse');sc.innerHTML='<option value="">— Imprimante Windows par défaut —</option>';
-  cfg.printers.forEach(function(p){var o=document.createElement('option');o.value=p.id;o.textContent=p.nom;sc.appendChild(o);});
+  cfg.printers.forEach(function(p){var o=document.createElement('option');o.value=p.id;o.textContent=p.nom+(p.usage==='bons'?' (bons seulement)':'');sc.appendChild(o);});
   sc.value=cfg.imprimanteCaisse||'';
+  var pf=Object.assign({super:true,admin:true,caissier:true,autres:false},cfg.profilsToutImprimer||{});
+  ['super','admin','caissier','autres'].forEach(function(k){var e=g('prtProf_'+k);if(e)e.checked=!!pf[k];});
   // --- trouvées sur le réseau (pas encore ajoutées)
   var t=g('prtTrouvees');t.innerHTML='';
   prt.trouvees.filter(function(x){return !cfg.printers.some(function(p){return p.type==='network'&&p.ip===x.ip;});}).forEach(function(x){
@@ -2220,6 +2254,7 @@ function prtOuvrirForm(id,ipPrefill,portPrefill){
   prtMajModeles(p&&p.modele);
   if(p)g('prtFPapier').value=String(p.papier||80);
   g('prtFMarge').value=(p&&p.marge!==undefined&&p.marge!==null&&p.marge!=='')?p.marge:'';
+  g('prtFUsage').value=(p&&p.usage==='bons')?'bons':'tout';
   g('prtFModeBox').style.display=(p&&p.type==='windows')?'':'none';
   if(p&&p.type==='windows')g('prtFMode').value=(p.mode||(/zebra|star/i.test(p.marque||'')?'pilote':'escpos'))==='escpos'?'escpos':'pilote';
   g('prtForm').style.display='';
@@ -2248,6 +2283,7 @@ function prtSauverForm(){
   var data={nom:nom,marque:g('prtFMarque').value,modele:g('prtFModele').value,papier:parseInt(g('prtFPapier').value)||80};
   var mm=prt.modeles.find(function(x){return x.marque===data.marque&&x.modele===data.modele;});
   if(!estWin&&mm&&mm.escpos===false){toast('Ce modèle (ZPL/CPCL) ne reçoit pas l\'ESC/POS en réseau : installez son pilote Windows et utilisez le mode « Pilote Windows ».','e');return;}
+  data.usage=g('prtFUsage').value==='bons'?'bons':'tout';
   if(estWin)data.mode=g('prtFMode').value==='escpos'?'escpos':'pilote';
   data.marge=g('prtFMarge').value.trim()===''?'':Math.max(0,Math.min(80,parseInt(g('prtFMarge').value)||0));
   if(p){for(var k in data)p[k]=data[k];if(!estWin){p.ip=ip;p.port=port;}}

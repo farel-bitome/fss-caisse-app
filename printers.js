@@ -165,7 +165,10 @@ function configParDefaut() {
     autoAjoutWindows: true,      // ajouter automatiquement les imprimantes Windows détectées
     printers: [],                // [{id,nom,type:'windows'|'network',winName,ip,port,marque,modele,papier,actif}]
     imprimanteCaisse: null,      // id : tickets de caisse, additions, clôtures, prélèvements
-    routes: {}                   // { posteId: {mode:'all'} | {mode:'some', ids:[...]} }
+    routes: {},                  // { posteId: {mode:'all'} | {mode:'some', ids:[...]} }
+    // Profils d'utilisateur autorisés à tout imprimer (tickets, additions, clôtures, prélèvements, rapports).
+    // Les autres profils (serveurs, téléphones, autres rôles) ne peuvent imprimer QUE des bons de commande.
+    profilsToutImprimer: { super: true, admin: true, caissier: true, autres: false }
   };
 }
 function chargerConfig() {
@@ -500,7 +503,7 @@ async function imprimerSur(electron, imprimante, html) {
 //   kind 'commande' : bons de commande -> imprimantes affectées au poste émetteur
 //   autres (ticket, addition, cloture, prelevement) -> imprimante de caisse
 // ---------------------------------------------------------------------
-function choisirCibles(cfg, kind, posteId) {
+function choisirCibles(cfg, kind, posteId, profil) {
   const actives = cfg.printers.filter(p => p.actif !== false);
   if (kind === 'commande') {
     const r = cfg.routes[posteId];
@@ -513,13 +516,24 @@ function choisirCibles(cfg, kind, posteId) {
     const caisse = actives.find(p => p.id === cfg.imprimanteCaisse) || actives[0];
     return { cibles: caisse ? [caisse] : [], avertissement: 'Ce poste n\'a pas d\'imprimante affectée — bon envoyé sur l\'imprimante de caisse. Configurez-le dans Paramètres → Périphériques.' };
   }
-  const caisse = actives.find(p => p.id === cfg.imprimanteCaisse) || null;
+  // Tout le reste (ticket, addition, clôture, prélèvement, rapport) : réservé aux profils autorisés.
+  const autorises = Object.assign({ super: true, admin: true, caissier: true, autres: false }, cfg.profilsToutImprimer || {});
+  if (profil && !autorises[profil]) {
+    return { cibles: [], refus: true, avertissement: 'Votre profil ne peut imprimer que les bons de commande (réglage : Paramètres → Périphériques).' };
+  }
+  // Les imprimantes réservées aux « bons de commande » ne sortent jamais autre chose.
+  const toutes = actives.filter(p => p.usage !== 'bons');
+  const caisse = toutes.find(p => p.id === cfg.imprimanteCaisse) || toutes[0] || null;
+  if (!caisse && actives.length) {
+    return { cibles: [], refus: true, avertissement: 'Aucune imprimante n\'est autorisée à imprimer les tickets et rapports (toutes sont réservées aux bons de commande). Réglez-le dans Paramètres → Périphériques.' };
+  }
   return { cibles: caisse ? [caisse] : [], avertissement: null };
 }
 
 async function router(electron, demande, repli) {
   const cfg = chargerConfig();
-  const { cibles, avertissement } = choisirCibles(cfg, demande.kind || 'ticket', demande.posteId);
+  const { cibles, avertissement, refus } = choisirCibles(cfg, demande.kind || 'ticket', demande.posteId, demande.profil);
+  if (refus) return { ok: false, resultats: [], avertissement: avertissement, refus: true };
   if (!cibles.length) {
     // Aucune imprimante configurée : comportement d'avant (imprimante Windows par défaut)
     const r = await repli(demande.html);

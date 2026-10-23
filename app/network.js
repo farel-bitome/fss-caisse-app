@@ -97,7 +97,7 @@
             // les bons de commande, dont on sait qu'ils fonctionnent déjà.
             if (batch.type === 'cloture') {
               logDistant('Tentative impression clôture pour lot ' + batch.batchId);
-              if (window.imprimerBilanClotureAuto) window.imprimerBilanClotureAuto(batch.snapshot);
+              if (window.imprimerBilanClotureAuto) { window.fssProfilImprOverride = batch.profil || null; try { window.imprimerBilanClotureAuto(batch.snapshot); } finally { window.fssProfilImprOverride = null; } }
             } else if (batch.type === 'ticket') {
               logDistant('Tentative impression ticket de caisse pour lot ' + batch.batchId + (batch.copies ? (' (' + batch.copies.length + ' exemplaire(s))') : ''));
               if (window.imprimerSilencieux) {
@@ -106,10 +106,10 @@
                   // travail d'impression séparé par exemplaire.
                   batch.copies.forEach(function (corpsExemplaire, idx) {
                     var htmlExemplaire = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' + (batch.css || '') + '</style></head><body>' + corpsExemplaire + '</body></html>';
-                    setTimeout(function () { window.imprimerSilencieux(htmlExemplaire); }, idx * 300);
+                    setTimeout(function () { window.imprimerSilencieux(htmlExemplaire, { kind: 'ticket', profil: batch.profil, posteId: batch.posteId }); }, idx * 300);
                   });
                 } else {
-                  window.imprimerSilencieux(batch.html);
+                  window.imprimerSilencieux(batch.html, { kind: 'ticket', profil: batch.profil, posteId: batch.posteId });
                 }
               }
             } else {
@@ -287,7 +287,16 @@
     }
   } catch (e) { posteId = posteId || ('PC-' + Math.random().toString(36).slice(2, 8)); }
   window.FSS_POSTE_ID = posteId;
-  window.FSS_POSTE_NOM = location.hostname || 'Poste';
+  // Sur un téléphone/navigateur (pas d'application Windows), le nom de l'hôte serait l'adresse du
+  // Serveur, identique pour tous : on fabrique un nom lisible (type + modèle + 4 derniers caractères).
+  function nomPosteAuto() {
+    var ua = navigator.userAgent || '';
+    var type = /Android/i.test(ua) ? 'Téléphone Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iPhone/iPad' : 'Navigateur';
+    var m = ua.match(/Android [\d.]+; ([^;)]+?)(?: Build|\))/);
+    var modele = m && m[1] && !/^(K|wv)$/.test(m[1].trim()) ? ' ' + m[1].trim() : '';
+    return type + modele + ' #' + String(posteId).slice(-4);
+  }
+  window.FSS_POSTE_NOM = (window.electronAPI && window.electronAPI.getHostname) ? (location.hostname || 'Poste') : nomPosteAuto();
   function signalerPoste() {
     var nom = window.FSS_POSTE_NOM;
     var envoi = function (n) {
@@ -306,6 +315,7 @@
   function envoyerBonCommande(batch) {
     batch.posteId = batch.posteId || posteId;
     batch.posteNom = batch.posteNom || window.FSS_POSTE_NOM;
+    if (!batch.profil && window.fssProfilImpression) batch.profil = window.fssProfilImpression();
     return fetch('/api/printbatches/ajouter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
