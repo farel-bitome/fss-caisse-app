@@ -32,6 +32,7 @@
   window.pointages = window.pointages || [];
   window.paieEntries = window.paieEntries || [];
 
+  var cmdEnVol = {}, retraitsEnVol = {};
   function fullState() {
     return {
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
@@ -71,7 +72,11 @@
     mouv = s.mouv || [];
     prls = s.prls || [];
     var idsAvantReception = cmdAttente.map(function (c) { return c.id; });
-    cmdAttente = s.cmdAttente || [];
+    cmdAttente = (s.cmdAttente || []).filter(function (c) { return !retraitsEnVol[c.id]; });
+    Object.keys(cmdEnVol).forEach(function (id) {
+      var i = cmdAttente.findIndex(function (c) { return c.id === id; });
+      if (i >= 0) cmdAttente[i] = cmdEnVol[id]; else cmdAttente.push(cmdEnVol[id]);
+    });
     var idsApresReception = cmdAttente.map(function (c) { return c.id; });
     if (idsAvantReception.join(',') !== idsApresReception.join(',')) {
       logDistant('applyState met à jour cmdAttente sur ce poste : avant=[' + idsAvantReception.join(',') + '] après=[' + idsApresReception.join(',') + ']');
@@ -234,13 +239,40 @@
   // touche plus du tout à cmdAttente côté serveur (voir embedded-server.js).
   // Sans appeler cette route, une commande créée localement semblait
   // fonctionner un instant, puis disparaissait à la synchronisation suivante.
+  // Protection anti-disparition : tant qu'une commande envoyée (ou un retrait)
+  // n'est pas confirmé par le serveur (+ 4 s de marge pour les diffusions en
+  // retard), applyState() la conserve/l'exclut localement. Si le réseau coupe,
+  // l'envoi est RÉESSAYÉ automatiquement jusqu'à réussite : la table ne peut
+  // plus redevenir « libre » par erreur, quel que soit le nombre de postes.
+  window.fssCmdEnVol = cmdEnVol; window.fssRetraitsEnVol = retraitsEnVol;
+  function postJsonAvecRetry(url, corps, onOk) {
+    var essai = function () {
+      fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) })
+        .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); onOk(); })
+        .catch(function () { setTimeout(essai, 3000); });
+    };
+    essai();
+  }
+  // Après expiration de la protection, on resynchronise avec le serveur : si une
+  // commande a été retirée ailleurs entre-temps, elle disparaît ici aussi.
+  function resyncCmdAttente() {
+    fetch(API).then(function (r) { return r.json(); }).then(function (s) {
+      if (s && Array.isArray(s.cmdAttente)) {
+        var avant = cmdAttente.map(function (c) { return c.id; }).sort().join(',');
+        var apres = s.cmdAttente.filter(function (c) { return !retraitsEnVol[c.id] && !cmdEnVol[c.id]; }).map(function (c) { return c.id; });
+        Object.keys(cmdEnVol).forEach(function (id) { apres.push(id); });
+        if (avant !== apres.sort().join(',')) applyState(s);
+      }
+    }).catch(function () {});
+  }
   function envoyerCmdAttente(commande) {
-    return fetch('/api/cmdattente/ajouter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(commande)
-    }).catch(function () {
-      safe(function () { toast('⚠️ Impossible d\'envoyer la commande au serveur — vérifiez la connexion', 'e'); });
+    delete retraitsEnVol[commande.id];
+    cmdEnVol[commande.id] = commande;
+    return new Promise(function (resolve) {
+      postJsonAvecRetry('/api/cmdattente/ajouter', commande, function () {
+        setTimeout(function () { if (cmdEnVol[commande.id] === commande) delete cmdEnVol[commande.id]; resyncCmdAttente(); }, 4000);
+        resolve();
+      });
     });
   }
   // Identifiant stable de CE poste (généré une fois, conservé) + nom de l'ordinateur.
@@ -292,12 +324,13 @@
     });
   }
   function retirerCmdAttente(id) {
-    return fetch('/api/cmdattente/retirer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: id })
-    }).catch(function () {
-      safe(function () { toast('⚠️ Impossible de synchroniser la suppression — vérifiez la connexion', 'e'); });
+    delete cmdEnVol[id];
+    retraitsEnVol[id] = true;
+    return new Promise(function (resolve) {
+      postJsonAvecRetry('/api/cmdattente/retirer', { id: id }, function () {
+        setTimeout(function () { delete retraitsEnVol[id]; resyncCmdAttente(); }, 4000);
+        resolve();
+      });
     });
   }
   function enregistrerTable(table) {

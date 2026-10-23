@@ -146,6 +146,30 @@ function createWindow() {
       if (echecsDessin >= 2) { echecsDessin = 0; journalIncident('rechargement automatique (chien de garde)'); boot(); }
     } catch (e) { echecsDessin = 0; }
   }, 15000);
+  // Réveil énergique de l'affichage : reproduit ce que fait la touche Alt (barre de menu
+  // qui apparaît puis disparaît + léger redimensionnement) pour forcer Windows à redessiner.
+  let dernierReveil = 0;
+  const reveilAffichage = (raison) => {
+    try {
+      if (!win || win.isDestroyed() || win.isMinimized()) return;
+      const maintenant = Date.now();
+      if (maintenant - dernierReveil < 4000) return;
+      dernierReveil = maintenant;
+      journalIncident('affichage figé détecté (' + raison + ') — repaint forcé');
+      win.webContents.invalidate();
+      win.setMenuBarVisibility(true);
+      setTimeout(() => {
+        try {
+          if (!win || win.isDestroyed()) return;
+          win.setMenuBarVisibility(false);
+          if (win.isMaximized()) { win.unmaximize(); win.maximize(); }
+          else if (!win.isFullScreen()) { const b = win.getBounds(); win.setBounds({ x: b.x, y: b.y, width: b.width + 1, height: b.height }); setTimeout(() => { try { win.setBounds(b); } catch (e) {} }, 60); }
+          win.webContents.invalidate();
+        } catch (e) {}
+      }, 120);
+    } catch (e) {}
+  };
+  ipcMain.on('ecran-fige', (e, retard) => { if (win && e.sender === win.webContents) reveilAffichage('plus d\'image depuis ' + retard + ' ms'); });
   const { powerMonitor } = require('electron');
   powerMonitor.on('resume', () => { journalIncident('sortie de veille'); setTimeout(repaint, 1500); });
   powerMonitor.on('unlock-screen', () => setTimeout(repaint, 500));

@@ -775,7 +775,7 @@ td{padding:8px 11px;vertical-align:middle}
     </div>
     <div class="sub" id="sub-params-dev">
       <div class="slay">
-        <div class="ssect" id="secPrintersServer" style="display:none"><div class="ssti">🖨️ Imprimantes du restaurant — à configurer une seule fois (poste Serveur) · module V10</div>
+        <div class="ssect" id="secPrintersServer" style="display:none"><div class="ssti">🖨️ Imprimantes du restaurant — à configurer une seule fois (poste Serveur) · module V12</div>
           <div id="prtBanner" style="display:none;background:#2a1a00;border:1px solid #FFAA00;color:#FFCC66;border-radius:6px;padding:10px 12px;font-size:12px;margin-bottom:12px">⚠️ <strong>Première utilisation</strong> — vérifiez la liste ci-dessous, choisissez l'imprimante de caisse et indiquez, pour chaque poste, sur quelle(s) imprimante(s) il envoie ses bons de commande. Ensuite, tout est automatique : plus aucune question.</div>
           <div style="font-size:12px;color:#888;margin-bottom:10px">Les imprimantes USB (Xprinter, Epson… avec pilote Windows) sont détectées et ajoutées automatiquement dès qu'elles sont branchées. Les imprimantes réseau (IP) se recherchent sur le réseau ou s'ajoutent à la main. Tous les modèles Xprinter et Epson ESC/POS sont pris en charge.</div>
           <div class="fl" style="margin:6px 0">1. Imprimantes</div>
@@ -889,7 +889,7 @@ td{padding:8px 11px;vertical-align:middle}
     <div class="fg"><label class="fl">Prix achat (FCFA)</label><input class="fi" type="number" id="aPA" placeholder="0" oninput="calcMg()"></div>
     <div class="fg"><label class="fl">Stock initial</label><input class="fi" type="number" id="aStk" placeholder="0"></div>
     <div class="fg"><label class="fl">Stock minimum</label><input class="fi" type="number" id="aSMin" placeholder="5"></div>
-    <div class="fg" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#eee;cursor:pointer;padding:8px;background:#0e0e0e;border-radius:6px;border:1px solid #333" id="aAlerteWrap"><input type="checkbox" id="aAlerte" checked> ⚠️ Activer l'alerte de stock faible pour cet article</label><p id="aAlerteNote" style="font-size:10px;color:#FF8844;margin-top:4px;display:none">Gestion de stock désactivée pour la catégorie de cet article (Paramètres → Catégories) — ce réglage n'a donc aucun effet.</p></div>
+    <div class="fg" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#eee;cursor:pointer;padding:8px;background:#0e0e0e;border-radius:6px;border:1px solid #333" id="aAlerteWrap"><input type="checkbox" id="aAlerte" checked> 📦 Gérer le stock de cet article (alerte stock faible + blocage en rupture). Décoché : l'article se vend toujours</label><p id="aAlerteNote" style="font-size:10px;color:#FF8844;margin-top:4px;display:none">Gestion de stock désactivée pour la catégorie de cet article (Paramètres → Catégories) — ce réglage n'a donc aucun effet.</p></div>
     <div class="fg"><label class="fl">Émoji</label><input class="fi" id="aEmo" placeholder="🍺" maxlength="2"></div>
     <div class="fg" style="grid-column:1/-1"><label class="fl">Code-barres</label>
       <div style="display:flex;gap:6px">
@@ -1406,12 +1406,12 @@ function renderProds(search){
   }
   list.forEach(function(a){
     var d=document.createElement('div');
-    d.className='pc'+(a.stk<=0?' oos':'');
+    d.className='pc'+(stockGere(a)&&a.stk<=0?' oos':'');
     var emo=document.createElement('div');emo.className='pe';emo.textContent=a.emo;
     var nom=document.createElement('div');nom.className='pn';nom.textContent=a.nom;
     var prix=document.createElement('div');prix.className='pp';prix.textContent=fmt(a.pv);
-    var gestionStockActive=categoryAlerteActive[a.cat]!==false;
-    var stkFaibleVisible=gestionStockActive&&a.stk<=a.smin&&a.alerte!==false;
+    var gestionStockActive=stockGere(a);
+    var stkFaibleVisible=gestionStockActive&&a.stk<=a.smin;
     var stk=document.createElement('div');stk.className='ps'+(stkFaibleVisible?' low':'');
     stk.textContent=gestionStockActive?('Stock: '+a.stk):'';
     stk.style.display=gestionStockActive?'':'none';
@@ -1454,14 +1454,14 @@ function rechArtKey(e){
   if(!v)return;
   var a=arts.find(function(x){return x.actif&&x.cb&&x.cb===v;});
   if(a){
-    if(a.stk<=0){toast('Rupture de stock : '+a.nom,'e');}
+    if(stockGere(a)&&a.stk<=0){toast('Rupture de stock : '+a.nom,'e');}
     else{addTk(a.id);toast(a.nom+' ajouté','s');}
     e.target.value='';renderProds('');
   }else{
     // Pas de correspondance exacte : on retente en recherche texte classique
     var byName=arts.find(function(x){return x.actif&&x.nom.toLowerCase()===v.toLowerCase();});
     if(byName){
-      if(byName.stk<=0){toast('Rupture de stock : '+byName.nom,'e');}
+      if(stockGere(byName)&&byName.stk<=0){toast('Rupture de stock : '+byName.nom,'e');}
       else{addTk(byName.id);toast(byName.nom+' ajouté','s');}
       e.target.value='';renderProds('');
     }else{
@@ -1474,7 +1474,7 @@ function rechArtKey(e){
 function addTk(id){
   var a=arts.find(function(x){return x.id===id;});
   if(!a)return;
-  var gestionStockActive=categoryAlerteActive[a.cat]!==false;
+  var gestionStockActive=stockGere(a);
   if(gestionStockActive&&a.stk<=0){toast('Stock insuffisant','e');return;}
   var ex=tkt.find(function(x){return x.id===id;});
   if(ex){ex.qty++;}else{tkt.push({id:id,nom:a.nom,pv:a.pv,qty:1,emo:a.emo});}
@@ -2579,7 +2579,7 @@ function numIn(k){
 function valPay(){
   var tot=getTotal();
   if(payMode==='esp'&&recAmt<tot){toast('Montant insuffisant','e');return;}
-  tkt.forEach(function(it){var a=arts.find(function(x){return x.id===it.id;});if(a&&categoryAlerteActive[a.cat]!==false)a.stk=Math.max(0,a.stk-it.qty);});
+  tkt.forEach(function(it){var a=arts.find(function(x){return x.id===it.id;});if(a&&stockGere(a))a.stk=Math.max(0,a.stk-it.qty);});
   var now=new Date();
   var dd=('0'+now.getDate()).slice(-2),mm=('0'+(now.getMonth()+1)).slice(-2);
   var hh=('0'+now.getHours()).slice(-2),mi=('0'+now.getMinutes()).slice(-2);
@@ -2819,8 +2819,8 @@ function renderArt(){
   arts.forEach(function(a){
     var mg=a.pa?Math.round((a.pv-a.pa)/a.pv*100):0;
     var tr=document.createElement('tr');
-    var gestionStockActive=categoryAlerteActive[a.cat]!==false;
-    var alerteVisible=gestionStockActive&&a.stk<=a.smin&&a.alerte!==false;
+    var gestionStockActive=stockGere(a);
+    var alerteVisible=gestionStockActive&&a.stk<=a.smin;
     tr.innerHTML='<td><code style="font-size:10px;color:#666">'+a.ref+'</code></td>'+
       '<td>'+a.emo+' <strong>'+a.nom+'</strong></td>'+
       '<td><span class="badge bo">'+a.cat+'</span></td><td>'+a.un+'</td>'+
@@ -3103,7 +3103,7 @@ function renderEti(){
 // STOCK
 function renderStk(){
   var al=g('stkAlert'),b=g('bStk');if(!b)return;
-  var artsSuivis=arts.filter(function(a){return categoryAlerteActive[a.cat]!==false;});
+  var artsSuivis=arts.filter(stockGere);
   var alrts=artsSuivis.filter(function(a){return a.stk<=a.smin&&a.actif&&a.alerte!==false;});
   al.innerHTML=(alrts.length&&toggles.alerte)?'<div class="salt">⚠️ <strong>'+alrts.length+' critique(s):</strong> '+alrts.map(function(a){return a.nom;}).join(', ')+'</div>':'';
   b.innerHTML='';
@@ -4647,6 +4647,9 @@ function delCaisse(nom){
 }
 var categories=['Apéritif','Bière','Champagne','Cocktail','Gin','Mocktail','Rhum','Soda / Eau','Tequila','Verre','Vin Blanc','Vin Rosé','Vin Rouge','Vodka','Whisky'];
 var categoryAlerteActive={};
+// Gestion de stock effective d'un article : active seulement si la catégorie ET l'article la gardent activée.
+// Sinon l'article se vend toujours (jamais grisé, jamais bloqué, stock non décompté).
+function stockGere(a){return !!a&&categoryAlerteActive[a.cat]!==false&&a.alerte!==false;}
 var editCatNom=null;
 function renderCatSelect(){
   var sel=g('aCat');if(!sel)return;

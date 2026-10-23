@@ -34,3 +34,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onFlushAvantFermeture: (callback) => ipcRenderer.on('flush-avant-fermeture', callback),
   confirmerFlushTermine: () => ipcRenderer.send('flush-termine')
 });
+
+// Battement de cœur d'affichage : si le navigateur n'a plus dessiné d'image depuis plusieurs
+// secondes alors que la page est visible (fenêtre « figée » qui ne revient qu'avec Alt), on
+// prévient le processus principal qui force aussitôt un vrai repaint (équivalent de la touche Alt).
+(function () {
+  let dernier = Date.now();
+  const battre = () => { dernier = Date.now(); requestAnimationFrame(battre); };
+  try { requestAnimationFrame(battre); } catch (e) {}
+  setInterval(() => {
+    try {
+      if (document.hidden) { dernier = Date.now(); return; }
+      const retard = Date.now() - dernier;
+      if (retard > 3500) ipcRenderer.send('ecran-fige', retard);
+    } catch (e) {}
+  }, 1500);
+})();
