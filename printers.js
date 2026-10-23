@@ -282,9 +282,12 @@ async function scannerReseau(options) {
   const bases = options.bases || sousReseauxLocaux().map(r => r.base);
   const trouvees = [];
   let faits = 0;
-  const total = bases.length * 254;
+  const total = bases.length * 254 + 9;
   const file = [];
   bases.forEach(b => { for (let i = 1; i <= 254; i++) file.push(b + '.' + i); });
+  // Adresses IP d'usine des imprimantes réseau (souvent hors du réseau du PC) : testées en plus, en premier.
+  const USINE = ['192.168.123.100', '192.168.192.168', '192.168.1.87', '192.168.0.87', '192.168.1.100', '192.168.0.100', '192.168.1.123', '192.168.0.123', '10.0.0.100'];
+  USINE.slice().reverse().forEach(ip => { if (file.indexOf(ip) === -1) file.unshift(ip); });
   const CONCURRENCE = options.concurrence || 80;
   async function ouvrier() {
     while (file.length) {

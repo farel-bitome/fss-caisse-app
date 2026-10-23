@@ -116,28 +116,52 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       return state;
     }
 
-    function saveState(state) {
-      const json = JSON.stringify(state, null, 2);
-      // Garde une copie de secours du dernier état VALIDE avant d'écraser —
-      // sert de filet de récupération si jamais la prochaine écriture est
-      // interrompue par un plantage.
-      try {
-        if (fs.existsSync(dataFile)) {
-          fs.copyFileSync(dataFile, backupDataFile);
-        }
-      } catch (e) {
-        console.error('Impossible de mettre à jour la copie de secours :', e.message);
-      }
-      // Écriture atomique : on écrit d'abord dans un fichier temporaire, puis
-      // on le renomme à la place du vrai fichier. Un "rename" est atomique au
-      // niveau du système de fichiers — soit il réussit entièrement, soit le
-      // fichier d'origine reste intact. Contrairement à une écriture directe,
-      // un plantage en plein milieu ne peut plus jamais laisser le fichier
-      // de données dans un état à moitié écrit (corrompu).
+    // ---- Sauvegarde des données ----
+    // AVANT : à chaque modification (de n'importe quel poste), le serveur écrivait tout le fichier de
+    // façon SYNCHRONE (JSON indenté + copie de secours + écriture) dans le processus principal de
+    // l'application : avec un gros catalogue ou plusieurs postes, la fenêtre se figeait quelques
+    // secondes, puis de plus en plus souvent -> « le logiciel plante après un temps ».
+    // MAINTENANT : les écritures sont regroupées (délai de 400 ms), JSON compact, fichiers écrits en
+    // asynchrone (le processus principal reste réactif), et tout ce qui est en attente est écrit
+    // de façon synchrone à la fermeture : aucune perte de données.
+    let saveTimer = null;
+    let saveEnAttente = null;
+    let saveChaine = Promise.resolve();
+    const fsp = fs.promises;
+    function ecrireEtat(state) {
+      const json = JSON.stringify(state);
       const tmpFile = dataFile + '.tmp';
-      fs.writeFileSync(tmpFile, json);
-      fs.renameSync(tmpFile, dataFile);
+      // Copie de secours du dernier état VALIDE, puis écriture atomique (fichier temporaire + rename :
+      // un plantage en plein milieu ne peut jamais laisser un fichier de données à moitié écrit).
+      return fsp.copyFile(dataFile, backupDataFile).catch(() => {})
+        .then(() => fsp.writeFile(tmpFile, json))
+        .then(() => fsp.rename(tmpFile, dataFile))
+        .catch((e) => console.error('Écriture des données impossible :', e && e.message));
     }
+    function saveState(state) {
+      saveEnAttente = state;
+      if (saveTimer) return;
+      saveTimer = setTimeout(() => {
+        saveTimer = null;
+        const s = saveEnAttente;
+        saveEnAttente = null;
+        if (s) saveChaine = saveChaine.then(() => ecrireEtat(s));
+      }, 400);
+    }
+    // Écriture synchrone de ce qui est encore en attente (fermeture de l'application).
+    function saveStateImmediat() {
+      if (!saveEnAttente) return;
+      const s = saveEnAttente;
+      saveEnAttente = null;
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      try {
+        const tmpFile = dataFile + '.tmp';
+        try { if (fs.existsSync(dataFile)) fs.copyFileSync(dataFile, backupDataFile); } catch (e) {}
+        fs.writeFileSync(tmpFile, JSON.stringify(s));
+        fs.renameSync(tmpFile, dataFile);
+      } catch (e) { console.error('Écriture finale impossible :', e && e.message); }
+    }
+    process.on('exit', saveStateImmediat);
 
     // ---- Config Airtel Money : stockée à part, JAMAIS envoyée au navigateur/synchronisée ----
     function loadAirtelConfig() {

@@ -5,6 +5,39 @@ const os = require('os');
 const licensing = require('./licensing');
 const printers = require('./printers');
 
+// ---- Anti-gel de la fenêtre -------------------------------------------------------------
+// Symptôme : après un moment la fenêtre se fige (ou reste blanche) et il faut appuyer sur Alt
+// (barre de menu -> redimensionnement -> repaint) puis « Recharger ». Causes classiques sous Windows :
+// accélération graphique (GPU) qui cesse de dessiner, fenêtre « occultée » dont le rendu est mis en
+// pause, throttling d'arrière-plan. On désactive ces mécanismes, on force un repaint régulier,
+// et un chien de garde recharge la page tout seul si elle ne dessine plus.
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+
+const logFile = path.join(app.getPath('userData'), 'incidents.log');
+function journalIncident(texte) {
+  try {
+    fs.appendFileSync(logFile, new Date().toISOString() + ' ' + texte + '\n');
+    const st = fs.statSync(logFile);
+    if (st.size > 500000) fs.writeFileSync(logFile, fs.readFileSync(logFile, 'utf8').slice(-200000));
+  } catch (e) {}
+}
+process.on('uncaughtException', (e) => { journalIncident('uncaughtException : ' + (e && e.stack || e)); });
+process.on('unhandledRejection', (e) => { journalIncident('unhandledRejection : ' + (e && e.stack || e)); });
+app.on('child-process-gone', (event, details) => { journalIncident('processus ' + details.type + ' arrêté : ' + details.reason); });
+
+// Une seule instance : une 2e copie ouverte en arrière-plan bloquait le port 3000.
+const verrouInstance = app.requestSingleInstanceLock();
+if (!verrouInstance) { app.quit(); }
+else {
+  app.on('second-instance', () => {
+    if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
+  });
+}
+
 const PORT = 3000;
 const configPath = path.join(app.getPath('userData'), 'config.json');
 
@@ -88,11 +121,34 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      backgroundThrottling: false
     }
   });
 
   buildMenu();
+
+  // Repaint forcé + chien de garde de dessin.
+  const repaint = () => { try { if (win && !win.isDestroyed() && win.isVisible() && !win.isMinimized()) win.webContents.invalidate(); } catch (e) {} };
+  ['focus', 'show', 'restore', 'resize', 'maximize', 'unmaximize'].forEach(ev => win.on(ev, repaint));
+  setInterval(repaint, 5000);
+  let echecsDessin = 0;
+  setInterval(async () => {
+    try {
+      if (!win || win.isDestroyed() || !win.isVisible() || win.isMinimized() || win.webContents.isLoading()) { echecsDessin = 0; return; }
+      const ok = await Promise.race([
+        win.webContents.capturePage({ x: 0, y: 0, width: 2, height: 2 }).then(() => true),
+        new Promise(r => setTimeout(() => r(false), 10000))
+      ]);
+      if (ok) { echecsDessin = 0; return; }
+      echecsDessin++;
+      journalIncident('la fenêtre ne dessine plus (' + echecsDessin + ')');
+      if (echecsDessin >= 2) { echecsDessin = 0; journalIncident('rechargement automatique (chien de garde)'); boot(); }
+    } catch (e) { echecsDessin = 0; }
+  }, 15000);
+  const { powerMonitor } = require('electron');
+  powerMonitor.on('resume', () => { journalIncident('sortie de veille'); setTimeout(repaint, 1500); });
+  powerMonitor.on('unlock-screen', () => setTimeout(repaint, 500));
 
   let fermetureAutorisee = false;
   win.on('close', (event) => {
@@ -166,6 +222,7 @@ function createWindow() {
   win.webContents.on('render-process-gone', (event, details) => {
     if (details.reason === 'clean-exit') return;
     console.error('Processus de rendu interrompu (' + details.reason + '), rechargement automatique...');
+    journalIncident('render-process-gone : ' + details.reason + ' (code ' + details.exitCode + ')');
     crashRecoveryCount++;
     const delay = Math.min(5000, 1000 * crashRecoveryCount);
     setTimeout(() => {
@@ -184,10 +241,12 @@ function createWindow() {
   let unresponsiveTimer = null;
   win.webContents.on('unresponsive', () => {
     console.error('Application non réactive, tentative de rechargement dans 30s si ça persiste...');
+    journalIncident('page non réactive');
     unresponsiveTimer = setTimeout(() => {
       if (!win || win.isDestroyed()) return;
+      journalIncident('rechargement après blocage prolongé');
       boot();
-    }, 30000);
+    }, 12000);
   });
   win.webContents.on('responsive', () => {
     if (unresponsiveTimer) { clearTimeout(unresponsiveTimer); unresponsiveTimer = null; }
@@ -599,6 +658,7 @@ ipcMain.handle('printers-install-drivers', () => new Promise((resolve) => {
 ipcMain.handle('get-hostname', () => os.hostname());
 
 app.whenReady().then(() => {
+  if (!verrouInstance) return;
   licensing.init(app.getPath('userData'));
   createWindow();
 });
