@@ -1,0 +1,59 @@
+;
+;	Printer Installation File
+;
+;	 List of supported printers, manufacturers
+;
+
+[Version]
+Signature="$Windows NT$"
+Provider=%XP%
+ClassGUID={4D36E979-E325-11CE-BFC1-08002BE10318}
+Class=Printer
+CatalogFile=XPDRVx64.cat
+
+;
+; Manufacturer section.
+;
+; This section lists all of the manufacturers
+; that we will display in the Dialog box
+;
+
+[Manufacturer]
+"XPrinter"=XP,NTamd64
+
+;
+; Model Specifications Section
+;
+
+[XP]
+"XP-80C"      = XP80C.GPD
+
+[XP.NTamd64]
+"XP-80C"      = XP80C.GPD
+
+;
+; Installer section(s) referenced above.
+;
+
+[XP80C.GPD]
+CopyFiles=@XP80RES.DLL,@XP80C.GPD,@XP80C.DLL,@XP80C.INI
+DataSection=UNIDRV_DATA
+DataFile=XP80C.GPD
+Include=NTPRINT.INF
+Needs=UNIDRV.OEM
+
+[DestinationDirs]
+DefaultDestDir=66000
+
+[SourceDisksNames.amd64]
+1 = %disk1%,,,
+
+[SourceDisksFiles]
+XP80RES.DLL     = 1
+XP80C.GPD       = 1
+XP80C.DLL       = 1
+XP80C.INI       = 1
+
+[Strings]
+PrinterClassName="Printers"
+disk1="XPrinter Driver Setup Disk"

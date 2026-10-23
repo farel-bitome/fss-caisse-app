@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     test: (imp) => ipcRenderer.invoke('printers-test', imp),
     testPort: (ip, port) => ipcRenderer.invoke('printers-test-port', ip, port),
     route: (demande) => ipcRenderer.invoke('printers-route', demande),
+    installDrivers: () => ipcRenderer.invoke('printers-install-drivers'),
     openDrivers: () => ipcRenderer.invoke('printers-open-drivers'),
     onChanged: (cb) => ipcRenderer.on('printers-changed', (e, d) => cb(d)),
     onScanProgress: (cb) => ipcRenderer.on('printers-scan-progress', (e, d) => cb(d))

@@ -74,6 +74,72 @@ const MODELES = [
   { marque: 'Epson', modele: 'TM-P20 (portable)', papier: 58 },
   { marque: 'Epson', modele: 'TM-P60II (portable)', papier: 58 },
   { marque: 'Epson', modele: 'TM-P80 (portable)', papier: 80 },
+  { marque: 'Rongta', modele: 'RP58', papier: 58 },
+  { marque: 'Rongta', modele: 'RP58-U', papier: 58 },
+  { marque: 'Rongta', modele: 'RP80', papier: 80 },
+  { marque: 'Rongta', modele: 'RP326', papier: 80 },
+  { marque: 'Rongta', modele: 'RP327', papier: 80 },
+  { marque: 'Rongta', modele: 'RP330', papier: 80 },
+  { marque: 'Rongta', modele: 'RP332', papier: 80 },
+  { marque: 'Rongta', modele: 'RP400', papier: 80 },
+  { marque: 'Rongta', modele: 'RP410', papier: 80 },
+  { marque: 'Rongta', modele: 'RPP02 (portable)', papier: 58 },
+  { marque: 'Rongta', modele: 'RPP300 (portable)', papier: 80 },
+  { marque: 'Rongta', modele: 'Autre Rongta 80 mm', papier: 80 },
+  { marque: 'Rongta', modele: 'Autre Rongta 58 mm', papier: 58 },
+  { marque: 'Star Micronics', modele: 'TSP143 (mode ESC/POS)', papier: 80 },
+  { marque: 'Star Micronics', modele: 'TSP100 / TSP100III (mode ESC/POS)', papier: 80 },
+  { marque: 'Star Micronics', modele: 'TSP650 / TSP650II (mode ESC/POS)', papier: 80 },
+  { marque: 'Star Micronics', modele: 'TSP700II (mode ESC/POS)', papier: 80 },
+  { marque: 'Star Micronics', modele: 'TSP800II (mode ESC/POS)', papier: 80 },
+  { marque: 'Star Micronics', modele: 'mC-Print2', papier: 58 },
+  { marque: 'Star Micronics', modele: 'mC-Print3', papier: 80 },
+  { marque: 'Star Micronics', modele: 'SM-S230i (portable)', papier: 58 },
+  { marque: 'Star Micronics', modele: 'SM-L300 (portable)', papier: 80 },
+  { marque: 'Star Micronics', modele: 'Autre Star 80 mm', papier: 80 },
+  { marque: 'Star Micronics', modele: 'Autre Star 58 mm', papier: 58 },
+  { marque: 'Bixolon', modele: 'SRP-330II', papier: 80 },
+  { marque: 'Bixolon', modele: 'SRP-350II', papier: 80 },
+  { marque: 'Bixolon', modele: 'SRP-350III', papier: 80 },
+  { marque: 'Bixolon', modele: 'SRP-350plusIII', papier: 80 },
+  { marque: 'Bixolon', modele: 'SRP-275III', papier: 80 },
+  { marque: 'Bixolon', modele: 'SRP-F310II', papier: 80 },
+  { marque: 'Bixolon', modele: 'SRP-Q300', papier: 80 },
+  { marque: 'Bixolon', modele: 'SRP-S300', papier: 80 },
+  { marque: 'Bixolon', modele: 'SPP-R200III (portable)', papier: 58 },
+  { marque: 'Bixolon', modele: 'SPP-R310 (portable)', papier: 80 },
+  { marque: 'Bixolon', modele: 'Autre Bixolon 80 mm', papier: 80 },
+  { marque: 'Bixolon', modele: 'Autre Bixolon 58 mm', papier: 58 },
+  { marque: 'Citizen', modele: 'CT-S310II', papier: 80 },
+  { marque: 'Citizen', modele: 'CT-S310A', papier: 80 },
+  { marque: 'Citizen', modele: 'CT-S601II', papier: 80 },
+  { marque: 'Citizen', modele: 'CT-S651II', papier: 80 },
+  { marque: 'Citizen', modele: 'CT-S801II', papier: 80 },
+  { marque: 'Citizen', modele: 'CT-S751', papier: 80 },
+  { marque: 'Citizen', modele: 'CT-S2000', papier: 80 },
+  { marque: 'Citizen', modele: 'CT-S4000', papier: 80 },
+  { marque: 'Citizen', modele: 'CT-E351', papier: 80 },
+  { marque: 'Citizen', modele: 'CMP-20II (portable)', papier: 58 },
+  { marque: 'Citizen', modele: 'Autre Citizen 80 mm', papier: 80 },
+  { marque: 'Citizen', modele: 'Autre Citizen 58 mm', papier: 58 },
+  { marque: 'HPRT', modele: 'TP58', papier: 58 },
+  { marque: 'HPRT', modele: 'TP80', papier: 80 },
+  { marque: 'HPRT', modele: 'TP80K', papier: 80 },
+  { marque: 'HPRT', modele: 'TP806', papier: 80 },
+  { marque: 'HPRT', modele: 'TP808', papier: 80 },
+  { marque: 'HPRT', modele: 'TP585', papier: 58 },
+  { marque: 'HPRT', modele: 'TP584', papier: 58 },
+  { marque: 'HPRT', modele: 'TP860', papier: 80 },
+  { marque: 'HPRT', modele: 'Autre HPRT 80 mm', papier: 80 },
+  { marque: 'HPRT', modele: 'Autre HPRT 58 mm', papier: 58 },
+  // Zebra : imprimantes surtout ZPL/CPCL (pas ESC/POS) -> à utiliser via le pilote Windows (mode « Pilote Windows »).
+  { marque: 'Zebra', modele: 'ZD220 (pilote Windows)', papier: 80, escpos: false },
+  { marque: 'Zebra', modele: 'ZD230 (pilote Windows)', papier: 80, escpos: false },
+  { marque: 'Zebra', modele: 'ZD420 (pilote Windows)', papier: 80, escpos: false },
+  { marque: 'Zebra', modele: 'ZD621 (pilote Windows)', papier: 80, escpos: false },
+  { marque: 'Zebra', modele: 'ZQ220 (portable, pilote Windows)', papier: 58, escpos: false },
+  { marque: 'Zebra', modele: 'ZQ320 (portable, pilote Windows)', papier: 80, escpos: false },
+  { marque: 'Zebra', modele: 'Autre Zebra (pilote Windows)', papier: 80, escpos: false },
   { marque: 'ESC/POS', modele: 'Générique 80 mm', papier: 80 },
   { marque: 'ESC/POS', modele: 'Générique 58 mm', papier: 58 }
 ];
@@ -89,11 +155,13 @@ const VIRTUELLES = /pdf|xps|onenote|fax|microsoft print|document writer|anydesk|
 // ---------------------------------------------------------------------
 let configFile = null;
 function init(userDataDir) {
+  dossierDonnees = userDataDir;
   configFile = path.join(userDataDir, 'printers.json');
 }
 function configParDefaut() {
   return {
     configure: false,            // devient true dès la première sauvegarde depuis Paramètres
+    autoAjoutReseau: true,       // détecter et ajouter automatiquement les imprimantes réseau (IP, port 9100) — PRIORITAIRE
     autoAjoutWindows: true,      // ajouter automatiquement les imprimantes Windows détectées
     printers: [],                // [{id,nom,type:'windows'|'network',winName,ip,port,marque,modele,papier,actif}]
     imprimanteCaisse: null,      // id : tickets de caisse, additions, clôtures, prélèvements
@@ -307,6 +375,67 @@ function imprimerWindows(electron, html, nomWindows, papier) {
   });
 }
 
+
+// ---------------------------------------------------------------------
+// Envoi RAW (ESC/POS direct) à une imprimante Windows, quel que soit son pilote
+// (y compris le pilote générique « Generic / Text Only » de Windows) : universel.
+// ---------------------------------------------------------------------
+const SCRIPT_RAW = `param([string]$Imprimante,[string]$Fichier)
+$ErrorActionPreference = 'Stop'
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class FssRaw {
+  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+  public class DocInfo { public string pDocName; public string pOutputFile; public string pDataType; }
+  [DllImport("winspool.drv", EntryPoint="OpenPrinterW", SetLastError=true, CharSet=CharSet.Unicode)]
+  public static extern bool OpenPrinter(string n, out IntPtr h, IntPtr d);
+  [DllImport("winspool.drv", SetLastError=true)] public static extern bool ClosePrinter(IntPtr h);
+  [DllImport("winspool.drv", EntryPoint="StartDocPrinterW", SetLastError=true, CharSet=CharSet.Unicode)]
+  public static extern int StartDocPrinter(IntPtr h, int level, [In] DocInfo di);
+  [DllImport("winspool.drv", SetLastError=true)] public static extern bool EndDocPrinter(IntPtr h);
+  [DllImport("winspool.drv", SetLastError=true)] public static extern bool StartPagePrinter(IntPtr h);
+  [DllImport("winspool.drv", SetLastError=true)] public static extern bool EndPagePrinter(IntPtr h);
+  [DllImport("winspool.drv", SetLastError=true)] public static extern bool WritePrinter(IntPtr h, byte[] b, int n, out int w);
+}
+"@
+$octets = [System.IO.File]::ReadAllBytes($Fichier)
+$h = [IntPtr]::Zero
+if (-not [FssRaw]::OpenPrinter($Imprimante, [ref]$h, [IntPtr]::Zero)) { throw "Imprimante introuvable : $Imprimante" }
+try {
+  $di = New-Object FssRaw+DocInfo
+  $di.pDocName = 'FSS-CAISSE'; $di.pDataType = 'RAW'
+  if ([FssRaw]::StartDocPrinter($h, 1, $di) -le 0) { throw 'StartDocPrinter a echoue (imprimante hors ligne ?)' }
+  [void][FssRaw]::StartPagePrinter($h)
+  $ecrit = 0
+  if (-not [FssRaw]::WritePrinter($h, $octets, $octets.Length, [ref]$ecrit)) { throw 'WritePrinter a echoue' }
+  [void][FssRaw]::EndPagePrinter($h)
+  [void][FssRaw]::EndDocPrinter($h)
+} finally { [void][FssRaw]::ClosePrinter($h) }
+`;
+
+let dossierDonnees = null;
+function envoyerRawWindows(nomImprimante, buffer) {
+  const fs = require('fs');
+  const os = require('os');
+  const { execFile } = require('child_process');
+  return new Promise((resolve, reject) => {
+    try {
+      const base = dossierDonnees || os.tmpdir();
+      const script = path.join(base, 'fss-raw-print.ps1');
+      fs.writeFileSync(script, '\ufeff' + SCRIPT_RAW, 'utf8');
+      const tmp = path.join(os.tmpdir(), 'fss-raw-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.bin');
+      fs.writeFileSync(tmp, buffer);
+      execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-Imprimante', nomImprimante, '-Fichier', tmp],
+        { timeout: 30000, windowsHide: true }, (err, stdout, stderr) => {
+          try { fs.unlinkSync(tmp); } catch (e) {}
+          if (err) return reject(new Error('Envoi direct impossible : ' + ((stderr || err.message || '') + '').trim().split('\n')[0]));
+          resolve();
+        });
+    } catch (e) { reject(e); }
+  });
+}
+
 async function imprimerSur(electron, imprimante, html) {
   const papier = Number(imprimante.papier) === 58 ? 58 : 80;
   return enFile(imprimante.id, async () => {
@@ -315,6 +444,11 @@ async function imprimerSur(electron, imprimante, html) {
         const img = await htmlVersImage(electron, html, papier);
         const buf = rasterVersEscpos(img.bgra, img.w, img.h);
         await envoyerTcp(imprimante.ip, Number(imprimante.port) || 9100, buf, 10000);
+        return { id: imprimante.id, nom: imprimante.nom, ok: true };
+      }
+      if (imprimante.type === 'windows' && imprimante.mode === 'escpos') {
+        const img = await htmlVersImage(electron, html, papier);
+        await envoyerRawWindows(imprimante.winName, rasterVersEscpos(img.bgra, img.w, img.h));
         return { id: imprimante.id, nom: imprimante.nom, ok: true };
       }
       const r = await imprimerWindows(electron, html, imprimante.winName, papier);
@@ -363,17 +497,28 @@ async function router(electron, demande, repli) {
 // Détection Windows + ajout automatique
 // ---------------------------------------------------------------------
 function devinerPapier(nom) {
-  if (/58|p20|p60|mobile|portable/i.test(nom)) return 58;
+  if (/58|p20|p60|mobile|portable|zq220|sm-s|spp-r200|cmp-20|rpp02/i.test(nom)) return 58;
   return 80;
 }
 function devinerMarque(nom) {
   if (/xprinter|xp-|^xp\s/i.test(nom)) return 'Xprinter';
-  if (/epson|tm-/i.test(nom)) return 'Epson';
+  if (/epson|tm-[a-z]/i.test(nom)) return 'Epson';
+  if (/rongta|^rp[-\s]?\d/i.test(nom)) return 'Rongta';
+  if (/star|tsp\s?\d|mc-print|sm-[sl]\d/i.test(nom)) return 'Star Micronics';
+  if (/bixolon|srp-|spp-/i.test(nom)) return 'Bixolon';
+  if (/citizen|ct-[se]\d|cmp-/i.test(nom)) return 'Citizen';
+  if (/hprt|tp\d{2,3}/i.test(nom)) return 'HPRT';
+  if (/zebra|zd\d{3}|zq\d{3}/i.test(nom)) return 'Zebra';
   return 'ESC/POS';
 }
 function devinerModele(nom) {
-  const m = nom.match(/(XP-[A-Z0-9-]+|TM-[A-Za-z0-9]+)/i);
+  const m = nom.match(/(XP-[A-Z0-9-]+|TM-[A-Za-z0-9]+|RP\d{2,3}[A-Z-]*|TSP\d{2,3}[A-Za-z]*|SRP-[A-Za-z0-9]+|SPP-[A-Za-z0-9]+|CT-[SE]\d+[A-Za-z]*|TP\d{2,3}[A-Z]?|ZD\d{3}|ZQ\d{3})/i);
   return m ? m[1].toUpperCase() : '';
+}
+// Imprimante créée par FSS-CAISSE avec le pilote générique de Windows : envoi ESC/POS direct.
+function modeParDefaut(nom) {
+  if (/universelle|universal|generic \/ text|g[ée]n[ée]rique/i.test(nom)) return 'escpos';
+  return 'pilote';
 }
 async function listerWindows(webContents) {
   try {
@@ -394,7 +539,7 @@ function ajoutAutomatique(listeWindows) {
     if ((cfg.ignorees || []).indexOf(w.name) !== -1) return;
     const imp = {
       id: nouvelId(), nom: w.displayName, type: 'windows', winName: w.name,
-      marque: devinerMarque(w.name), modele: devinerModele(w.name), papier: devinerPapier(w.name), actif: true
+      marque: devinerMarque(w.name), modele: devinerModele(w.name), papier: devinerPapier(w.name), mode: modeParDefaut(w.name), actif: true
     };
     cfg.printers.push(imp);
     ajouts.push(imp);
@@ -404,6 +549,37 @@ function ajoutAutomatique(listeWindows) {
     sauverConfig(cfg);
   }
   return ajouts;
+}
+
+
+// Ajoute automatiquement les imprimantes RESEAU (IP) détectées. Retourne la liste des ajouts.
+function ajoutAutomatiqueReseau(trouvees) {
+  const cfg = chargerConfig();
+  if (cfg.autoAjoutReseau === false) return [];
+  const ajouts = [];
+  trouvees.forEach(t => {
+    if (cfg.printers.find(p => p.type === 'network' && p.ip === t.ip && (Number(p.port) || 9100) === (Number(t.port) || 9100))) return;
+    if ((cfg.ignorees || []).indexOf('net:' + t.ip) !== -1) return;
+    const imp = {
+      id: nouvelId(), nom: 'Imprimante réseau ' + t.ip, type: 'network', ip: t.ip, port: Number(t.port) || 9100,
+      marque: 'ESC/POS', modele: 'Générique 80 mm', papier: 80, actif: true, auto: true
+    };
+    cfg.printers.push(imp);
+    ajouts.push(imp);
+  });
+  if (ajouts.length) {
+    if (!cfg.imprimanteCaisse) cfg.imprimanteCaisse = ajouts[0].id;
+    sauverConfig(cfg);
+  }
+  return ajouts;
+}
+// Etat (joignable ou non) des imprimantes réseau déjà configurées.
+async function etatReseau(cfg) {
+  const r = {};
+  await Promise.all(cfg.printers.filter(p => p.type === 'network').map(async p => {
+    r[p.id] = await testerPort(p.ip, Number(p.port) || 9100, 700);
+  }));
+  return r;
 }
 
 // Impression test (ticket simple)
@@ -417,7 +593,7 @@ function htmlTest(imp) {
 }
 
 module.exports = {
-  MODELES, POINTS, init, chargerConfig, sauverConfig, nouvelId, rasterVersEscpos, envoyerTcp,
+  MODELES, POINTS, ajoutAutomatiqueReseau, etatReseau, envoyerRawWindows, SCRIPT_RAW, init, chargerConfig, sauverConfig, nouvelId, rasterVersEscpos, envoyerTcp,
   scannerReseau, sousReseauxLocaux, testerPort, listerWindows, ajoutAutomatique, imprimerSur,
   router, choisirCibles, htmlTest, adapterHtml, htmlVersImage
 };

@@ -1,9 +1,20 @@
 PILOTES D'IMPRIMANTES - FSS-CAISSE
 ==================================
+Tout ce qui est place ici est installe AUTOMATIQUEMENT avec le logiciel, quel que soit le dossier d'installation.
+Pilotes Xprinter (drivers\inf\Xprinter_receipt_2025.10.22 et Xprinter_80mm_V2.1R) : installes en SILENCIEUX avec pnputil, rien a cliquer.
+Epson TM-USB (drivers\auto) : silencieux. Epson TM-T20II APD : assistant Epson a la fin de l'installation (Suivant / Installer, une seule fois par PC) ;
+l'installation Epson silencieuse exige un fichier script cree sur un PC deja configure (voir manuel APD5, chapitre 3).
 
-Placez ici les installateurs de pilotes de vos imprimantes (dossiers Xprinter, Epson...).
-Ils sont copies avec l'application. Dans FSS-CAISSE : Parametres > Peripheriques >
-bouton "Dossier des pilotes" pour les ouvrir et lancer l'installation.
+  drivers\inf\    -> dossiers de pilotes contenant des fichiers .inf (ajoutes a Windows avec pnputil)
+  drivers\auto\   -> installateurs .exe de pilotes (Xprinter, Epson, Rongta, Star, Bixolon, Citizen, HPRT, Zebra...),
+                     lances en mode silencieux
 
-Une fois le pilote installe et l'imprimante USB branchee, FSS-CAISSE la detecte
-et l'ajoute automatiquement. Les imprimantes reseau (IP) n'ont pas besoin de pilote.
+PILOTE UNIVERSEL (toujours installe) : pilote generique « Generic / Text Only » de Windows + une imprimante
+« Imprimante universelle ESC/POS (USBxxx) » par port USB libre. FSS-CAISSE y envoie le ticket en ESC/POS direct :
+fonctionne avec toute imprimante thermique ESC/POS (Xprinter, Epson, Rongta, Star en mode ESC/POS, Bixolon,
+Citizen, HPRT), meme sans pilote du fabricant. Les imprimantes RESEAU (IP) n'ont besoin d'aucun pilote.
+Zebra (ZPL/CPCL) : installer son pilote Windows (dossier auto\ ou inf\) et utiliser le mode « Pilote Windows ».
+
+N'y mettez que des fichiers telecharges depuis le site officiel du fabricant.
+Journal : C:\ProgramData\FSS-CAISSE-pilotes.log
+Relancer a la main : Parametres > Peripheriques > "Installer les pilotes + imprimante universelle USB".

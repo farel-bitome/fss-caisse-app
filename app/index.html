@@ -783,12 +783,15 @@ td{padding:8px 11px;vertical-align:middle}
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
             <button class="btn btn-b sm" onclick="prtRechercherReseau()">🔍 Rechercher les imprimantes réseau (IP)</button>
             <button class="btn btn-o sm" onclick="prtOuvrirForm(null)">➕ Ajouter une imprimante IP</button>
+            <button class="btn btn-o sm" onclick="prtInstallerPilotes()">🔧 Installer les pilotes + imprimante universelle USB</button>
             <button class="btn btn-o sm" onclick="prtOuvrirPilotes()">📂 Dossier des pilotes (Xprinter / Epson)</button>
             <button class="btn btn-o sm" onclick="prtCharger()">🔄 Actualiser</button>
             <span id="prtScanStatus" style="font-size:12px;color:#888"></span>
           </div>
+          <div id="prtWindows" style="margin-bottom:8px"></div>
           <div id="prtTrouvees" style="margin-bottom:10px"></div>
-          <label style="font-size:12px;display:flex;gap:6px;align-items:center;margin:6px 0 14px"><input type="checkbox" id="prtAutoAdd" onchange="prtChangerAuto()"> Ajouter automatiquement les imprimantes USB / Windows dès qu'elles sont branchées</label>
+          <label style="font-size:12px;display:flex;gap:6px;align-items:center;margin:6px 0 4px"><input type="checkbox" id="prtAutoAddNet" onchange="prtChangerAutoNet()"> <strong>Détecter et ajouter automatiquement les imprimantes réseau (IP / Wi-Fi / switch)</strong> — analyse le réseau toutes les 45 s</label>
+          <label style="font-size:12px;display:flex;gap:6px;align-items:center;margin:4px 0 14px"><input type="checkbox" id="prtAutoAdd" onchange="prtChangerAuto()"> Ajouter automatiquement les imprimantes USB / Windows dès qu'elles sont branchées</label>
           <div id="prtForm" style="display:none;border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:14px">
             <div class="sg">
               <div class="fg"><label class="fl">Nom (ex : Cuisine, Bar, Salle)</label><input class="fi" id="prtFNom"></div>
@@ -797,6 +800,7 @@ td{padding:8px 11px;vertical-align:middle}
               <div class="fg"><label class="fl">Marque</label><select class="fi" id="prtFMarque" onchange="prtMajModeles()"></select></div>
               <div class="fg"><label class="fl">Modèle</label><select class="fi" id="prtFModele" onchange="prtModeleChoisi()"></select></div>
               <div class="fg"><label class="fl">Largeur du papier</label><select class="fi" id="prtFPapier"><option value="80">80 mm</option><option value="58">58 mm</option></select></div>
+              <div class="fg" id="prtFModeBox" style="display:none"><label class="fl">Envoi à l'imprimante</label><select class="fi" id="prtFMode"><option value="pilote">Pilote Windows (recommandé si le pilote du fabricant est installé)</option><option value="escpos">ESC/POS direct — universel (ticket envoyé tel quel, fonctionne avec n'importe quel pilote Windows)</option></select></div>
             </div>
             <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-r sm" onclick="prtSauverForm()">💾 Enregistrer l'imprimante</button><button class="btn btn-o sm" onclick="prtFermerForm()">Annuler</button></div>
           </div>
@@ -2086,6 +2090,7 @@ function prtRender(){
   var cfg=prt.cfg;if(!cfg)return;
   g('prtBanner').style.display=cfg.configure?'none':'';
   g('prtAutoAdd').checked=cfg.autoAjoutWindows!==false;
+  g('prtAutoAddNet').checked=cfg.autoAjoutReseau!==false;
   // --- liste
   var l=g('prtListe');
   if(!cfg.printers.length){
@@ -2097,7 +2102,7 @@ function prtRender(){
       d.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid #2a2a2a;border-radius:6px;padding:8px 10px;margin-bottom:6px';
       var etat='';
       if(p.type==='windows')etat=p.presente?'<span style="color:#44FF88">● branchée</span>':'<span style="color:#FF6666">○ non détectée</span>';
-      else etat='<span style="color:#88AAFF">IP '+prtEsc(p.ip)+':'+prtEsc(p.port||9100)+'</span>';
+      else etat=(p.presente?'<span style="color:#44FF88">● en ligne</span> ':'<span style="color:#FF6666">○ injoignable</span> ')+'<span style="color:#88AAFF">IP '+prtEsc(p.ip)+':'+prtEsc(p.port||9100)+'</span>';
       d.innerHTML='<label style="display:flex;align-items:center;gap:6px;flex:1;min-width:220px"><input type="checkbox" '+(p.actif!==false?'checked':'')+' onchange="prtActif(\''+p.id+'\',this.checked)"><span><strong>'+prtEsc(p.nom)+'</strong> <span style="color:#888;font-size:11px">'+prtEsc((p.marque||'')+' '+(p.modele||''))+' · '+(p.papier||80)+' mm'+(p.type==='windows'?' · USB/Windows':' · Réseau')+'</span></span></label>'+
         '<span style="font-size:12px">'+etat+'</span>'+
         '<button class="btn btn-o sm" onclick="prtTester(\''+p.id+'\')">🖨️ Test</button>'+
@@ -2117,6 +2122,20 @@ function prtRender(){
     d.style.cssText='display:flex;gap:8px;align-items:center;font-size:12px;padding:4px 0';
     d.innerHTML='🔎 Imprimante détectée : <strong>'+prtEsc(x.ip)+':'+x.port+'</strong> <button class="btn btn-b sm" onclick="prtAjouterTrouvee(\''+x.ip+'\','+x.port+')">➕ Ajouter</button>';
     t.appendChild(d);
+  });
+  // --- imprimantes vues par Windows (diagnostic + ajout manuel)
+  var wd=g('prtWindows');wd.innerHTML='';
+  var reelles=prt.windows.filter(function(w){return !w.virtuelle;});
+  var info=document.createElement('div');
+  info.style.cssText='font-size:12px;color:'+(reelles.length?'#888':'#FFAA66')+';padding:2px 0';
+  info.textContent=reelles.length?('Windows voit '+reelles.length+' imprimante(s) installée(s) sur ce PC.'):'⚠️ Windows ne voit aucune imprimante installée sur ce PC (hors PDF/XPS). Installez le pilote de votre imprimante (Epson, Xprinter…), puis cliquez sur Actualiser.';
+  wd.appendChild(info);
+  prt.windows.forEach(function(w){
+    if(cfg.printers.some(function(p){return p.type==='windows'&&p.winName===w.name;}))return;
+    var d=document.createElement('div');
+    d.style.cssText='display:flex;gap:8px;align-items:center;font-size:12px;padding:3px 0';
+    d.innerHTML='🖨️ Windows : <strong>'+prtEsc(w.displayName||w.name)+'</strong>'+(w.virtuelle?' <span style="color:#888">(virtuelle)</span>':'')+' <button class="btn btn-b sm" data-n="'+prtEsc(w.name)+'" onclick="prtAjouterWindows(this.dataset.n)">➕ Ajouter</button>';
+    wd.appendChild(d);
   });
   // --- postes
   var pp=g('prtPostes');pp.innerHTML='';
@@ -2146,6 +2165,7 @@ function prtRender(){
   });
 }
 function prtActif(id,v){var p=prt.cfg.printers.find(function(x){return x.id===id;});if(p){p.actif=v;prtPersist();}}
+function prtChangerAutoNet(){prt.cfg.autoAjoutReseau=g('prtAutoAddNet').checked;prtPersist();}
 function prtChangerAuto(){prt.cfg.autoAjoutWindows=g('prtAutoAdd').checked;prtPersist();}
 function prtChangerCaisse(){prt.cfg.imprimanteCaisse=g('prtCaisse').value||null;prtPersist();}
 function prtModePoste(id,mode){
@@ -2180,6 +2200,7 @@ function prtSupprimer(id){
   if(!confirm('Retirer l\'imprimante « '+p.nom+' » ?'))return;
   prt.cfg.printers=prt.cfg.printers.filter(function(x){return x.id!==id;});
   if(p.type==='windows'){prt.cfg.ignorees=(prt.cfg.ignorees||[]).concat([p.winName]);}
+  if(p.type==='network'){prt.cfg.ignorees=(prt.cfg.ignorees||[]).concat(['net:'+p.ip]);}
   if(prt.cfg.imprimanteCaisse===id)prt.cfg.imprimanteCaisse=null;
   Object.keys(prt.cfg.routes).forEach(function(k){var r=prt.cfg.routes[k];if(r.ids)r.ids=r.ids.filter(function(x){return x!==id;});});
   prtPersist();prtRender();
@@ -2197,6 +2218,8 @@ function prtOuvrirForm(id,ipPrefill,portPrefill){
   g('prtFMarque').value=p&&p.marque&&marques.indexOf(p.marque)!==-1?p.marque:'Xprinter';
   prtMajModeles(p&&p.modele);
   if(p)g('prtFPapier').value=String(p.papier||80);
+  g('prtFModeBox').style.display=(p&&p.type==='windows')?'':'none';
+  if(p&&p.type==='windows')g('prtFMode').value=p.mode==='escpos'?'escpos':'pilote';
   g('prtForm').style.display='';
   g('prtFNom').focus();
 }
@@ -2221,6 +2244,9 @@ function prtSauverForm(){
   if(!nom){toast('Donnez un nom à l\'imprimante (ex : Cuisine)','e');return;}
   if(!estWin&&!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)){toast('Adresse IP invalide (ex : 192.168.1.50)','e');return;}
   var data={nom:nom,marque:g('prtFMarque').value,modele:g('prtFModele').value,papier:parseInt(g('prtFPapier').value)||80};
+  var mm=prt.modeles.find(function(x){return x.marque===data.marque&&x.modele===data.modele;});
+  if(!estWin&&mm&&mm.escpos===false){toast('Ce modèle (ZPL/CPCL) ne reçoit pas l\'ESC/POS en réseau : installez son pilote Windows et utilisez le mode « Pilote Windows ».','e');return;}
+  if(estWin)data.mode=g('prtFMode').value==='escpos'?'escpos':'pilote';
   if(p){for(var k in data)p[k]=data[k];if(!estWin){p.ip=ip;p.port=port;}}
   else{
     var n={id:'P'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),type:'network',ip:ip,port:port,actif:true};
@@ -2229,6 +2255,20 @@ function prtSauverForm(){
     if(!prt.cfg.imprimanteCaisse)prt.cfg.imprimanteCaisse=n.id;
   }
   prtPersist();prtFermerForm();prtRender();toast('Imprimante enregistrée','s');
+}
+function prtAjouterWindows(nom){
+  var w=prt.windows.find(function(x){return x.name===nom;});if(!w)return;
+  var marque='ESC/POS';
+  if(/xprinter|xp-/i.test(nom))marque='Xprinter';else if(/epson|tm-[a-z]/i.test(nom))marque='Epson';
+  else if(/rongta|^rp[-\s]?\d/i.test(nom))marque='Rongta';else if(/star|tsp\s?\d|mc-print/i.test(nom))marque='Star Micronics';
+  else if(/bixolon|srp-|spp-/i.test(nom))marque='Bixolon';else if(/citizen|ct-[se]\d/i.test(nom))marque='Citizen';
+  else if(/hprt|tp\d{2,3}/i.test(nom))marque='HPRT';else if(/zebra|zd\d{3}|zq\d{3}/i.test(nom))marque='Zebra';
+  var m=nom.match(/(XP-[A-Z0-9-]+|TM-[A-Za-z0-9]+|RP\d{2,3}[A-Z-]*|TSP\d{2,3}[A-Za-z]*|SRP-[A-Za-z0-9]+|CT-[SE]\d+[A-Za-z]*|TP\d{2,3}[A-Z]?)/i);
+  var n={id:'P'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),nom:w.displayName||w.name,type:'windows',winName:w.name,marque:marque,modele:m?m[1].toUpperCase():'',papier:/58|p20|p60|zq220|rpp02/i.test(nom)?58:80,mode:/universelle|universal|generic \/ text|g[ée]n[ée]rique/i.test(nom)?'escpos':'pilote',actif:true,presente:true};
+  prt.cfg.printers.push(n);
+  prt.cfg.ignorees=(prt.cfg.ignorees||[]).filter(function(x){return x!==nom;});
+  if(!prt.cfg.imprimanteCaisse)prt.cfg.imprimanteCaisse=n.id;
+  prtPersist();prtRender();toast('Imprimante ajoutée','s');
 }
 function prtAjouterTrouvee(ip,port){prtOuvrirForm(null,ip,port);}
 function prtRechercherReseau(){
@@ -2239,6 +2279,13 @@ function prtRechercherReseau(){
     st.style.color=prt.trouvees.length?'#44FF88':'#FF8888';
     prtRender();
   }).catch(function(e){st.textContent='Recherche impossible : '+(e&&e.message||e);st.style.color='#FF6666';});
+}
+function prtInstallerPilotes(){
+  toast('Installation des pilotes… acceptez la demande d\'autorisation de Windows (quelques minutes)','i');
+  window.electronAPI.printers.installDrivers().then(function(r){
+    if(r&&r.ok){toastLong('Pilotes installés et imprimante universelle USB créée. Débranchez puis rebranchez l\'imprimante USB si besoin, puis cliquez sur Actualiser.','s',9000);setTimeout(prtCharger,4000);}
+    else toastLong('Installation des pilotes impossible : '+((r&&r.error)||'annulée'),'e',9000);
+  });
 }
 function prtOuvrirPilotes(){
   window.electronAPI.printers.openDrivers().then(function(r){

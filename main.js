@@ -511,8 +511,23 @@ function envoyerAuRenderer(canal, donnees) {
 
 // Surveille les imprimantes Windows : toute imprimante nouvellement branchée
 // (USB Xprinter / Epson, pilote installé...) est détectée et ajoutée toute seule.
+let scanReseauEnCours = false;
 function demarrerSurveillanceImprimantes() {
   if (surveillanceImprimantes) return;
+  // 1) PRIORITE : détection des imprimantes RESEAU (IP) — dès le démarrage puis toutes les 45 s.
+  const cycleReseau = async () => {
+    if (scanReseauEnCours) return;
+    scanReseauEnCours = true;
+    try {
+      if (!win || win.isDestroyed()) return;
+      const cfg = printers.chargerConfig();
+      if (cfg.autoAjoutReseau === false) return;
+      const trouvees = await printers.scannerReseau({});
+      const ajouts = printers.ajoutAutomatiqueReseau(trouvees);
+      if (ajouts.length) envoyerAuRenderer('printers-changed', { ajouts: ajouts.map(a => a.nom) });
+    } catch (e) {} finally { scanReseauEnCours = false; }
+  };
+  // 2) Imprimantes USB / Windows : toutes les 8 s.
   const cycle = async () => {
     try {
       if (!win || win.isDestroyed()) return;
@@ -521,7 +536,9 @@ function demarrerSurveillanceImprimantes() {
       if (ajouts.length) envoyerAuRenderer('printers-changed', { ajouts: ajouts.map(a => a.nom) });
     } catch (e) {}
   };
-  setTimeout(cycle, 4000);
+  setTimeout(cycleReseau, 1500);
+  setInterval(cycleReseau, 45000);
+  setTimeout(cycle, 6000);
   surveillanceImprimantes = setInterval(cycle, 8000);
 }
 
@@ -532,6 +549,8 @@ ipcMain.handle('printers-get', async () => {
   cfg.printers.forEach(p => {
     if (p.type === 'windows') p.presente = windows.some(w => w.name === p.winName);
   });
+  const etat = await printers.etatReseau(cfg);
+  cfg.printers.forEach(p => { if (p.type === 'network') p.presente = !!etat[p.id]; });
   return { config: cfg, windows: windows, modeles: printers.MODELES };
 });
 ipcMain.handle('printers-save', (event, cfg) => {
@@ -566,6 +585,17 @@ ipcMain.handle('printers-open-drivers', async () => {
   }
   return { ok: false };
 });
+ipcMain.handle('printers-install-drivers', () => new Promise((resolve) => {
+  const candidats = [path.join(process.resourcesPath || '', 'drivers'), path.join(__dirname, 'drivers')];
+  const dossier = candidats.find(c => fs.existsSync(path.join(c, 'installer-pilotes.ps1')));
+  if (!dossier) return resolve({ ok: false, error: 'Script des pilotes introuvable' });
+  const script = path.join(dossier, 'installer-pilotes.ps1');
+  // Lancement avec élévation (demande d'autorisation administrateur de Windows)
+  const { execFile } = require('child_process');
+  execFile('powershell.exe', ['-NoProfile', '-Command',
+    "Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','\"" + script + "\"','-Interactif'"],
+    { timeout: 600000 }, (err) => resolve(err ? { ok: false, error: err.message } : { ok: true }));
+}));
 ipcMain.handle('get-hostname', () => os.hostname());
 
 app.whenReady().then(() => {

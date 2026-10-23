@@ -1,0 +1,103 @@
+[Version]
+Signature="$Windows NT$"
+Provider=Xprinter
+ClassGUID={4D36E979-E325-11CE-BFC1-08002BE10318}
+Class=Printer
+DriverVer=10/22/2025,2025.10.22.01
+CatalogFile=xpposdrv6.cat
+PnpLockdown=1
+
+[Manufacturer]
+%PRV%=Xprinter, NTx86, NTamd64, NTarm64
+
+[Xprinter]
+"Xprinter XP-80(300DPI)" = PRNTDRV,USBPRINT\XprinterXP-80(300DPI9031
+"Xprinter XP-80" = PRNTDRV,USBPRINT\XprinterXP-80FE82
+"Xprinter XP-76" = PRNTDRV,USBPRINT\XprinterXP-760C07
+"Xprinter XP-58" = PRNTDRV,USBPRINT\XprinterXP-58A887
+"Xprinter XP-110" = PRNTDRV,USBPRINT\XprinterXP-110E7AF
+
+[Xprinter.NTx86]
+"Xprinter XP-80(300DPI)" = PRNTDRV,USBPRINT\XprinterXP-80(300DPI9031
+"Xprinter XP-80" = PRNTDRV,USBPRINT\XprinterXP-80FE82
+"Xprinter XP-76" = PRNTDRV,USBPRINT\XprinterXP-760C07
+"Xprinter XP-58" = PRNTDRV,USBPRINT\XprinterXP-58A887
+"Xprinter XP-110" = PRNTDRV,USBPRINT\XprinterXP-110E7AF
+
+[Xprinter.NTamd64]
+"Xprinter XP-80(300DPI)" = PRNTDRV,USBPRINT\XprinterXP-80(300DPI9031
+"Xprinter XP-80" = PRNTDRV,USBPRINT\XprinterXP-80FE82
+"Xprinter XP-76" = PRNTDRV,USBPRINT\XprinterXP-760C07
+"Xprinter XP-58" = PRNTDRV,USBPRINT\XprinterXP-58A887
+"Xprinter XP-110" = PRNTDRV,USBPRINT\XprinterXP-110E7AF
+
+[Xprinter.NTarm64]
+"Xprinter XP-80(300DPI)" = PRNTDRV,USBPRINT\XprinterXP-80(300DPI9031
+"Xprinter XP-80" = PRNTDRV,USBPRINT\XprinterXP-80FE82
+"Xprinter XP-76" = PRNTDRV,USBPRINT\XprinterXP-760C07
+"Xprinter XP-58" = PRNTDRV,USBPRINT\XprinterXP-58A887
+"Xprinter XP-110" = PRNTDRV,USBPRINT\XprinterXP-110E7AF
+
+[DRVFILES]
+xpposdrv6.dll
+xpposdrv6ui.dll
+xpposdrv6.dat
+
+[PRNTDRV]
+DriverFile=xpposdrv6.dll
+ConfigFile=xpposdrv6ui.dll
+DataFile=xpposdrv6.dat
+CopyFiles=DRVFILES
+
+[PRNTDRV.NTarm.Services]
+AddService = ,0x2
+
+[PRNTDRV.NTarm64.Services]
+AddService = ,0x2
+
+[PRNTDRV.NTamd64.Services]
+AddService = ,0x2
+
+[PRNTDRV.NTx86.Services]
+AddService = ,0x2
+
+[PRNTDRV.Services]
+AddService = ,0x2
+
+[DestinationDirs]
+DefaultDestDir=66000
+
+[SourceDisksNames.x86]
+1   = ,,,
+
+[SourceDisksNames.amd64]
+1   = ,,,
+
+[SourceDisksNames.arm64]
+1   = ,,,
+
+[SourceDisksNames.arm]
+1   = ,,,
+
+
+[SourceDisksFiles]
+xpposdrv6.dat = 1, dat
+
+[SourceDisksFiles.x86]
+xpposdrv6.dll  = 1,i386
+xpposdrv6ui.dll   = 1,i386
+
+[SourceDisksFiles.amd64]
+xpposdrv6.dll  = 1,amd64
+xpposdrv6ui.dll   = 1,amd64
+
+[SourceDisksFiles.arm64]
+xpposdrv6.dll  = 1,arm64
+xpposdrv6ui.dll   = 1,arm64
+
+[SourceDisksFiles.arm]
+xpposdrv6.dll  = 1,arm
+xpposdrv6ui.dll   = 1,arm
+
+[Strings]
+PRV="Xprinter"
