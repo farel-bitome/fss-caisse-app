@@ -545,7 +545,7 @@ function imprimerSilencieuxDefaut(html) {
       show: false,
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
-    printWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(printers.adapterHtml(html, 80)));
+    printWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(printers.adapterHtml(html, 80, 72)));
     printWin.webContents.on('did-finish-load', () => {
       printWin.webContents.print({ silent: true, printBackground: true, margins: { marginType: 'none' } }, (success, errorType) => {
         if (!printWin.isDestroyed()) printWin.close();

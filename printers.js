@@ -170,8 +170,15 @@ function configParDefaut() {
 }
 function chargerConfig() {
   try {
-    const c = JSON.parse(fs.readFileSync(configFile, 'utf8'));
-    return Object.assign(configParDefaut(), c);
+    const c = Object.assign(configParDefaut(), JSON.parse(fs.readFileSync(configFile, 'utf8')));
+    // Migration (V7) : les imprimantes Windows ajoutées avant « ESC/POS direct par défaut » passent en
+    // ESC/POS direct (largeur exacte, sans débordement) — sauf Zebra et Star.
+    if (!c.modeV7) {
+      c.printers.forEach(p => { if (p.type === 'windows' && p.mode !== 'escpos' && modeParMarque(p.marque) === 'escpos') p.mode = 'escpos'; });
+      c.modeV7 = true;
+      try { fs.writeFileSync(configFile, JSON.stringify(c, null, 2)); } catch (e) {}
+    }
+    return c;
   } catch (e) {
     return configParDefaut();
   }
@@ -306,26 +313,39 @@ async function scannerReseau(options) {
 // ---------------------------------------------------------------------
 // Rendu HTML -> image monochrome (fenêtre cachée Electron)
 // ---------------------------------------------------------------------
-function adapterHtml(html, papier) {
+function adapterHtml(html, papier, utile) {
+  // utile = largeur réellement imprimable (mm) : 72 pour un rouleau 80 mm, 48 pour 58 mm. Par défaut = papier.
+  utile = utile || papier;
   const style = '<style>@page{size:' + papier + 'mm auto;margin:0}' +
     'body{font-family:Arial,Helvetica,sans-serif !important;font-weight:900 !important;-webkit-text-stroke:0.35px currentColor;padding-left:1mm !important;padding-right:1mm !important}' +
-    'html,body{box-sizing:border-box !important;width:' + papier + 'mm !important;max-width:' + papier + 'mm !important;background:#fff !important;overflow-x:hidden}</style>';
+    'html,body{box-sizing:border-box !important;width:' + utile + 'mm !important;max-width:' + utile + 'mm !important;background:#fff !important;overflow-x:hidden}' +
+    'body{margin:0 auto !important}</style>';
   if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, style + '</head>');
   if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + style);
   return '<!DOCTYPE html><html><head><meta charset="UTF-8">' + style + '</head><body>' + html + '</body></html>';
 }
 const pause = (ms) => new Promise(r => setTimeout(r, ms));
 
-async function htmlVersImage(electron, html, papier) {
+// Marge blanche (en points d'impression, de chaque côté) : les têtes thermiques 58 mm ne
+// peuvent pas toujours imprimer les premiers points du bord gauche -> les premières lettres
+// étaient coupées. Valeur par défaut : 24 points (≈3 mm) en 58 mm, 16 points (≈2 mm) en 80 mm.
+function margeParDefaut(papier) { return Number(papier) === 58 ? 24 : 16; }
+function margeDe(imprimante, papier) {
+  const m = imprimante && imprimante.marge !== undefined && imprimante.marge !== null && imprimante.marge !== '' ? Number(imprimante.marge) : NaN;
+  return isFinite(m) && m >= 0 && m <= 80 ? Math.round(m) : margeParDefaut(papier);
+}
+async function htmlVersImage(electron, html, papier, marge) {
   const { BrowserWindow } = electron;
-  const largeurCss = LARGEUR_CSS[papier] || LARGEUR_CSS[80];
   const points = POINTS[papier] || POINTS[80];
+  marge = marge === undefined ? margeParDefaut(papier) : marge;
+  const pointsUtiles = points - 2 * marge;
+  const largeurCss = Math.round((LARGEUR_CSS[papier] || LARGEUR_CSS[80]) * pointsUtiles / points);
   const win = new BrowserWindow({
     show: false, width: largeurCss, height: 600, useContentSize: true,
     webPreferences: { offscreen: true, nodeIntegration: false, contextIsolation: true }
   });
   try {
-    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(adapterHtml(html, papier)));
+    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(adapterHtml(html, papier, largeurCss * 25.4 / 96)));
     await pause(250);
     // Hauteur réelle du contenu (et non celle de la fenêtre : scrollHeight vaut au moins la
     // hauteur de la fenêtre, ce qui ajouterait un grand blanc en bas du ticket).
@@ -339,9 +359,15 @@ async function htmlVersImage(electron, html, papier) {
     if (img.isEmpty()) { await pause(400); img = await win.webContents.capturePage(); }
     if (img.isEmpty()) throw new Error('Rendu du ticket impossible (image vide)');
     const dim = img.getSize();
-    const hPoints = Math.max(1, Math.round(dim.height * points / dim.width));
-    const redim = img.resize({ width: points, height: hPoints, quality: 'best' });
-    return { bgra: redim.toBitmap(), w: points, h: hPoints };
+    const hPoints = Math.max(1, Math.round(dim.height * pointsUtiles / dim.width));
+    const redim = img.resize({ width: pointsUtiles, height: hPoints, quality: 'best' });
+    const src = redim.toBitmap();
+    // Toile blanche pleine largeur, contenu centré avec la marge de chaque côté.
+    const out = Buffer.alloc(points * hPoints * 4, 255);
+    for (let y = 0; y < hPoints; y++) {
+      src.copy(out, (y * points + marge) * 4, y * pointsUtiles * 4, (y + 1) * pointsUtiles * 4);
+    }
+    return { bgra: out, w: points, h: hPoints };
   } finally {
     if (!win.isDestroyed()) win.destroy();
   }
@@ -358,7 +384,7 @@ function enFile(cle, fn) {
   return suite;
 }
 
-function imprimerWindows(electron, html, nomWindows, papier) {
+function imprimerWindows(electron, html, nomWindows, papier, marge) {
   const { BrowserWindow } = electron;
   return new Promise((resolve) => {
     const w = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
@@ -374,7 +400,7 @@ function imprimerWindows(electron, html, nomWindows, papier) {
         fin(ok ? { ok: true } : { ok: false, error: 'Échec impression Windows : ' + (raison || 'imprimante indisponible') });
       });
     });
-    w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(adapterHtml(html, papier || 80)));
+    w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(adapterHtml(html, papier || 80, (Number(papier) === 58 ? 48 : 72) - 2 * (marge === undefined ? margeParDefaut(papier) : marge) * 25.4 / 203)));
   });
 }
 
@@ -444,17 +470,24 @@ async function imprimerSur(electron, imprimante, html) {
   return enFile(imprimante.id, async () => {
     try {
       if (imprimante.type === 'network') {
-        const img = await htmlVersImage(electron, html, papier);
+        const img = await htmlVersImage(electron, html, papier, margeDe(imprimante, papier));
         const buf = rasterVersEscpos(img.bgra, img.w, img.h);
         await envoyerTcp(imprimante.ip, Number(imprimante.port) || 9100, buf, 10000);
         return { id: imprimante.id, nom: imprimante.nom, ok: true };
       }
-      if (imprimante.type === 'windows' && imprimante.mode === 'escpos') {
-        const img = await htmlVersImage(electron, html, papier);
-        await envoyerRawWindows(imprimante.winName, rasterVersEscpos(img.bgra, img.w, img.h));
-        return { id: imprimante.id, nom: imprimante.nom, ok: true };
+      const mode = imprimante.mode || modeParMarque(imprimante.marque);
+      if (imprimante.type === 'windows' && mode === 'escpos') {
+        try {
+          const img = await htmlVersImage(electron, html, papier, margeDe(imprimante, papier));
+          await envoyerRawWindows(imprimante.winName, rasterVersEscpos(img.bgra, img.w, img.h));
+          return { id: imprimante.id, nom: imprimante.nom, ok: true };
+        } catch (e) {
+          // Repli : si l'envoi direct échoue (imprimante non ESC/POS, pilote qui refuse le RAW...), on imprime via le pilote.
+          const r2 = await imprimerWindows(electron, html, imprimante.winName, papier, margeDe(imprimante, papier));
+          return { id: imprimante.id, nom: imprimante.nom, ok: r2.ok, error: r2.ok ? undefined : ('Envoi direct : ' + (e.message || e) + ' / Pilote : ' + r2.error) };
+        }
       }
-      const r = await imprimerWindows(electron, html, imprimante.winName, papier);
+      const r = await imprimerWindows(electron, html, imprimante.winName, papier, margeDe(imprimante, papier));
       return { id: imprimante.id, nom: imprimante.nom, ok: r.ok, error: r.error };
     } catch (e) {
       return { id: imprimante.id, nom: imprimante.nom, ok: false, error: e.message || String(e) };
@@ -518,10 +551,16 @@ function devinerModele(nom) {
   const m = nom.match(/(XP-[A-Z0-9-]+|TM-[A-Za-z0-9]+|RP\d{2,3}[A-Z-]*|TSP\d{2,3}[A-Za-z]*|SRP-[A-Za-z0-9]+|SPP-[A-Za-z0-9]+|CT-[SE]\d+[A-Za-z]*|TP\d{2,3}[A-Z]?|ZD\d{3}|ZQ\d{3})/i);
   return m ? m[1].toUpperCase() : '';
 }
+// Mode d'envoi : « escpos » = image envoyée directement en ESC/POS (largeur exacte, aucun débordement,
+// indépendant du pilote) ; « pilote » = impression graphique par le pilote Windows.
+// Par défaut : ESC/POS pour toutes les thermiques ESC/POS ; pilote pour Zebra (ZPL) et Star (mode Star natif).
+function modeParMarque(marque) {
+  return /zebra|star/i.test(marque || '') ? 'pilote' : 'escpos';
+}
 // Imprimante créée par FSS-CAISSE avec le pilote générique de Windows : envoi ESC/POS direct.
 function modeParDefaut(nom) {
   if (/universelle|universal|generic \/ text|g[ée]n[ée]rique/i.test(nom)) return 'escpos';
-  return 'pilote';
+  return modeParMarque(devinerMarque(nom));
 }
 async function listerWindows(webContents) {
   try {
@@ -587,10 +626,11 @@ async function etatReseau(cfg) {
 
 // Impression test (ticket simple)
 function htmlTest(imp) {
-  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-weight:900;font-size:13px;padding:3mm;text-align:center}</style></head><body>' +
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-weight:900;font-size:13px;padding:1mm;text-align:center}</style></head><body>' +
     '<div style="font-size:16px">FSS-CAISSE</div><div>TEST IMPRESSION</div><div>------------------------</div>' +
     '<div>' + (imp.nom || '') + '</div><div>' + (imp.marque || '') + ' ' + (imp.modele || '') + '</div>' +
-    '<div>Papier ' + (imp.papier || 80) + ' mm</div>' +
+    '<div>Papier réglé : ' + (imp.papier || 80) + ' mm</div>' +
+    '<div style="border:2px solid #000;margin:6px 0;padding:4px 2px;font-size:11px">◄ Les 2 traits verticaux doivent être visibles ►<br>Sinon : réglez le papier sur 58 mm</div>' +
     (imp.type === 'network' ? '<div>' + imp.ip + ':' + (imp.port || 9100) + '</div>' : '') +
     '<div>' + new Date().toLocaleString('fr-FR') + '</div><div>OK éàèçù €</div></body></html>';
 }

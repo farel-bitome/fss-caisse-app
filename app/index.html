@@ -580,7 +580,7 @@ td{padding:8px 11px;vertical-align:middle}
         <div style="display:flex;align-items:center;gap:10px">
           <span style="font-size:14px;font-weight:700;flex:1">Tableau de bord</span>
           <select class="ms" id="rapPer" onchange="renderRap()" style="font-size:12px"><option value="d">Aujourd'hui</option><option value="w" selected>Cette semaine</option><option value="m">Ce mois</option></select>
-          <button class="btn btn-o sm" onclick="window.print()">🖨️</button>
+          <button class="btn btn-o sm" title="Imprimer le tableau de bord" onclick="imprimerTableauBord()">🖨️</button>
         </div>
         <div class="kgrid" id="kpiGrid"></div>
         <div class="crow">
@@ -775,7 +775,7 @@ td{padding:8px 11px;vertical-align:middle}
     </div>
     <div class="sub" id="sub-params-dev">
       <div class="slay">
-        <div class="ssect" id="secPrintersServer" style="display:none"><div class="ssti">🖨️ Imprimantes du restaurant — à configurer une seule fois (poste Serveur) · module V6</div>
+        <div class="ssect" id="secPrintersServer" style="display:none"><div class="ssti">🖨️ Imprimantes du restaurant — à configurer une seule fois (poste Serveur) · module V10</div>
           <div id="prtBanner" style="display:none;background:#2a1a00;border:1px solid #FFAA00;color:#FFCC66;border-radius:6px;padding:10px 12px;font-size:12px;margin-bottom:12px">⚠️ <strong>Première utilisation</strong> — vérifiez la liste ci-dessous, choisissez l'imprimante de caisse et indiquez, pour chaque poste, sur quelle(s) imprimante(s) il envoie ses bons de commande. Ensuite, tout est automatique : plus aucune question.</div>
           <div style="font-size:12px;color:#888;margin-bottom:10px">Les imprimantes USB (Xprinter, Epson… avec pilote Windows) sont détectées et ajoutées automatiquement dès qu'elles sont branchées. Les imprimantes réseau (IP) se recherchent sur le réseau ou s'ajoutent à la main. Tous les modèles Xprinter et Epson ESC/POS sont pris en charge.</div>
           <div class="fl" style="margin:6px 0">1. Imprimantes</div>
@@ -800,7 +800,8 @@ td{padding:8px 11px;vertical-align:middle}
               <div class="fg"><label class="fl">Marque</label><select class="fi" id="prtFMarque" onchange="prtMajModeles()"></select></div>
               <div class="fg"><label class="fl">Modèle</label><select class="fi" id="prtFModele" onchange="prtModeleChoisi()"></select></div>
               <div class="fg"><label class="fl">Largeur du papier</label><select class="fi" id="prtFPapier"><option value="80">80 mm</option><option value="58">58 mm</option></select></div>
-              <div class="fg" id="prtFModeBox" style="display:none"><label class="fl">Envoi à l'imprimante</label><select class="fi" id="prtFMode"><option value="pilote">Pilote Windows (recommandé si le pilote du fabricant est installé)</option><option value="escpos">ESC/POS direct — universel (ticket envoyé tel quel, fonctionne avec n'importe quel pilote Windows)</option></select></div>
+              <div class="fg"><label class="fl">Marge gauche/droite (points — laisser vide = auto ; augmentez si le bord est coupé)</label><input class="fi" id="prtFMarge" type="number" min="0" max="80" placeholder="auto (58 mm : 24, 80 mm : 16)"></div>
+              <div class="fg" id="prtFModeBox" style="display:none"><label class="fl">Envoi à l'imprimante</label><select class="fi" id="prtFMode"><option value="pilote">Pilote Windows (graphique ; repli si l'ESC/POS direct ne fonctionne pas)</option><option value="escpos">ESC/POS direct — recommandé (largeur exacte du papier, aucun débordement)</option></select></div>
             </div>
             <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-r sm" onclick="prtSauverForm()">💾 Enregistrer l'imprimante</button><button class="btn btn-o sm" onclick="prtFermerForm()">Annuler</button></div>
           </div>
@@ -2218,8 +2219,9 @@ function prtOuvrirForm(id,ipPrefill,portPrefill){
   g('prtFMarque').value=p&&p.marque&&marques.indexOf(p.marque)!==-1?p.marque:'Xprinter';
   prtMajModeles(p&&p.modele);
   if(p)g('prtFPapier').value=String(p.papier||80);
+  g('prtFMarge').value=(p&&p.marge!==undefined&&p.marge!==null&&p.marge!=='')?p.marge:'';
   g('prtFModeBox').style.display=(p&&p.type==='windows')?'':'none';
-  if(p&&p.type==='windows')g('prtFMode').value=p.mode==='escpos'?'escpos':'pilote';
+  if(p&&p.type==='windows')g('prtFMode').value=(p.mode||(/zebra|star/i.test(p.marque||'')?'pilote':'escpos'))==='escpos'?'escpos':'pilote';
   g('prtForm').style.display='';
   g('prtFNom').focus();
 }
@@ -2247,6 +2249,7 @@ function prtSauverForm(){
   var mm=prt.modeles.find(function(x){return x.marque===data.marque&&x.modele===data.modele;});
   if(!estWin&&mm&&mm.escpos===false){toast('Ce modèle (ZPL/CPCL) ne reçoit pas l\'ESC/POS en réseau : installez son pilote Windows et utilisez le mode « Pilote Windows ».','e');return;}
   if(estWin)data.mode=g('prtFMode').value==='escpos'?'escpos':'pilote';
+  data.marge=g('prtFMarge').value.trim()===''?'':Math.max(0,Math.min(80,parseInt(g('prtFMarge').value)||0));
   if(p){for(var k in data)p[k]=data[k];if(!estWin){p.ip=ip;p.port=port;}}
   else{
     var n={id:'P'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),type:'network',ip:ip,port:port,actif:true};
@@ -2264,7 +2267,7 @@ function prtAjouterWindows(nom){
   else if(/bixolon|srp-|spp-/i.test(nom))marque='Bixolon';else if(/citizen|ct-[se]\d/i.test(nom))marque='Citizen';
   else if(/hprt|tp\d{2,3}/i.test(nom))marque='HPRT';else if(/zebra|zd\d{3}|zq\d{3}/i.test(nom))marque='Zebra';
   var m=nom.match(/(XP-[A-Z0-9-]+|TM-[A-Za-z0-9]+|RP\d{2,3}[A-Z-]*|TSP\d{2,3}[A-Za-z]*|SRP-[A-Za-z0-9]+|CT-[SE]\d+[A-Za-z]*|TP\d{2,3}[A-Z]?)/i);
-  var n={id:'P'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),nom:w.displayName||w.name,type:'windows',winName:w.name,marque:marque,modele:m?m[1].toUpperCase():'',papier:/58|p20|p60|zq220|rpp02/i.test(nom)?58:80,mode:/universelle|universal|generic \/ text|g[ée]n[ée]rique/i.test(nom)?'escpos':'pilote',actif:true,presente:true};
+  var n={id:'P'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),nom:w.displayName||w.name,type:'windows',winName:w.name,marque:marque,modele:m?m[1].toUpperCase():'',papier:/58|p20|p60|zq220|rpp02/i.test(nom)?58:80,mode:(marque==='Zebra'||marque==='Star Micronics')?'pilote':'escpos',actif:true,presente:true};
   prt.cfg.printers.push(n);
   prt.cfg.ignorees=(prt.cfg.ignorees||[]).filter(function(x){return x!==nom;});
   if(!prt.cfg.imprimanteCaisse)prt.cfg.imprimanteCaisse=n.id;
@@ -3639,7 +3642,37 @@ function reimprimerTicket(id){
   if(!(typeof hasReimprPermission==='function'&&hasReimprPermission())){toast('Accès non autorisé pour ce compte','e');return;}
   var t=txs.find(function(x){return x.id===id;});
   if(!t){toast('Ticket introuvable','e');return;}
-  afficherRecu(t);
+  // Impression directe sur l'imprimante de caisse (plus besoin de passer par l'aperçu).
+  dernierTicket=t;
+  imprimerRecu();
+  toast('Ticket '+t.id+' envoyé à l\'imprimante','s');
+}
+// Impression du tableau de bord (Rapports) sur l'imprimante de caisse, au format 58/80 mm.
+function imprimerTableauBord(){
+  var pe=g('rapPer');var per=pe?pe.options[pe.selectedIndex].text:'';
+  var papier=(typeof formatCloture==='function'&&formatCloture()==='58mm')?58:80;
+  var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
+  var h='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%}'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:900;padding:2mm 1mm;-webkit-text-stroke:0.35px currentColor;overflow-wrap:anywhere}'+
+    '.c{text-align:center}.sep{border-top:1px dashed #000;margin:5px 0}.row{margin-bottom:3px}.row b{float:right}.row:after{content:"";display:block;clear:both}'+
+    '@page{size:'+papier+'mm auto;margin:0}</style></head><body>';
+  h+='<div class="c" style="font-size:15px"><strong>'+etab+'</strong></div><div class="c"><strong>TABLEAU DE BORD</strong></div><div class="c">'+per+'</div><div class="c">'+new Date().toLocaleString('fr-FR')+'</div><div class="sep"></div>';
+  Array.prototype.forEach.call(document.querySelectorAll('#kpiGrid .kc'),function(k){
+    var l=k.querySelector('.kl'),v=k.querySelector('.kv');
+    if(l&&v)h+='<div class="row">'+l.textContent+'<b>'+v.textContent+'</b></div>';
+  });
+  h+='<div class="sep"></div><div><strong>TOP 5 ARTICLES</strong></div>';
+  Array.prototype.forEach.call(document.querySelectorAll('#topList > div'),function(d){
+    var t=d.textContent.replace(/\s+/g,' ').trim();if(t)h+='<div class="row">'+t+'</div>';
+  });
+  h+='<div class="sep"></div><div><strong>DERNIÈRES TRANSACTIONS</strong></div>';
+  Array.prototype.forEach.call(document.querySelectorAll('#bTrans tr'),function(tr){
+    var td=tr.querySelectorAll('td');if(td.length<6)return;
+    h+='<div class="row">'+td[0].textContent+' · '+td[2].textContent+'<b>'+td[5].textContent.replace(/Annulé/,'').trim()+'</b></div>';
+  });
+  h+='<div class="sep"></div><div class="c">'+etab+'</div></body></html>';
+  imprimerSilencieux(h,{kind:'rapport',libelle:'tableau de bord'});
+  toast('Tableau de bord envoyé à l\'imprimante','s');
 }
 function annulerTicket(id){
   if(!(typeof hasAnnulationPermission==='function'&&hasAnnulationPermission())){toast('Accès non autorisé pour ce compte','e');return;}
