@@ -285,6 +285,7 @@ td{padding:8px 11px;vertical-align:middle}
     <button class="nb" onclick="goPage('fournisseurs',this)">🚚 Fournisseurs</button>
     <button class="nb" onclick="goPage('bons',this)">📄 Bons &amp; Ventes</button>
     <button class="nb" onclick="goPage('rapports',this)">📊 Rapports</button>
+    <button class="nb" onclick="goPage('impayes',this)">🧾 Impayés</button>
     <button class="nb" onclick="goPage('cloture',this)">🔒 Clôture</button>
     <button class="nb" onclick="goPage('params',this)">⚙️ Paramètres</button>
   </div>
@@ -332,7 +333,7 @@ td{padding:8px 11px;vertical-align:middle}
       <div class="totr"><span>TOTAL</span><span style="color:#CC0000" id="fTot">0 FCFA</span></div>
       <div class="pbts">
         <button class="pbt pbt-e" id="btnPayEsp" onclick="openPay('esp')">💵 Espèces</button>
-        <button class="pbt pbt-c" id="btnPayCarte" onclick="openPay('cart')">💳 Carte</button>
+        <button class="pbt pbt-c" id="btnPayCarte" onclick="openPay('cred')">🧾 Crédit</button>
         <button class="pbt-a" id="btnPayAirtel" style="background:#1F7A3A;border-color:#1F7A3A;color:#fff" onclick="openPay('momo')">📱 Mobile Money</button>
         <button class="pbt-a" id="btnEnAttente" style="background:#1a1a00;border-color:#888;color:#FFCC00" onclick="mettreEnAttente()">⏸ En attente</button>
         <button class="pbt-a" onclick="clearTk()">🗑️ Annuler</button>
@@ -597,11 +598,24 @@ td{padding:8px 11px;vertical-align:middle}
   </div>
 </div>
 <!-- CLOTURE -->
+<div class="pg" id="pg-impayes">
+  <div class="sp">
+    <div class="stb"><span class="stit">🧾 Impayés — factures à crédit</span><span id="impTotal" style="font-weight:700;color:#FF4444"></span></div>
+    <div class="tw"><table><thead><tr><th>Date</th><th>Ticket</th><th>Nom</th><th>Table</th><th>Montant</th><th></th></tr></thead><tbody id="bImp"></tbody></table></div>
+    <div class="stb" style="margin-top:14px"><span class="stit">Crédits réglés</span></div>
+    <div class="tw"><table><thead><tr><th>Date</th><th>Ticket</th><th>Nom</th><th>Montant</th><th>Réglé le</th></tr></thead><tbody id="bImpOk"></tbody></table></div>
+  </div>
+</div>
 <div class="pg" id="pg-cloture">
   <div class="sp">
     <div class="stb">
       <span class="stit">🔒 Clôture de Caisse — <span id="clDate"></span></span>
       <select class="ms" id="cloCaisse" onchange="initCloture()"><option value="">Toutes les caisses</option></select>
+      <select class="ms" id="cloSrv" onchange="initCloture()" title="Clôture par serveur / serveuse"><option value="">Tous les serveurs</option></select>
+      <select class="ms" id="cloCaissier" onchange="initCloture()" title="Clôture par caissier"><option value="">Tous les caissiers</option></select>
+      <label style="font-size:11px;color:#999;display:flex;align-items:center;gap:4px">Du <input type="date" data-vide="1" id="cloDu" class="ms" onchange="initCloture()"></label>
+      <label style="font-size:11px;color:#999;display:flex;align-items:center;gap:4px">au <input type="date" data-vide="1" id="cloAu" class="ms" onchange="initCloture()"></label>
+      <button class="btn btn-o sm" onclick="cloResetFiltres()" title="Tout afficher">↺ Tout</button>
       <button class="btn btn-r" onclick="doCloture()">🔒 Clôturer</button>
       <button class="btn btn-o sm" onclick="toast('Saisissez le montant dans Prélèvements','i')">💸 Prélèvement</button>
       <button class="btn btn-o sm" onclick="razCaisse()">🔄 RAZ Caisse</button>
@@ -618,7 +632,9 @@ td{padding:8px 11px;vertical-align:middle}
         <div class="cln"><span>Fonds ouverture</span><span id="clFondsOuv">0 FCFA</span></div>
         <div class="cln"><span>Total encaissements</span><span id="cl2" style="color:#4488FF">0 FCFA</span></div>
         <div class="cln"><span>Dont espèces</span><span id="cl3">0 FCFA</span></div>
-        <div class="cln"><span>Dont carte</span><span id="cl4">0 FCFA</span></div>
+        <div class="cln"><span>Dont crédit client (non déduit)</span><span id="cl4">0 FCFA</span></div>
+        <div class="cln"><span>Crédit employé (déduit)</span><span id="cl4e" style="color:#FF4444">0 FCFA</span></div>
+        <div class="cln" style="font-weight:700"><span>Total à justifier (hors crédits employés)</span><span id="clJust">0 FCFA</span></div>
         <div class="cln"><span>Dont Mobile Money</span><span id="cl4m">0 FCFA</span></div>
         <div class="cln"><span>Prélèvements</span><span id="cl5" style="color:#FF4444">0 FCFA</span></div>
         <div class="cln" style="font-weight:700;color:#CC0000;font-size:14px;padding-top:8px"><span>Solde espèces (tiroir)</span><span id="cl6">50 000 FCFA</span></div>
@@ -1053,6 +1069,12 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
   <div class="mb">
     <div style="text-align:center;font-size:11px;color:#666;margin-bottom:4px">Montant à régler</div>
     <div style="text-align:center;font-size:36px;font-weight:700;color:#CC0000" id="payAmt">0 FCFA</div>
+    <div id="creditWrap" style="display:none;padding:10px 0">
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;color:#fff;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="creditEmploye" style="width:22px;height:22px"> Bon pris par un employé (déduit de la clôture)</label>
+      <div style="font-size:11px;color:#999;margin-bottom:6px">Facture affectée au nom de :</div>
+      <input id="creditNom" type="text" placeholder="Nom de la personne (obligatoire)" autocomplete="off" style="width:100%;padding:12px;font-size:16px;border-radius:8px;border:1px solid #444;background:#111;color:#fff">
+      <div style="font-size:10px;color:#777;margin-top:6px">Non encaissé : la somme n'entre pas dans la caisse tant que le crédit n'est pas réglé (onglet Impayés).</div>
+    </div>
     <div id="numWrap">
       <div style="text-align:center;font-size:11px;color:#666;margin-top:12px">Montant reçu</div>
       <div style="text-align:center;font-size:28px;font-weight:700;color:#fff" id="payRec">0 FCFA</div>
@@ -1179,154 +1201,13 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 
 <script>
 window.FSS_VERSION='1.7.2';
-var arts=[
-  {id:1,ref:'ART-001',nom:'White Horse 75cl',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:2,ref:'ART-002',nom:'White Horse 75cl (Bouteille)',cat:'Whisky',un:'Bouteille',pv:40000,pa:24000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:3,ref:'ART-003',nom:'J&B 75cl',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:4,ref:'ART-004',nom:'J&B 75cl (Bouteille)',cat:'Whisky',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:5,ref:'ART-005',nom:'Red Label 75cl',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:6,ref:'ART-006',nom:'Red Label 75cl (Bouteille)',cat:'Whisky',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:7,ref:'ART-007',nom:'Grant\'s 75cl',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:8,ref:'ART-008',nom:'Grant\'s 75cl (Bouteille)',cat:'Whisky',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:9,ref:'ART-009',nom:'Jack Daniel\'s 75cl',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:10,ref:'ART-010',nom:'Jack Daniel\'s 75cl (Bouteille)',cat:'Whisky',un:'Bouteille',pv:60000,pa:36000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:11,ref:'ART-011',nom:'Black Label 75cl',cat:'Verre',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:12,ref:'ART-012',nom:'Black Label 75cl (Bouteille)',cat:'Whisky',un:'Bouteille',pv:70000,pa:42000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:13,ref:'ART-013',nom:'Jack Honey 75cl',cat:'Verre',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:14,ref:'ART-014',nom:'Jack Honey 75cl (Bouteille)',cat:'Whisky',un:'Bouteille',pv:70000,pa:42000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:15,ref:'ART-015',nom:'Jameson 75cl',cat:'Verre',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:16,ref:'ART-016',nom:'Jameson 75cl (Bouteille)',cat:'Whisky',un:'Bouteille',pv:70000,pa:42000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:17,ref:'ART-017',nom:'Chivas 12 ans 75cl',cat:'Verre',un:'Verre',pv:8000,pa:4800,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:18,ref:'ART-018',nom:'Chivas 12 ans 75cl (Bouteille)',cat:'Whisky',un:'Bouteille',pv:80000,pa:48000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:19,ref:'ART-019',nom:'Woodford Reserve',cat:'Verre',un:'Verre',pv:8000,pa:4800,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:20,ref:'ART-020',nom:'Woodford Reserve (Bouteille)',cat:'Whisky',un:'Bouteille',pv:80000,pa:48000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:21,ref:'ART-021',nom:'Glenfiddich 12 ans',cat:'Verre',un:'Verre',pv:9000,pa:5400,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:22,ref:'ART-022',nom:'Glenfiddich 12 ans (Bouteille)',cat:'Whisky',un:'Bouteille',pv:90000,pa:54000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:23,ref:'ART-023',nom:'Glenfiddich 14 ans',cat:'Verre',un:'Verre',pv:12000,pa:7200,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:24,ref:'ART-024',nom:'Glenfiddich 14 ans (Bouteille)',cat:'Whisky',un:'Bouteille',pv:120000,pa:72000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:25,ref:'ART-025',nom:'St-James 70cl',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:26,ref:'ART-026',nom:'St-James 70cl (Bouteille)',cat:'Rhum',un:'Bouteille',pv:60000,pa:36000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:27,ref:'ART-027',nom:'Bacardi',cat:'Verre',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:28,ref:'ART-028',nom:'Bacardi (Bouteille)',cat:'Rhum',un:'Bouteille',pv:70000,pa:42000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:29,ref:'ART-029',nom:'Diplomatico',cat:'Verre',un:'Verre',pv:10000,pa:6000,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:30,ref:'ART-030',nom:'Diplomatico (Bouteille)',cat:'Rhum',un:'Bouteille',pv:80000,pa:48000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:31,ref:'ART-031',nom:'Zacapa',cat:'Verre',un:'Verre',pv:12000,pa:7200,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:32,ref:'ART-032',nom:'Zacapa (Bouteille)',cat:'Rhum',un:'Bouteille',pv:100000,pa:60000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:33,ref:'ART-033',nom:'San Luis',cat:'Verre',un:'Verre',pv:3000,pa:1800,stk:40,smin:10,emo:'🥃',tva:18,actif:true},
-  {id:34,ref:'ART-034',nom:'San Luis (Bouteille)',cat:'Tequila',un:'Bouteille',pv:30000,pa:18000,stk:6,smin:2,emo:'🥃',tva:18,actif:true},
-  {id:35,ref:'ART-035',nom:'Gordon\'s 75cl',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:36,ref:'ART-036',nom:'Gordon\'s 75cl (Bouteille)',cat:'Gin',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🍸',tva:18,actif:true},
-  {id:37,ref:'ART-037',nom:'Bombay Saphir',cat:'Verre',un:'Verre',pv:7000,pa:4200,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:38,ref:'ART-038',nom:'Bombay Saphir (Bouteille)',cat:'Gin',un:'Bouteille',pv:70000,pa:42000,stk:6,smin:2,emo:'🍸',tva:18,actif:true},
-  {id:39,ref:'ART-039',nom:'Bombay Bramble',cat:'Verre',un:'Verre',pv:7000,pa:4200,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:40,ref:'ART-040',nom:'Bombay Bramble (Bouteille)',cat:'Gin',un:'Bouteille',pv:70000,pa:42000,stk:6,smin:2,emo:'🍸',tva:18,actif:true},
-  {id:41,ref:'ART-041',nom:'Absolut 70cl',cat:'Verre',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:42,ref:'ART-042',nom:'Absolut 70cl (Bouteille)',cat:'Vodka',un:'Bouteille',pv:60000,pa:36000,stk:6,smin:2,emo:'🍸',tva:18,actif:true},
-  {id:43,ref:'ART-043',nom:'Martini Blanc 1L',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:44,ref:'ART-044',nom:'Martini Blanc 1L (Bouteille)',cat:'Apéritif',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🍹',tva:18,actif:true},
-  {id:45,ref:'ART-045',nom:'Martini Rouge 1L',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:46,ref:'ART-046',nom:'Martini Rouge 1L (Bouteille)',cat:'Apéritif',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🍹',tva:18,actif:true},
-  {id:47,ref:'ART-047',nom:'Ricard 1L',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:48,ref:'ART-048',nom:'Ricard 1L (Bouteille)',cat:'Apéritif',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🍹',tva:18,actif:true},
-  {id:49,ref:'ART-049',nom:'Get 27 1L',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:50,ref:'ART-050',nom:'Get 27 1L (Bouteille)',cat:'Apéritif',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🍹',tva:18,actif:true},
-  {id:51,ref:'ART-051',nom:'Get 31 1L',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:52,ref:'ART-052',nom:'Get 31 1L (Bouteille)',cat:'Apéritif',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🍹',tva:18,actif:true},
-  {id:53,ref:'ART-053',nom:'Bailey\'s 75cl',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:54,ref:'ART-054',nom:'Bailey\'s 75cl (Bouteille)',cat:'Apéritif',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🍹',tva:18,actif:true},
-  {id:55,ref:'ART-055',nom:'Suze 1L',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:56,ref:'ART-056',nom:'Suze 1L (Bouteille)',cat:'Apéritif',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🍹',tva:18,actif:true},
-  {id:57,ref:'ART-057',nom:'Campari',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:58,ref:'ART-058',nom:'Campari (Bouteille)',cat:'Apéritif',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🍹',tva:18,actif:true},
-  {id:59,ref:'ART-059',nom:'Porto Rouge/Blanc',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:60,ref:'ART-060',nom:'Porto Rouge/Blanc (Bouteille)',cat:'Apéritif',un:'Bouteille',pv:50000,pa:30000,stk:6,smin:2,emo:'🍹',tva:18,actif:true},
-  {id:61,ref:'ART-061',nom:'Domaine de la Baume (Rosé)',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍷',tva:18,actif:true},
-  {id:62,ref:'ART-062',nom:'Domaine de la Baume (Rosé) (Bouteille)',cat:'Vin Rosé',un:'Bouteille',pv:25000,pa:15000,stk:6,smin:2,emo:'🍷',tva:18,actif:true},
-  {id:63,ref:'ART-063',nom:'Domaine de la Baume (Rouge)',cat:'Verre',un:'Verre',pv:4000,pa:2400,stk:40,smin:10,emo:'🍷',tva:18,actif:true},
-  {id:64,ref:'ART-064',nom:'Domaine de la Baume (Rouge) (Bouteille)',cat:'Vin Rouge',un:'Bouteille',pv:20000,pa:12000,stk:6,smin:2,emo:'🍷',tva:18,actif:true},
-  {id:65,ref:'ART-065',nom:'Bourgogne',cat:'Verre',un:'Verre',pv:4000,pa:2400,stk:40,smin:10,emo:'🍷',tva:18,actif:true},
-  {id:66,ref:'ART-066',nom:'Bourgogne (Bouteille)',cat:'Vin Rouge',un:'Bouteille',pv:20000,pa:12000,stk:6,smin:2,emo:'🍷',tva:18,actif:true},
-  {id:67,ref:'ART-067',nom:'Vallée du Rhône',cat:'Verre',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍷',tva:18,actif:true},
-  {id:68,ref:'ART-068',nom:'Vallée du Rhône (Bouteille)',cat:'Vin Rouge',un:'Bouteille',pv:20000,pa:12000,stk:6,smin:2,emo:'🍷',tva:18,actif:true},
-  {id:69,ref:'ART-069',nom:'Bordeaux',cat:'Vin Rouge',un:'Bouteille',pv:30000,pa:18000,stk:6,smin:2,emo:'🍷',tva:18,actif:true},
-  {id:70,ref:'ART-070',nom:'Haut Médoc',cat:'Vin Rouge',un:'Bouteille',pv:25000,pa:15000,stk:6,smin:2,emo:'🍷',tva:18,actif:true},
-  {id:71,ref:'ART-071',nom:'Pessac Leognan',cat:'Vin Rouge',un:'Bouteille',pv:25000,pa:15000,stk:6,smin:2,emo:'🍷',tva:18,actif:true},
-  {id:72,ref:'ART-072',nom:'Saint-Julien',cat:'Vin Rouge',un:'Bouteille',pv:35000,pa:21000,stk:6,smin:2,emo:'🍷',tva:18,actif:true},
-  {id:73,ref:'ART-073',nom:'Trouillard Elexium',cat:'Champagne',un:'Bouteille',pv:90000,pa:54000,stk:6,smin:2,emo:'🥂',tva:18,actif:true},
-  {id:74,ref:'ART-074',nom:'Moet Brut',cat:'Champagne',un:'Bouteille',pv:100000,pa:60000,stk:6,smin:2,emo:'🥂',tva:18,actif:true},
-  {id:75,ref:'ART-075',nom:'Veuve Clicquot',cat:'Verre',un:'Verre',pv:15000,pa:9000,stk:40,smin:10,emo:'🥂',tva:18,actif:true},
-  {id:76,ref:'ART-076',nom:'Veuve Clicquot (Bouteille)',cat:'Champagne',un:'Bouteille',pv:70000,pa:42000,stk:6,smin:2,emo:'🥂',tva:18,actif:true},
-  {id:77,ref:'ART-077',nom:'Moet Nectar Impérial',cat:'Champagne',un:'Bouteille',pv:110000,pa:66000,stk:6,smin:2,emo:'🥂',tva:18,actif:true},
-  {id:78,ref:'ART-078',nom:'Ruinart',cat:'Champagne',un:'Bouteille',pv:120000,pa:72000,stk:6,smin:2,emo:'🥂',tva:18,actif:true},
-  {id:79,ref:'ART-079',nom:'Blanc Moelleux',cat:'Vin Blanc',un:'Bouteille',pv:120000,pa:72000,stk:6,smin:2,emo:'🍷',tva:18,actif:true},
-  {id:80,ref:'ART-080',nom:'Blanc Sec',cat:'Vin Blanc',un:'Bouteille',pv:170000,pa:102000,stk:6,smin:2,emo:'🍷',tva:18,actif:true},
-  {id:81,ref:'ART-081',nom:'Regab',cat:'Bière',un:'Bouteille',pv:2500,pa:1500,stk:6,smin:2,emo:'🍺',tva:18,actif:true},
-  {id:82,ref:'ART-082',nom:'33 Export',cat:'Verre',un:'Verre',pv:2500,pa:1500,stk:40,smin:10,emo:'🍺',tva:18,actif:true},
-  {id:83,ref:'ART-083',nom:'33 Export (Bouteille)',cat:'Bière',un:'Bouteille',pv:25000,pa:15000,stk:6,smin:2,emo:'🍺',tva:18,actif:true},
-  {id:84,ref:'ART-084',nom:'Beaufort',cat:'Bière',un:'Bouteille',pv:3000,pa:1800,stk:6,smin:2,emo:'🍺',tva:18,actif:true},
-  {id:85,ref:'ART-085',nom:'Heineken',cat:'Verre',un:'Verre',pv:3000,pa:1800,stk:40,smin:10,emo:'🍺',tva:18,actif:true},
-  {id:86,ref:'ART-086',nom:'Heineken (Bouteille)',cat:'Bière',un:'Bouteille',pv:30000,pa:18000,stk:6,smin:2,emo:'🍺',tva:18,actif:true},
-  {id:87,ref:'ART-087',nom:'Desperados',cat:'Verre',un:'Verre',pv:3000,pa:1800,stk:40,smin:10,emo:'🍺',tva:18,actif:true},
-  {id:88,ref:'ART-088',nom:'Desperados (Bouteille)',cat:'Bière',un:'Bouteille',pv:30000,pa:18000,stk:6,smin:2,emo:'🍺',tva:18,actif:true},
-  {id:89,ref:'ART-089',nom:'Coca-Cola 33cl',cat:'Soda / Eau',un:'Bouteille',pv:1500,pa:900,stk:6,smin:2,emo:'🥤',tva:18,actif:true},
-  {id:90,ref:'ART-090',nom:'World Cola 33cl',cat:'Soda / Eau',un:'Bouteille',pv:1500,pa:900,stk:6,smin:2,emo:'🥤',tva:18,actif:true},
-  {id:91,ref:'ART-091',nom:'Fanta 33cl',cat:'Soda / Eau',un:'Bouteille',pv:1500,pa:900,stk:6,smin:2,emo:'🥤',tva:18,actif:true},
-  {id:92,ref:'ART-092',nom:'Sprite 33cl',cat:'Soda / Eau',un:'Bouteille',pv:1500,pa:900,stk:6,smin:2,emo:'🥤',tva:18,actif:true},
-  {id:93,ref:'ART-093',nom:'Red Bull 25cl',cat:'Soda / Eau',un:'Canette',pv:2500,pa:1500,stk:40,smin:10,emo:'🥤',tva:18,actif:true},
-  {id:94,ref:'ART-094',nom:'Eau Plate 50cl',cat:'Soda / Eau',un:'Bouteille',pv:1000,pa:600,stk:6,smin:2,emo:'💧',tva:18,actif:true},
-  {id:95,ref:'ART-095',nom:'Eau Gazeuse Andza',cat:'Soda / Eau',un:'Bouteille',pv:1500,pa:900,stk:6,smin:2,emo:'💧',tva:18,actif:true},
-  {id:96,ref:'ART-096',nom:'Eau Gazeuse Perrier',cat:'Soda / Eau',un:'Bouteille',pv:2000,pa:1200,stk:6,smin:2,emo:'💧',tva:18,actif:true},
-  {id:97,ref:'ART-097',nom:'Virgin Mojito',cat:'Mocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:98,ref:'ART-098',nom:'Virgin Pink Margarita',cat:'Mocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:99,ref:'ART-099',nom:'Virgin Exotique',cat:'Mocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:100,ref:'ART-100',nom:'Virgin Pina Colada',cat:'Mocktail',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:101,ref:'ART-101',nom:'Bora Bora',cat:'Mocktail',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:102,ref:'ART-102',nom:'El Rio',cat:'Mocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:103,ref:'ART-103',nom:'Chantaco',cat:'Mocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍹',tva:18,actif:true},
-  {id:104,ref:'ART-104',nom:'Caresse',cat:'Cocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:105,ref:'ART-105',nom:'Mojito',cat:'Cocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:106,ref:'ART-106',nom:'Mojito Passion',cat:'Cocktail',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:107,ref:'ART-107',nom:'Hawaien',cat:'Cocktail',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:108,ref:'ART-108',nom:'Luxor Colada',cat:'Cocktail',un:'Verre',pv:7000,pa:4200,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:109,ref:'ART-109',nom:'Before',cat:'Cocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:110,ref:'ART-110',nom:'Ca Monte',cat:'Cocktail',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:111,ref:'ART-111',nom:'Martell Summit',cat:'Cocktail',un:'Verre',pv:8500,pa:5100,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:112,ref:'ART-112',nom:'Coco Bull',cat:'Cocktail',un:'Verre',pv:6500,pa:3900,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:113,ref:'ART-113',nom:'Margarita',cat:'Cocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:114,ref:'ART-114',nom:'L\'Homme Fort',cat:'Cocktail',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:115,ref:'ART-115',nom:'Gin Fizz',cat:'Cocktail',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:116,ref:'ART-116',nom:'Sex On The Beach',cat:'Cocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:117,ref:'ART-117',nom:'Le Gaboma',cat:'Cocktail',un:'Verre',pv:5000,pa:3000,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:118,ref:'ART-118',nom:'Rainbow',cat:'Cocktail',un:'Verre',pv:6000,pa:3600,stk:40,smin:10,emo:'🍸',tva:18,actif:true},
-  {id:119,ref:'ART-119',nom:'Woman Candy',cat:'Cocktail',un:'Verre',pv:7000,pa:4200,stk:40,smin:10,emo:'🍸',tva:18,actif:true}
-];
-var clis=[
-  {id:1,code:'CLI-001',nom:'Jean-Pierre Moussavou',tel:'+241 07 12 34 56',email:'jp@gmail.com',adr:'PK5',total:45000,solde:0,rem:0,visite:'2025-06-11'},
-  {id:2,code:'CLI-002',nom:'Marie Ondoua',tel:'+241 06 98 76 54',email:'marie@yahoo.fr',adr:'Akanda',total:128000,solde:25000,rem:5,visite:'2025-06-12'},
-  {id:3,code:'CLI-003',nom:'Christian Nguema',tel:'+241 05 55 44 33',email:'',adr:'',total:22000,solde:0,rem:0,visite:'2025-06-08'}
-];
-var fours=[
-  {id:1,code:'FOUR-001',nom:'SOGATRA Boissons',cont:'Ali Hassan',tel:'+241 01 23 45 67',cat:'Boissons',del:3,pay:'Comptant',enc:150000},
-  {id:2,code:'FOUR-002',nom:'SOBRAGA',cont:'Paul Mba',tel:'+241 07 89 01 23',cat:'Bières',del:2,pay:'30 jours',enc:320000},
-  {id:3,code:'FOUR-003',nom:'Comptoir des Vins',cont:'Sophie Lenoir',tel:'+241 06 44 55 66',cat:'Alcools',del:5,pay:'Comptant',enc:0}
-];
-var cmds=[
-  {id:'CMD-001',four:'SOBRAGA',date:'2025-06-10',datL:'2025-06-12',mnt:180000,stat:'Livrée'},
-  {id:'CMD-002',four:'SOGATRA Boissons',date:'2025-06-11',datL:'2025-06-14',mnt:95000,stat:'En attente'},
-  {id:'CMD-003',four:'Comptoir des Vins',date:'2025-06-12',datL:'2025-06-17',mnt:210000,stat:'Confirmée'}
-];
-var txs=[
-  {id:'TK-0042',date:'13/06 14:32',tbl:'Table 3',srv:'Serveur 1',arts:4,ht:10593,tva:1907,ttc:12500,pay:'Espèces',stat:'Validé'},
-  {id:'TK-0041',date:'13/06 13:15',tbl:'Table 1',srv:'Serveur 2',arts:2,ht:5932,tva:1068,ttc:7000,pay:'Carte',stat:'Validé'},
-  {id:'TK-0040',date:'13/06 12:48',tbl:'Comptoir',srv:'Serveur 1',arts:3,ht:3814,tva:686,ttc:4500,pay:'Espèces',stat:'Validé'},
-  {id:'TK-0039',date:'13/06 11:20',tbl:'Table 5',srv:'Serveur 2',arts:6,ht:23729,tva:4271,ttc:28000,pay:'Espèces',stat:'Validé'},
-  {id:'TK-0038',date:'12/06 21:45',tbl:'Table 2',srv:'Serveur 1',arts:8,ht:38135,tva:6865,ttc:45000,pay:'Carte',stat:'Validé'}
-];
-var mouv=[
-  {date:'13/06 08:15',art:'Castel Bière',typ:'Entrée',av:24,vr:24,ap:48,four:'SOBRAGA',usr:'admin',note:'Livraison'},
-  {date:'12/06 21:00',art:'Poulet braisé',typ:'Sortie',av:18,vr:-3,ap:15,four:'—',usr:'caissier1',note:''}
-];
-var prls=[],tkt=[],editArtId=null,editCliId=null,activeCat='Tout',payMode='esp',recAmt=0,nextTk=43;
+var arts=[];
+var clis=[];
+var fours=[];
+var cmds=[];
+var txs=[];
+var mouv=[];
+var prls=[],tkt=[],editArtId=null,editCliId=null,activeCat='Tout',payMode='esp',recAmt=0,nextTk=1;
 
 function fmt(n){return Math.round(n).toLocaleString('fr-FR')+' FCFA';}
 function g(id){return document.getElementById(id);}
@@ -1361,6 +1242,7 @@ function goPage(name,btn){
   document.querySelectorAll('.nb').forEach(function(b){b.classList.remove('on');});
   var pg=g('pg-'+name);if(pg)pg.classList.add('on');
   if(btn)btn.classList.add('on');
+  if(name==='impayes')renderImpayes();
 }
 function goSub(page,sub,btn){
   var pg=g('pg-'+page);if(!pg)return;
@@ -1373,6 +1255,34 @@ function goSub(page,sub,btn){
   if(page==='params'&&sub==='dev')prtCharger();
   if(page==='params'&&sub==='cats')initCategories();
   if(page==='personnel'&&sub==='archives')renderArchives();
+}
+function renderImpayes(){
+  var b=g('bImp'),o=g('bImpOk');if(!b||!o)return;b.innerHTML='';o.innerHTML='';
+  var tot=0;
+  txs.forEach(function(t){
+    if(!t.creditNom)return;
+    var tr=document.createElement('tr');
+    if(!t.creditPaye){
+      if(!t.creditEmploye)tot+=t.ttc;
+      tr.innerHTML='<td>'+t.date+'</td><td><strong>'+t.id+'</strong></td><td>'+t.creditNom+(t.creditEmploye?' <span class="badge bo">Employé</span>':'')+'</td><td>'+t.tbl+'</td><td>'+fmt(t.ttc)+'</td><td></td>';
+      var bt=document.createElement('button');bt.className='btn btn-r sm';bt.textContent='💵 Encaisser';
+      bt.onclick=function(){encaisserCredit(t.id);};tr.lastChild.appendChild(bt);b.appendChild(tr);
+    }else{
+      tr.innerHTML='<td>'+t.date+'</td><td>'+t.id+'</td><td>'+t.creditNom+'</td><td>'+fmt(t.ttc)+'</td><td>'+(t.creditRegleLe||'')+'</td>';o.appendChild(tr);
+    }
+  });
+  if(!b.children.length)b.innerHTML='<tr><td colspan="6" style="text-align:center;color:#666">Aucun impayé</td></tr>';
+  if(g('impTotal'))g('impTotal').textContent=tot?'Total dû : '+fmt(tot):'';
+}
+function encaisserCredit(id){
+  var t=txs.find(function(x){return x.id===id;});if(!t||t.creditPaye)return;
+  if(!confirm('Encaisser '+fmt(t.ttc)+' de '+t.creditNom+' en espèces ?'))return;
+  var n=new Date();
+  t.creditPaye=true;t.pay='Espèces';t.recu=t.ttc;t.rendu=0;
+  t.creditRegleLe=('0'+n.getDate()).slice(-2)+'/'+('0'+(n.getMonth()+1)).slice(-2)+' '+('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2);
+  renderImpayes();initCloture();
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('Crédit encaissé — '+fmt(t.ttc),'s');
 }
 function startClock(){
   function tick(){g('clk').textContent=new Date().toLocaleTimeString('fr-FR');}
@@ -1645,10 +1555,16 @@ function updateTableOptions(){
   var tablesOccupeesSansSousFacture=cmdAttente.filter(function(c){return String(c.tableVal).indexOf('-')===-1;}).map(function(c){return c.tableVal;});
   for(var i=0;i<sel.options.length;i++){
     var opt=sel.options[i];
+    // Table en rouge = déjà une commande en cours : NON sélectionnable (sauf pour la reprise de
+    // cette commande elle-même, qui doit pouvoir rester sur sa table).
+    var repriseCmd=resumingAttenteId?cmdAttente.filter(function(c){return c.id===resumingAttenteId;})[0]:null;
+    var tableReprise=repriseCmd?String(repriseCmd.tableVal).split('-')[0]:null;
     if(tablesOccupeesSansSousFacture.indexOf(opt.value)>=0){
       opt.text=opt.text.replace(/ 🔴$/,'')+' 🔴';
+      opt.disabled=(opt.value!==tableReprise);
     } else {
       opt.text=opt.text.replace(/ 🔴$/,'');
+      opt.disabled=false;
     }
   }
   renderSousFactureSelect();
@@ -1909,7 +1825,21 @@ function verifierSelectionsObligatoires(action){
     el.style.outline=manque?'2px solid #FF3333':'';
     if(manque)manquants.push(c);
   });
-  if(!manquants.length)return true;
+  if(!manquants.length){
+    // Garde-fou : jamais de nouvelle commande/paiement sur une table déjà occupée (rouge),
+    // même si la sélection a été faite avant qu'elle ne devienne occupée.
+    if(!resumingAttenteId){
+      var tb=String(g('selTable').value).split('-')[0];
+      var occ=cmdAttente.filter(function(c){return String(c.tableVal)===tb;})[0];
+      if(occ){
+        toast('❌ Cette table est déjà occupée (commande n°'+(occ.numero||'')+'). Reprenez-la avec ▶ ou choisissez une autre table.','e');
+        g('selTable').style.outline='2px solid #FF3333';
+        try{updateTableOptions();g('selTable').value='0';}catch(e){}
+        return false;
+      }
+    }
+    return true;
+  }
   toast('Sélectionnez '+manquants.map(function(c){return c.nom;}).join(', ')+' avant '+(action||'de continuer'),'e');
   try{g(manquants[0].id).focus();}catch(e){}
   return false;
@@ -1919,6 +1849,14 @@ function mettreEnAttente(){
   if(!verifierSelectionsObligatoires("d'envoyer le bon de commande"))return;
   var tableNom=tableNomAffiche();
   var tableVal=tableValCombine();
+  // Une seule commande en attente par table : si la table en a déjà une (autre que celle en cours
+  // de modification), on refuse et on invite à la reprendre pour y ajouter des articles.
+  var dejaSurTable=cmdAttente.filter(function(c){return String(c.tableVal)===String(tableVal)&&c.id!==resumingAttenteId;})[0];
+  if(dejaSurTable){
+    toast('❌ '+tableNom+' a déjà une commande en attente (n°'+(dejaSurTable.numero||'')+'). Reprenez-la avec ▶ pour y ajouter des articles.','e');
+    try{var sTb=g('selTable');if(sTb)sTb.style.outline='2px solid #FF3333';}catch(e){}
+    return;
+  }
   var srv=g('selSrv').value||'—';
   var total=tkt.reduce(function(s,i){return s+i.pv*(i.qty||i.qt||1);},0);
   var heure=new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'});
@@ -2590,9 +2528,10 @@ function openPay(mode){
   if(g('nbTicketsVal'))g('nbTicketsVal').textContent=nbTickets;
   if(g('chkDiviserAddition'))g('chkDiviserAddition').checked=false;
   majApercuDivision();
-  g('payMT').textContent='Paiement — '+(mode==='esp'?'Espèces':'Carte');
+  g('payMT').textContent=mode==='esp'?'Paiement — Espèces':'Crédit — facture à un nom';
   g('payAmt').textContent=fmt(getTotal());
-  g('numWrap').style.display=mode==='cart'?'none':'block';
+  g('numWrap').style.display=mode==='esp'?'block':'none';
+  if(g('creditWrap')){g('creditWrap').style.display=mode==='cred'?'block':'none';if(mode==='cred'&&g('creditNom'))g('creditNom').value='';if(g('creditEmploye'))g('creditEmploye').checked=false;}
   if(mode==='esp'){g('payRec').textContent='0 FCFA';g('payMon').textContent='0 FCFA';buildNumPad();}
   g('ovPay').classList.add('on');
 }
@@ -2618,17 +2557,19 @@ function numIn(k){
 function valPay(){
   var tot=getTotal();
   if(payMode==='esp'&&recAmt<tot){toast('Montant insuffisant','e');return;}
+  var creditNom='';
+  if(payMode==='cred'){creditNom=((g('creditNom')&&g('creditNom').value)||'').trim();if(!creditNom){toast('Indiquez le nom de la personne','e');if(g('creditNom'))g('creditNom').focus();return;}}
   tkt.forEach(function(it){var a=arts.find(function(x){return x.id===it.id;});if(a&&stockGere(a))a.stk=Math.max(0,a.stk-it.qty);});
   var now=new Date();
   var dd=('0'+now.getDate()).slice(-2),mm=('0'+(now.getMonth()+1)).slice(-2);
   var hh=('0'+now.getHours()).slice(-2),mi=('0'+now.getMinutes()).slice(-2);
   var ht=tvaActif?Math.round(tot/(1+tvaRate)):tot,nb=tkt.reduce(function(s,i){return s+i.qty;},0);
   var itemsSnapshot=tkt.map(function(it){return {nom:it.nom,qty:it.qty,pv:it.pv};});
-  var recu=payMode==='esp'?recAmt:tot;
+  var recu=payMode==='esp'?recAmt:(payMode==='cred'?0:tot);
   var rendu=payMode==='esp'?Math.max(0,recAmt-tot):0;
   var caissier=(window.currentUser&&window.currentUser.nom)?window.currentUser.nom:'—';
   var caisseNom=g('selCaisse')?g('selCaisse').value:'';
-  txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,tbl:tableNomAffiche(),srv:g('selSrv').value,caissier:caissier,caisse:caisseNom,arts:nb,items:itemsSnapshot,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':(payMode==='airtel'?'Airtel Money':(payMode==='momo'?libelleMomo(paiementMomo):'Carte')),recu:recu,rendu:rendu,stat:'Validé',momo:payMode==='momo'?detailsMomo(paiementMomo):undefined});
+  txs.unshift({id:'TK-'+('000'+nextTk).slice(-4),date:dd+'/'+mm+' '+hh+':'+mi,ts:now.getTime(),tbl:tableNomAffiche(),srv:g('selSrv').value,caissier:caissier,caisse:caisseNom,arts:nb,items:itemsSnapshot,ht:ht,tva:tot-ht,ttc:tot,pay:payMode==='esp'?'Espèces':(payMode==='airtel'?'Airtel Money':(payMode==='momo'?libelleMomo(paiementMomo):'Crédit')),creditNom:payMode==='cred'?creditNom:undefined,creditEmploye:payMode==='cred'?!!(g('creditEmploye')&&g('creditEmploye').checked):undefined,creditPaye:payMode==='cred'?false:undefined,recu:recu,rendu:rendu,stat:'Validé',momo:payMode==='momo'?detailsMomo(paiementMomo):undefined});
   paiementMomo=null;
   nextTk++;g('tkNum').textContent='TK-#'+('000'+nextTk).slice(-4);
   // Commande reprise depuis « En attente » : elle est maintenant PAYÉE, c'est le seul moment (avec
@@ -2790,7 +2731,7 @@ function imprimerRecu(){
       body+='<div style="text-align:left"><span class="b">TOTAL TTC : '+tk.ttc.toLocaleString('fr-FR')+' F</span></div>';
     }
     body+='<div class="sep"></div>';
-    body+='<div style="font-size:14px">'+ligne('<span class="b">Paiement</span>','<span class="b">'+tk.pay+'</span>')+'</div>';
+    body+='<div style="font-size:14px">'+ligne('<span class="b">Paiement</span>','<span class="b">'+tk.pay+(tk.creditNom?' — '+tk.creditNom:'')+'</span>')+'</div>';
     if(tk.momo){
       body+=ligne('Téléphone',tk.momo.tel);
       body+=ligne('Réf. PVIT',tk.momo.ref);
@@ -3751,24 +3692,65 @@ function renderCloCaisseSelect(){
   if(sel.querySelector('option[value="'+CSS.escape(prev)+'"]'))sel.value=prev;
 }
 function especesDe(tl){return tl.filter(function(t){return t.pay==='Espèces';}).reduce(function(s,t){return s+t.ttc;},0);}
+function creditEmpDe(tl){return tl.filter(function(t){return t.pay==='Crédit'&&t.creditEmploye&&!t.creditPaye;}).reduce(function(s,t){return s+t.ttc;},0);}
+function creditCliDe(tl){return tl.filter(function(t){return t.pay==='Crédit'&&!t.creditEmploye&&!t.creditPaye;}).reduce(function(s,t){return s+t.ttc;},0);}
 function mobileMoneyDe(tl){return tl.filter(function(t){return !!t.momo||t.pay==='Airtel Money'||t.pay==='Moov Money';}).reduce(function(s,t){return s+t.ttc;},0);}
-function txsCloture(){
-  var f=g('cloCaisse')?g('cloCaisse').value:'';
-  return f?txs.filter(function(t){return t.caisse===f;}):txs;
+function tsVente(t){
+  if(t.ts)return t.ts;
+  var m=/^(\d{2})\/(\d{2}) (\d{2}):(\d{2})$/.exec(t.date||'');if(!m)return 0;
+  var n=new Date(),y=n.getFullYear();
+  var d=new Date(y,+m[2]-1,+m[1],+m[3],+m[4]);
+  if(d.getTime()>n.getTime()+86400000)d=new Date(y-1,+m[2]-1,+m[1],+m[3],+m[4]);
+  return d.getTime();
 }
+function cloValeurs(){
+  function v(id){return g(id)?g(id).value:'';}
+  return {caisse:v('cloCaisse'),srv:v('cloSrv'),caissier:v('cloCaissier'),du:v('cloDu'),au:v('cloAu')};
+}
+function txsCloture(){
+  var f=cloValeurs();
+  var d1=f.du?new Date(f.du+'T00:00:00').getTime():0,d2=f.au?new Date(f.au+'T23:59:59').getTime():0;
+  return txs.filter(function(t){
+    if(f.caisse&&t.caisse!==f.caisse)return false;
+    if(f.srv&&t.srv!==f.srv)return false;
+    if(f.caissier&&t.caissier!==f.caissier)return false;
+    if(d1||d2){var ts=tsVente(t);if(d1&&ts<d1)return false;if(d2&&ts>d2)return false;}
+    return true;
+  });
+}
+function cloLibelle(){
+  var f=cloValeurs(),p=[f.caisse||'Toutes les caisses'];
+  if(f.srv)p.push('Serveur : '+f.srv);
+  if(f.caissier)p.push('Caissier : '+f.caissier);
+  function fr(d){return d.split('-').reverse().join('/');}
+  if(f.du||f.au)p.push('Période : '+(f.du?fr(f.du):'…')+' → '+(f.au?fr(f.au):'…'));
+  return p.join(' — ');
+}
+function renderCloFiltres(){
+  [['cloSrv','srv','Tous les serveurs'],['cloCaissier','caissier','Tous les caissiers']].forEach(function(c){
+    var sel=g(c[0]);if(!sel)return;var prev=sel.value;
+    var vals=[];txs.forEach(function(t){if(t[c[1]]&&t[c[1]]!=='—'&&vals.indexOf(t[c[1]])<0)vals.push(t[c[1]]);});
+    if(prev&&vals.indexOf(prev)<0)vals.push(prev);
+    vals.sort();sel.innerHTML='';
+    var o0=document.createElement('option');o0.value='';o0.text=c[2];sel.appendChild(o0);
+    vals.forEach(function(v){var o=document.createElement('option');o.value=v;o.text=v;sel.appendChild(o);});
+    sel.value=prev;
+  });
+}
+function cloResetFiltres(){['cloCaisse','cloSrv','cloCaissier','cloDu','cloAu'].forEach(function(id){if(g(id))g(id).value='';});initCloture();}
 function initCloture(){
-  renderCloCaisseSelect();
+  renderCloCaisseSelect();renderCloFiltres();
   var f=g('cloCaisse')?g('cloCaisse').value:'';
   var fonds=getFondsOuverture(f);
   var tl=txsCloture();
   var esp=tl.filter(function(t){return t.pay==='Espèces';}).reduce(function(s,t){return s+t.ttc;},0);
-  var cart=tl.filter(function(t){return t.pay==='Carte';}).reduce(function(s,t){return s+t.ttc;},0);
+  var cart=creditCliDe(tl),cEmp=creditEmpDe(tl);
   var momo=mobileMoneyDe(tl);
   if(g('cl4m'))g('cl4m').textContent=fmt(momo);
   var ttc=tl.reduce(function(s,t){return s+t.ttc;},0),ht=tl.reduce(function(s,t){return s+t.ht;},0),tva=tl.reduce(function(s,t){return s+t.tva;},0),nb=tl.reduce(function(s,t){return s+t.arts;},0);
   var tp=prls.reduce(function(s,p){return s+p.mnt;},0);
   if(g('clFondsOuv'))g('clFondsOuv').textContent=fmt(fonds);
-  g('cl2').textContent=fmt(ttc);g('cl3').textContent=fmt(esp);g('cl4').textContent=fmt(cart);g('cl5').textContent=fmt(tp);g('cl6').textContent=fmt(fonds+esp-tp);
+  g('cl2').textContent=fmt(ttc);g('cl3').textContent=fmt(esp);g('cl4').textContent=fmt(cart);if(g('cl4e'))g('cl4e').textContent=fmt(cEmp);if(g('clJust'))g('clJust').textContent=fmt(ttc-cEmp);g('cl5').textContent=fmt(tp);g('cl6').textContent=fmt(fonds+esp-tp);
   g('cn1').textContent=tl.length;g('cn2').textContent=nb;g('cn3').textContent=tl.length?fmt(Math.round(ttc/tl.length)):fmt(0);g('cn6').textContent=fmt(ttc);
   if(g('clDate'))g('clDate').textContent=new Date().toLocaleDateString('fr-FR');
   renderPrls();calcCpt();
@@ -3800,7 +3782,7 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
   var papierFmt=formatCloture();
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
   var caissier=(window.currentUser&&window.currentUser.nom)?window.currentUser.nom:'—';
-  var cxLbl=(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses';
+  var cxLbl=cloLibelle();
   var tl=txsCloture();
   var parArticle={};
   tl.forEach(function(t){
@@ -4047,10 +4029,11 @@ function buildBilanClotureHTML(snapshot,papier){
   }
   html+='<div class="sep"></div>';
   // Montants de la clôture en BAS du ticket.
-  var espT=especesDe(tl),momoT=mobileMoneyDe(tl),carteT=ttc-espT-momoT;
+  var espT=especesDe(tl),momoT=mobileMoneyDe(tl),empT=creditEmpDe(tl),carteT=creditCliDe(tl);
   html+=ligne('CA TTC','<span class="b">'+nb(ttc)+' F</span>');
   html+=ligne('Dont espèces',nb(espT)+' F');
-  if(carteT)html+=ligne('Dont carte',nb(carteT)+' F');
+  if(carteT)html+=ligne('Dont crédit client (non déduit)',nb(carteT)+' F');
+  if(empT){html+=ligne('Crédit employé (déduit)','<span class="b">-'+nb(empT)+' F</span>');html+=ligne('<span class="b">À JUSTIFIER</span>','<span class="b">'+nb(ttc-empT)+' F</span>');}
   if(momoT)html+=ligne('Dont Mobile Money',nb(momoT)+' F');
   if(tp)html+=ligne('Prélèvements','<span class="b">-'+nb(tp)+' F</span>');
   html+=ligne('<span class="b">SOLDE ESPÈCES</span>','<span class="b">'+nb(espT-tp)+' F</span>','font-size:14px;margin-top:2px');
@@ -4123,7 +4106,7 @@ function construireInstantaneCloture(){
   var tl=txsCloture();
   return {
     tl:tl,
-    cxLbl:(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses',
+    cxLbl:cloLibelle(),
     ttc:tl.reduce(function(s,t){return s+t.ttc;},0),
     tp:prls.reduce(function(s,p){return s+p.mnt;},0),
     now:new Date().toLocaleString('fr-FR'),
@@ -4147,7 +4130,7 @@ function ouvrirEtImprimerHTML(html){
 function imprimerBilanClotureAuto(snapshot){
   ouvrirEtImprimerHTML(buildBilanClotureHTML(snapshot,snapshot.format));
 }
-function printA4(){var tl=txsCloture(),cxLbl=(g('cloCaisse')&&g('cloCaisse').value)||'Toutes les caisses',ttc=tl.reduce(function(s,t){return s+t.ttc;},0),tp=prls.reduce(function(s,p){return s+p.mnt;},0),w=window.open('','_blank'),now=new Date().toLocaleString('fr-FR');w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;padding:20mm}h1{font-size:22px;color:#CC0000}h2{font-size:14px;margin:14px 0 6px}table{width:100%;border-collapse:collapse;margin-bottom:12px}th{background:#CC0000;color:#fff;padding:7px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#f9f9f9}.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.kc{border:1px solid #ddd;border-radius:6px;padding:10px 14px}.kl{font-size:10px;color:#666;text-transform:uppercase}.kv{font-size:20px;font-weight:700;color:#CC0000}.sep{border-top:2px solid #CC0000;margin:14px 0}.footer{text-align:center;font-size:10px;color:#666;margin-top:20px}</style></head><body>');w.document.write('<h1>FSS-CAISSE</h1><div style="font-size:12px;color:#666">RAPPORT DE CLÔTURE — '+cxLbl+' — '+now+'</div><div class="sep"></div><div class="kpi"><div class="kc"><div class="kl">Tickets</div><div class="kv" style="color:#1144CC">'+tl.length+'</div></div><div class="kc"><div class="kl">CA TTC</div><div class="kv">'+ttc.toLocaleString('fr-FR')+' F</div></div><div class="kc"><div class="kl">TVA</div><div class="kv">'+Math.round(ttc*0.18/1.18).toLocaleString('fr-FR')+' F</div></div><div class="kc"><div class="kl">Solde espèces</div><div class="kv" style="color:#1144CC">'+(especesDe(tl)-tp).toLocaleString('fr-FR')+' F</div></div></div><h2>Transactions</h2><table><thead><tr><th>N° Ticket</th><th>Date</th><th>Table</th><th>Caisse</th><th>HT</th><th>TVA</th><th>TTC</th><th>Paiement</th></tr></thead><tbody>');tl.forEach(function(t){w.document.write('<tr><td>'+t.id+'</td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.caisse||'—')+'</td><td>'+t.ht.toLocaleString('fr-FR')+'</td><td>'+t.tva.toLocaleString('fr-FR')+'</td><td><strong>'+t.ttc.toLocaleString('fr-FR')+'</strong></td><td>'+t.pay+'</td></tr>');});w.document.write('</tbody></table><div class="footer">FSS-CAISSE — '+now+'</div></body></html>');w.document.close();w.onafterprint=function(){w.close();};setTimeout(function(){w.print();},400);setTimeout(function(){if(!w.closed)w.close();},15000);}
+function printA4(){var tl=txsCloture(),cxLbl=cloLibelle(),ttc=tl.reduce(function(s,t){return s+t.ttc;},0),tp=prls.reduce(function(s,p){return s+p.mnt;},0),w=window.open('','_blank'),now=new Date().toLocaleString('fr-FR');w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:11px;padding:20mm}h1{font-size:22px;color:#CC0000}h2{font-size:14px;margin:14px 0 6px}table{width:100%;border-collapse:collapse;margin-bottom:12px}th{background:#CC0000;color:#fff;padding:7px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#f9f9f9}.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.kc{border:1px solid #ddd;border-radius:6px;padding:10px 14px}.kl{font-size:10px;color:#666;text-transform:uppercase}.kv{font-size:20px;font-weight:700;color:#CC0000}.sep{border-top:2px solid #CC0000;margin:14px 0}.footer{text-align:center;font-size:10px;color:#666;margin-top:20px}</style></head><body>');w.document.write('<h1>FSS-CAISSE</h1><div style="font-size:12px;color:#666">RAPPORT DE CLÔTURE — '+cxLbl+' — '+now+'</div><div class="sep"></div><div class="kpi"><div class="kc"><div class="kl">Tickets</div><div class="kv" style="color:#1144CC">'+tl.length+'</div></div><div class="kc"><div class="kl">CA TTC</div><div class="kv">'+ttc.toLocaleString('fr-FR')+' F</div></div><div class="kc"><div class="kl">TVA</div><div class="kv">'+Math.round(ttc*0.18/1.18).toLocaleString('fr-FR')+' F</div></div><div class="kc"><div class="kl">Solde espèces</div><div class="kv" style="color:#1144CC">'+(especesDe(tl)-tp).toLocaleString('fr-FR')+' F</div></div></div><h2>Transactions</h2><table><thead><tr><th>N° Ticket</th><th>Date</th><th>Table</th><th>Caisse</th><th>HT</th><th>TVA</th><th>TTC</th><th>Paiement</th></tr></thead><tbody>');tl.forEach(function(t){w.document.write('<tr><td>'+t.id+'</td><td>'+t.date+'</td><td>'+t.tbl+'</td><td>'+(t.caisse||'—')+'</td><td>'+t.ht.toLocaleString('fr-FR')+'</td><td>'+t.tva.toLocaleString('fr-FR')+'</td><td><strong>'+t.ttc.toLocaleString('fr-FR')+'</strong></td><td>'+t.pay+'</td></tr>');});w.document.write('</tbody></table><div class="footer">FSS-CAISSE — '+now+'</div></body></html>');w.document.close();w.onafterprint=function(){w.close();};setTimeout(function(){w.print();},400);setTimeout(function(){if(!w.closed)w.close();},15000);}
 
 // PARAMÈTRES
 function initTVACat(){var el=g('tvaCatG');if(!el)return;el.innerHTML='';var cats=[],seen={};arts.forEach(function(a){if(!seen[a.cat]){seen[a.cat]=1;cats.push(a.cat);}});cats.forEach(function(c){var div=document.createElement('div');div.className='fg';div.innerHTML='<label class="fl">'+c+'</label><input class="fi" type="number" value="18">';el.appendChild(div);});}
@@ -4875,6 +4858,7 @@ function confirmAdminAction(){
 }
 function initStockArticlesZero(){
   openAdminPwdConfirm('Cette action va <strong>supprimer TOUS les articles ET toutes les catégories</strong> — le catalogue entier repart de zéro. C\'est irréversible.<br><br>Pour confirmer, saisissez votre mot de passe administrateur :','🗑️ Tout supprimer',function(){
+    if(window.fssArtsSupprimer)window.fssArtsSupprimer(arts.map(function(x){return x.id;}));
     arts=[];
     categories=[];
     categoryAlerteActive={};
@@ -5343,7 +5327,7 @@ document.addEventListener('DOMContentLoaded',function(){
   setInterval(verifierSauvegardeAuto,6*60*60*1000);
   document.querySelectorAll('.ov').forEach(function(o){o.addEventListener('click',function(e){if(e.target===o)o.classList.remove('on');});});
   var td=new Date().toISOString().split('T')[0];
-  document.querySelectorAll('input[type=date]').forEach(function(e){if(!e.value)e.value=td;});
+  document.querySelectorAll('input[type=date]').forEach(function(e){if(!e.value&&!e.hasAttribute('data-vide'))e.value=td;});
 });
 </script>
 <script src="/socket.io/socket.io.js"></script>
@@ -5393,26 +5377,29 @@ if ('serviceWorker' in navigator) {
 #fssKbBtn{position:fixed;left:10px;bottom:10px;z-index:2147483000;width:46px;height:46px;border-radius:50%;border:2px solid #CC0000;background:#1a1a1a;color:#fff;font-size:22px;cursor:pointer;opacity:.85;box-shadow:0 2px 8px rgba(0,0,0,.5)}
 #fssKbBtn:hover,#fssKbBtn.on{opacity:1;background:#CC0000}
 #fssKbBtn.on{display:none}
-#fssKb{position:fixed;left:50%;transform:translateX(-50%);bottom:10px;z-index:2147483001;width:min(1000px,98vw);background:#111;border:2px solid #CC0000;border-radius:12px;padding:6px 8px 8px;display:none;box-shadow:0 6px 24px rgba(0,0,0,.7);user-select:none;-webkit-user-select:none;touch-action:none;font-family:Arial,sans-serif}
+#fssKb{--kbs:1;position:fixed;left:50%;transform:translateX(-50%);bottom:10px;z-index:2147483001;width:min(calc(1000px*var(--kbs)),98vw);background:#111;border:2px solid #CC0000;border-radius:12px;padding:6px 8px 8px;display:none;box-shadow:0 6px 24px rgba(0,0,0,.7);user-select:none;-webkit-user-select:none;touch-action:none;font-family:Arial,sans-serif}
 #fssKb.on{display:block}
 #fssKb .kbh{display:flex;align-items:center;gap:8px;color:#aaa;font-size:11px;padding:0 2px 5px;cursor:move}
-#fssKb .kbh .kbx{margin-left:auto;background:#CC0000;color:#fff;border:0;border-radius:6px;padding:3px 12px;font-size:13px;cursor:pointer}
+#fssKb .kbh .kbx{margin-left:8px;background:#CC0000;color:#fff;border:0;border-radius:6px;padding:3px 12px;font-size:13px;cursor:pointer}
 #fssKb .kbm{display:flex;gap:10px}
 #fssKb .kbl{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
-#fssKb .kbn{width:24%;min-width:150px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+#fssKb .kbn{width:24%;min-width:calc(150px*var(--kbs));display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
 #fssKb .kr{display:flex;gap:4px}
-#fssKb .k{flex:1;min-width:0;height:46px;background:#2a2a2a;color:#fff;border:1px solid #3a3a3a;border-radius:7px;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:none}
+#fssKb .k{flex:1;min-width:0;height:calc(46px*var(--kbs));background:#2a2a2a;color:#fff;border:1px solid #3a3a3a;border-radius:7px;font-size:calc(18px*var(--kbs));font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:none}
 #fssKb .k:active,#fssKb .k.press{background:#CC0000}
 #fssKb .k.f{background:#1b2a55;border-color:#2c4388}
 #fssKb .k.sp{flex:5}
 #fssKb .k.w{flex:1.5}
 #fssKb .k.act{background:#CC0000}
 #fssKb .k.ent{background:#1F7A3A;grid-column:3;grid-row:4 / span 2;height:auto}
-@media (max-width:700px){#fssKb .k{height:40px;font-size:15px}#fssKb .kbn{min-width:120px}}
+@media (max-width:700px){#fssKb .k{height:calc(40px*var(--kbs));font-size:calc(15px*var(--kbs))}#fssKb .kbn{min-width:calc(120px*var(--kbs))}}
+#fssKb .kbz{background:#2a2a2a;color:#fff;border:1px solid #555;border-radius:6px;min-width:34px;padding:3px 8px;font-size:15px;font-weight:700;cursor:pointer}
+#fssKb .kbz:active{background:#CC0000}
+#fssKb .kbs{color:#ccc;font-size:11px;min-width:34px;text-align:center}
 @media print{#fssKb,#fssKbBtn{display:none!important}}
 </style>
 <button id="fssKbBtn" type="button" title="Clavier à l'écran (AZERTY + pavé numérique)">⌨️</button>
-<div id="fssKb"><div class="kbh" id="fssKbH"><span>⌨️ Clavier — glisser pour déplacer</span><button class="kbx" id="fssKbX" type="button">✕ Fermer</button></div>
+<div id="fssKb"><div class="kbh" id="fssKbH"><span>⌨️ Clavier — glisser pour déplacer</span><span style="margin-left:auto;display:flex;align-items:center;gap:4px"><button class="kbz" id="fssKbMoins" type="button" title="Réduire le clavier">A−</button><span class="kbs" id="fssKbPct">100%</span><button class="kbz" id="fssKbPlus" type="button" title="Agrandir le clavier">A+</button></span><button class="kbx" id="fssKbX" type="button">✕ Fermer</button></div>
 <div class="kbm"><div class="kbl" id="fssKbL"></div><div class="kbn" id="fssKbN"></div></div></div>
 <script>
 (function(){
@@ -5553,7 +5540,7 @@ if ('serviceWorker' in navigator) {
   // déplacer le clavier
   var dx=0,dy=0,drag=false;
   document.getElementById('fssKbH').addEventListener('pointerdown',function(e){
-    if(e.target.id==='fssKbX')return;
+    if(e.target.id==='fssKbX'||(e.target.classList&&e.target.classList.contains('kbz')))return;
     drag=true;var r=kb.getBoundingClientRect();dx=e.clientX-r.left;dy=e.clientY-r.top;
     try{this.setPointerCapture(e.pointerId);}catch(x){}
     e.preventDefault();
@@ -5563,6 +5550,19 @@ if ('serviceWorker' in navigator) {
     kb.style.transform='none';kb.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-dx))+'px';kb.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-dy))+'px';kb.style.bottom='auto';
   });
   document.getElementById('fssKbH').addEventListener('pointerup',function(){drag=false;});
+  // Taille du clavier réglable (A− / A+), mémorisée sur ce poste
+  var echelle=1;
+  try{var sv=parseFloat(localStorage.getItem('fss-kb-echelle'));if(sv>=0.4&&sv<=1.3)echelle=sv;}catch(x){}
+  function appliquerEchelle(){
+    kb.style.setProperty('--kbs',echelle);
+    var pc=document.getElementById('fssKbPct');if(pc)pc.textContent=Math.round(echelle*100)+'%';
+    try{localStorage.setItem('fss-kb-echelle',String(echelle));}catch(x){}
+    if(kb.classList.contains('on'))placer();
+  }
+  function changerEchelle(d){echelle=Math.max(0.4,Math.min(1.3,Math.round((echelle+d)*10)/10));appliquerEchelle();}
+  document.getElementById('fssKbMoins').addEventListener('click',function(){changerEchelle(-0.1);});
+  document.getElementById('fssKbPlus').addEventListener('click',function(){changerEchelle(0.1);});
+  appliquerEchelle();
   function ouvrir(){
     kb.classList.add('on');btn.classList.add('on');deplace=false;
     var a=document.activeElement;if(champ(a)&&!kb.contains(a))cible=a;

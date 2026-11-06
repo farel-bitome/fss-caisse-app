@@ -505,6 +505,17 @@ async function imprimerSur(electron, imprimante, html) {
 //   autres (ticket, addition, cloture, prelevement) -> imprimante de caisse
 // ---------------------------------------------------------------------
 function choisirCibles(cfg, kind, posteId, profil, depuisServeur) {
+  // Option DÉSACTIVÉE : un bon lancé depuis le poste Serveur ne sort sur l'imprimante de caisse
+  // QUE si ce poste a une affectation explicite (Paramètres → Périphériques). Pas d'affectation
+  // = pas de repli automatique sur l'imprimante de caisse (c'est exactement ce que l'option gère).
+  if (kind === 'commande' && depuisServeur && !cfg.bonsSurCaisseServeur) {
+    const r = cfg.routes && cfg.routes[posteId];
+    const actives = cfg.printers.filter(p => p.actif !== false);
+    const explicite = r && (r.mode === 'all' || (r.mode === 'some' && actives.some(p => (r.ids || []).indexOf(p.id) !== -1)));
+    if (!explicite) {
+      return { cibles: [], refus: true, avertissement: 'Bon de commande non imprimé : aucune imprimante n\'est affectée au poste Serveur et l\'option « imprimer les bons de commande sur l\'imprimante de caisse » est désactivée (Paramètres → Périphériques).' };
+    }
+  }
   const res = choisirCiblesBase(cfg, kind, posteId, profil);
   // Option « l'imprimante du poste Serveur imprime aussi ses bons de commande » : on ajoute
   // l'imprimante de caisse aux cibles (sans doublon) pour les bons lancés depuis ce poste.

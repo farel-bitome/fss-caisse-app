@@ -68,17 +68,9 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       // Migration unique : remplace le catalogue d'articles par le nouveau menu,
       // sans toucher au reste des données déjà enregistrées (clients, ventes,
       // personnel, etc.) — ne s'exécute qu'une seule fois grâce au marqueur.
-      if (!state.menuMigratedV2) {
-        try {
-          const defaults = JSON.parse(fs.readFileSync(defaultFile, 'utf8'));
-          state.arts = defaults.arts;
-          state.menuMigratedV2 = true;
-          saveState(state);
-          console.log('Migration : catalogue d\'articles mis à jour (' + defaults.arts.length + ' articles).');
-        } catch (e) {
-          console.error('Erreur pendant la migration du catalogue d\'articles :', e.message);
-        }
-      }
+      // Base vierge : on ne réinjecte plus jamais de catalogue intégré. Les articles
+      // existants du client sont conservés tels quels.
+      state.menuMigratedV2 = true;
       // Migration unique : corrige la liste des catégories (Paramètres) pour
       // qu'elle corresponde réellement aux catégories utilisées par les
       // articles — l'ancienne liste de démonstration ('Boissons', 'Bières'...)
@@ -413,6 +405,38 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
     // désormais gérés via la route dédiée /api/printbatches/ajouter
     // ci-dessous, plus fiable qu'une fusion par horodatage.
 
+    // ---- Catalogue d'articles : ajout / modification / suppression ARTICLE PAR ARTICLE ----
+    // Un seul article ajouté, importé ou modifié est enregistré tout de suite sur le serveur,
+    // FUSIONNÉ avec la liste déjà enregistrée : un poste dont la copie du catalogue est en retard
+    // ne peut plus écraser les autres articles. Les suppressions sont mémorisées (artsSupprimes).
+    expressApp.post('/api/arts/maj', (req, res) => {
+      try {
+        const upserts = Array.isArray(req.body && req.body.upserts) ? req.body.upserts : [];
+        const supprimes = Array.isArray(req.body && req.body.supprimes) ? req.body.supprimes : [];
+        state.arts = Array.isArray(state.arts) ? state.arts : [];
+        const supp = new Set((state.artsSupprimes || []).concat(supprimes));
+        const index = {};
+        state.arts.forEach(function (a, i) { index[a.id] = i; });
+        upserts.forEach(function (a) {
+          if (!a || a.id === undefined || a.id === null) return;
+          supp.delete(a.id);
+          if (index[a.id] !== undefined) state.arts[index[a.id]] = a;
+          else { index[a.id] = state.arts.length; state.arts.push(a); }
+        });
+        const aSupprimer = new Set(supprimes);
+        if (aSupprimer.size) state.arts = state.arts.filter(function (a) { return !aSupprimer.has(a.id); });
+        state.artsSupprimes = Array.from(supp).slice(-20000);
+        state.artsUpdatedAt = Math.max(Date.now(), (state.artsUpdatedAt || 0) + 1);
+        saveState(state);
+        io.emit('state:changed', state);
+        ecrireJournal('Catalogue : ' + upserts.length + ' article(s) ajouté(s)/modifié(s), ' + aSupprimer.size + ' supprimé(s) — total ' + state.arts.length);
+        res.json({ ok: true, total: state.arts.length });
+      } catch (err) {
+        console.error('[FSS-CAISSE] Erreur mise à jour du catalogue :', err);
+        res.status(500).json({ ok: false, error: err.message });
+      }
+    });
+
     expressApp.post('/api/state', (req, res) => {
       try {
         const nouvelEtat = req.body;
@@ -442,6 +466,18 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         if (ancienHorodatageArts > nouvelHorodatageArts) {
           nouvelEtat.arts = state.arts;
           nouvelEtat.artsUpdatedAt = ancienHorodatageArts;
+        }
+        // Même quand la liste reçue est acceptée, on ne perd jamais un article enregistré sur le
+        // serveur que ce poste ne connaissait pas encore (sauf s'il a été supprimé exprès).
+        nouvelEtat.artsSupprimes = state.artsSupprimes || [];
+        if (Array.isArray(nouvelEtat.arts) && Array.isArray(state.arts) && nouvelEtat.arts !== state.arts) {
+          const connus = new Set(nouvelEtat.arts.map(function (a) { return a.id; }));
+          const supprimes = new Set(nouvelEtat.artsSupprimes);
+          const manquants = state.arts.filter(function (a) { return !connus.has(a.id) && !supprimes.has(a.id); });
+          if (manquants.length) {
+            nouvelEtat.arts = nouvelEtat.arts.concat(manquants);
+            ecrireJournal('Catalogue : ' + manquants.length + ' article(s) du serveur conservé(s) (le poste ne les connaissait pas)');
+          }
         }
         // Comptes utilisateurs : un poste en retard (ancienne copie des comptes)
         // ne doit JAMAIS écraser un changement plus récent (mot de passe,

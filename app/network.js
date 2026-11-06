@@ -405,13 +405,35 @@
   // jour un horodatage dédié, pour que le serveur puisse toujours reconnaître
   // et garder la VRAIE dernière mise à jour, même si un autre poste, avec une
   // version plus ancienne du catalogue, envoie un changement juste après.
+  function envoyerChangementsArticles(avant) {
+    try {
+      var liste = window.arts || arts || [], apres = {}, upserts = [], supprimes = [];
+      liste.forEach(function (x) {
+        apres[x.id] = true;
+        if (avant[x.id] !== JSON.stringify(x)) upserts.push(x);
+      });
+      Object.keys(avant).forEach(function (id) {
+        if (!apres[id]) { var n = Number(id); supprimes.push(String(n) === id ? n : id); }
+      });
+      if (upserts.length || supprimes.length) postJsonAvecRetry('/api/arts/maj', { upserts: upserts, supprimes: supprimes }, function () {});
+    } catch (e) {}
+  }
+  window.fssArtsSupprimer = function (ids) { try { postJsonAvecRetry('/api/arts/maj', { upserts: [], supprimes: ids }, function () {}); } catch (e) {} };
   var FONCTIONS_ARTICLES = ['saveArt', 'delArt', 'togArt', 'importArticles', 'viderArticles'];
   function wrap(name) {
     var orig = window[name];
     if (typeof orig !== 'function') return;
     window[name] = function () {
+      var estArticle = FONCTIONS_ARTICLES.indexOf(name) !== -1;
+      var avant = null;
+      if (estArticle) { avant = {}; (window.arts || arts || []).forEach(function (x) { avant[x.id] = JSON.stringify(x); }); }
       var r = orig.apply(this, arguments);
-      if (FONCTIONS_ARTICLES.indexOf(name) !== -1) window.artsUpdatedAt = Date.now();
+      if (estArticle) {
+        window.artsUpdatedAt = Date.now();
+        // Envoi IMMÉDIAT au serveur des seuls articles ajoutés / modifiés / supprimés (fusion côté
+        // serveur) — un seul article suffit, sans dépendre de la synchronisation complète.
+        envoyerChangementsArticles(avant);
+      }
       syncPush();
       return r;
     };
