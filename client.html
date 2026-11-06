@@ -5,67 +5,52 @@
 <title>FSS-CAISSE — Connexion</title>
 <style>
   * { box-sizing: border-box; }
-  body {
-    font-family: Arial, sans-serif;
-    background: #0e0e0e;
-    color: #eee;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    margin: 0;
-  }
-  .box {
-    background: #1c1c1c;
-    padding: 36px 40px;
-    border-radius: 12px;
-    width: 360px;
-    text-align: center;
-    border: 1px solid #2a2a2a;
-  }
+  body { font-family: Arial, sans-serif; background: #0e0e0e; color: #eee; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+  .box { background: #1c1c1c; padding: 36px 40px; border-radius: 12px; width: 380px; text-align: center; border: 1px solid #2a2a2a; }
   h1 { color: #CC0000; font-size: 22px; margin: 0 0 4px; }
-  p { color: #999; font-size: 12px; margin: 0 0 22px; }
+  p { color: #999; font-size: 12px; margin: 0 0 22px; line-height: 1.5; }
   label { display:block; text-align:left; font-size: 11px; color:#888; margin-bottom: 4px; }
-  input {
-    width: 100%;
-    padding: 11px;
-    margin-bottom: 14px;
-    border-radius: 6px;
-    border: 1px solid #333;
-    background: #0e0e0e;
-    color: #fff;
-    font-size: 14px;
-  }
+  input { width: 100%; padding: 11px; margin-bottom: 14px; border-radius: 6px; border: 1px solid #333; background: #0e0e0e; color: #fff; font-size: 14px; }
   input:focus { outline: none; border-color: #CC0000; }
-  button {
-    width: 100%;
-    padding: 12px;
-    border: none;
-    border-radius: 6px;
-    background: #CC0000;
-    color: #fff;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 14px;
-  }
+  button { width: 100%; padding: 12px; border: none; border-radius: 6px; background: #CC0000; color: #fff; font-weight: bold; cursor: pointer; font-size: 14px; }
   button:hover { background: #a80000; }
+  button.sec { background: transparent; color: #888; border: 1px solid #333; margin-top: 10px; font-weight: normal; }
   .err { color: #FF4444; font-size: 12px; margin-top: 10px; min-height: 16px; }
-  .back { margin-top: 14px; font-size: 11px; color: #666; cursor: pointer; }
-  .back:hover { color: #999; }
+  .note { font-size: 11px; color: #777; text-align: left; margin: -6px 0 14px; line-height: 1.4; }
 </style>
 </head>
 <body>
 <div class="box">
   <h1>FSS-CAISSE</h1>
-  <p>Connexion au serveur central</p>
+  <p id="sousTitre">Connexion au serveur central</p>
   <label>Adresse IP du serveur</label>
   <input id="ip" placeholder="ex: 192.168.1.24" autofocus>
   <label>Port</label>
   <input id="port" placeholder="3000" value="3000">
-  <button onclick="connect()">Se connecter</button>
+  <label id="lblCode">Code technicien (à créer)</label>
+  <input id="code" type="password" placeholder="4 caractères minimum" autocomplete="off">
+  <div class="note" id="noteCode">Ce code sera demandé pour modifier ces informations plus tard. Notez-le bien.</div>
+  <button onclick="connect()" id="btn">Se connecter</button>
+  <button class="sec" id="btnAnnuler" style="display:none" onclick="window.electronAPI.annulerReglageServeur()">Annuler</button>
+  <button class="sec" id="btnMode" style="display:none" onclick="if(confirm('Changer de mode (Serveur / Client) sur cet ordinateur ?')){window.electronAPI.changerDeRole();}">Changer de mode (Serveur / Client)</button>
   <div class="err" id="err"></div>
 </div>
 <script>
+  // Première configuration : adresse + port + création d'un code technicien.
+  // Modification ultérieure (?modif=1) : accessible uniquement après saisie du code technicien.
+  var modif = location.search.indexOf('modif=1') !== -1;
+  var creer = location.search.indexOf('creer=1') !== -1; // poste déjà configuré mais sans code : il faut en créer un
+  if (modif) {
+    document.getElementById('sousTitre').textContent = 'Modifier le serveur (accès technicien)';
+    document.getElementById('btn').textContent = 'Enregistrer';
+    document.getElementById('btnAnnuler').style.display = '';
+    document.getElementById('btnMode').style.display = '';
+    if (!creer) {
+      document.getElementById('lblCode').textContent = 'Nouveau code technicien (facultatif)';
+      document.getElementById('code').placeholder = 'laisser vide pour garder le code actuel';
+      document.getElementById('noteCode').style.display = 'none';
+    }
+  }
   window.electronAPI.getCurrentServer().then(function (url) {
     if (url) {
       var m = url.match(/http:\/\/([^:]+):(\d+)/);
@@ -79,12 +64,16 @@
   function connect() {
     var ip = document.getElementById('ip').value.trim();
     var port = document.getElementById('port').value.trim() || '3000';
-    if (!ip) {
-      document.getElementById('err').textContent = "Merci d'entrer une adresse IP";
-      return;
-    }
-    document.getElementById('err').textContent = '';
-    window.electronAPI.saveServer(ip, port);
+    var code = document.getElementById('code').value;
+    var err = document.getElementById('err');
+    if (!ip) { err.textContent = "Merci d'entrer une adresse IP"; return; }
+    var codeRequis = !modif || creer;
+    if (codeRequis && code.length < 4) { err.textContent = 'Le code technicien doit contenir au moins 4 caractères'; return; }
+    if (code && code.length < 4) { err.textContent = 'Le code technicien doit contenir au moins 4 caractères'; return; }
+    err.textContent = '';
+    Promise.resolve(window.electronAPI.saveServer(ip, port, code)).then(function (ok) {
+      if (ok === false) err.textContent = 'Enregistrement refusé';
+    });
   }
 
   document.addEventListener('keydown', function (e) {

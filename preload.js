@@ -2,10 +2,17 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   chooseRole: (role) => ipcRenderer.invoke('choose-role', role),
-  saveServer: (ip, port) => ipcRenderer.invoke('save-server', ip, port),
+  saveServer: (ip, port, code) => ipcRenderer.invoke('save-server', ip, port, code),
+  verifierCodeTech: (code) => ipcRenderer.invoke('verifier-code-tech', code),
+  ouvrirReglageServeur: (creer) => ipcRenderer.invoke('ouvrir-reglage-serveur', creer),
+  annulerReglageServeur: () => ipcRenderer.invoke('annuler-reglage-serveur'),
+  reessayerServeur: () => ipcRenderer.invoke('reessayer-serveur'),
+  ouvrirAccesTechnicien: () => ipcRenderer.invoke('ouvrir-acces-technicien'),
+  changerDeRole: () => ipcRenderer.invoke('changer-de-role'),
   getCurrentServer: () => ipcRenderer.invoke('get-current-server'),
   printSilent: (html) => ipcRenderer.invoke('print-silent', html),
   getHostname: () => ipcRenderer.invoke('get-hostname'),
+  refocus: () => ipcRenderer.send('refocus'),
   printers: {
     get: () => ipcRenderer.invoke('printers-get'),
     save: (cfg) => ipcRenderer.invoke('printers-save', cfg),

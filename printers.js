@@ -164,6 +164,7 @@ function configParDefaut() {
     autoAjoutReseau: true,       // détecter et ajouter automatiquement les imprimantes réseau (IP, port 9100) — PRIORITAIRE
     autoAjoutWindows: true,      // ajouter automatiquement les imprimantes Windows détectées
     printers: [],                // [{id,nom,type:'windows'|'network',winName,ip,port,marque,modele,papier,actif}]
+    bonsSurCaisseServeur: false, // vrai : les bons de commande lancés DEPUIS le poste Serveur sortent aussi sur l'imprimante de caisse
     imprimanteCaisse: null,      // id : tickets de caisse, additions, clôtures, prélèvements
     routes: {},                  // { posteId: {mode:'all'} | {mode:'some', ids:[...]} }
     // Profils d'utilisateur autorisés à tout imprimer (tickets, additions, clôtures, prélèvements, rapports).
@@ -503,7 +504,21 @@ async function imprimerSur(electron, imprimante, html) {
 //   kind 'commande' : bons de commande -> imprimantes affectées au poste émetteur
 //   autres (ticket, addition, cloture, prelevement) -> imprimante de caisse
 // ---------------------------------------------------------------------
-function choisirCibles(cfg, kind, posteId, profil) {
+function choisirCibles(cfg, kind, posteId, profil, depuisServeur) {
+  const res = choisirCiblesBase(cfg, kind, posteId, profil);
+  // Option « l'imprimante du poste Serveur imprime aussi ses bons de commande » : on ajoute
+  // l'imprimante de caisse aux cibles (sans doublon) pour les bons lancés depuis ce poste.
+  if (kind === 'commande' && depuisServeur && cfg.bonsSurCaisseServeur && !res.refus) {
+    const caisse = cfg.printers.find(p => p.id === cfg.imprimanteCaisse && p.actif !== false);
+    if (caisse) {
+      const cibles = (res.cibles || []).slice();
+      if (!cibles.some(p => p.id === caisse.id)) cibles.push(caisse);
+      return Object.assign({}, res, { cibles: cibles });
+    }
+  }
+  return res;
+}
+function choisirCiblesBase(cfg, kind, posteId, profil) {
   const actives = cfg.printers.filter(p => p.actif !== false);
   if (kind === 'commande') {
     const r = cfg.routes[posteId];
@@ -532,7 +547,7 @@ function choisirCibles(cfg, kind, posteId, profil) {
 
 async function router(electron, demande, repli) {
   const cfg = chargerConfig();
-  const { cibles, avertissement, refus } = choisirCibles(cfg, demande.kind || 'ticket', demande.posteId, demande.profil);
+  const { cibles, avertissement, refus } = choisirCibles(cfg, demande.kind || 'ticket', demande.posteId, demande.profil, !!demande.depuisServeur);
   if (refus) return { ok: false, resultats: [], avertissement: avertissement, refus: true };
   if (!cibles.length) {
     // Aucune imprimante configurée : comportement d'avant (imprimante Windows par défaut)

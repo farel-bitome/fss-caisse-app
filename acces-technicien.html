@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>FSS-CAISSE — Accès technicien</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #0e0e0e; color: #eee; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+  .box { background: #1c1c1c; padding: 36px 40px; border-radius: 12px; width: 380px; text-align: center; border: 1px solid #2a2a2a; }
+  h1 { color: #CC0000; font-size: 22px; margin: 0 0 4px; }
+  p { color: #999; font-size: 12px; margin: 0 0 22px; line-height: 1.5; }
+  label { display:block; text-align:left; font-size: 11px; color:#888; margin-bottom: 4px; }
+  input { width: 100%; padding: 11px; margin-bottom: 14px; border-radius: 6px; border: 1px solid #333; background: #0e0e0e; color: #fff; font-size: 14px; }
+  input:focus { outline: none; border-color: #CC0000; }
+  button { width: 100%; padding: 12px; border: none; border-radius: 6px; background: #CC0000; color: #fff; font-weight: bold; cursor: pointer; font-size: 14px; }
+  button:hover { background: #a80000; }
+  button.sec { background: transparent; color: #888; border: 1px solid #333; margin-top: 10px; font-weight: normal; }
+  .err { color: #FF4444; font-size: 12px; margin-top: 10px; min-height: 16px; }
+  .note { font-size: 11px; color: #777; text-align: left; margin: -6px 0 14px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Accès technicien</h1>
+  <p>Saisissez le code technicien pour modifier la connexion au serveur.</p>
+  <label>Code technicien</label>
+  <input id="code" type="password" autocomplete="off" autofocus>
+  <button onclick="valider()">Valider</button>
+  <button class="sec" onclick="window.electronAPI.annulerReglageServeur()">Annuler</button>
+  <div class="err" id="err"></div>
+</div>
+<script>
+  function valider() {
+    var err = document.getElementById('err');
+    Promise.resolve(window.electronAPI.verifierCodeTech(document.getElementById('code').value)).then(function (r) {
+      if (r && r.ok) { window.electronAPI.ouvrirReglageServeur(!!r.aucunCode); return; }
+      err.textContent = (r && r.attente) ? ('Trop d\'essais. Réessayez dans ' + r.attente + ' s.') : 'Code incorrect';
+      document.getElementById('code').value = '';
+    });
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Enter') valider(); });
+</script>
+</body>
+</html>

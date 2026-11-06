@@ -807,7 +807,8 @@ td{padding:8px 11px;vertical-align:middle}
             <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-r sm" onclick="prtSauverForm()">💾 Enregistrer l'imprimante</button><button class="btn btn-o sm" onclick="prtFermerForm()">Annuler</button></div>
           </div>
           <div class="fl" style="margin:6px 0">2. Imprimante de caisse <span style="color:#666;font-weight:400">(tickets de caisse, additions, clôtures, prélèvements)</span></div>
-          <select class="fi" id="prtCaisse" onchange="prtChangerCaisse()" style="max-width:360px;margin-bottom:14px"></select>
+          <select class="fi" id="prtCaisse" onchange="prtChangerCaisse()" style="max-width:360px;margin-bottom:8px"></select>
+          <label style="font-size:12px;display:flex;gap:6px;align-items:center;margin-bottom:14px"><input type="checkbox" id="prtBonsCaisse" onchange="prtChangerBonsCaisse()"> Cette imprimante imprime aussi les bons de commande lancés depuis le poste Serveur</label>
           <div class="fl" style="margin:6px 0">3. Bons de commande : quel poste imprime sur quelle(s) imprimante(s) ?</div>
           <div id="prtPostes" style="margin-bottom:10px"></div>
           <div class="fl" style="margin:10px 0 6px">4. Qui peut tout imprimer ? <span style="color:#666;font-weight:400">(tickets, additions, clôtures, prélèvements, rapports). Les profils non cochés ne peuvent imprimer que les bons de commande.</span></div>
@@ -1825,7 +1826,7 @@ function imprimerSilencieux(html,opts){
   // Poste Serveur avec imprimantes configurées : aiguillage automatique (imprimante de caisse,
   // ou imprimantes affectées au poste émetteur pour les bons de commande) — voir printers.js.
   if(api&&api.printers&&window.FSS_IS_SERVER){
-    return api.printers.route({kind:opts.kind||'ticket',posteId:opts.posteId||window.FSS_POSTE_ID,profil:opts.profil||fssProfilImpression(),html:html}).then(function(r){
+    return api.printers.route({kind:opts.kind||'ticket',posteId:opts.posteId||window.FSS_POSTE_ID,depuisServeur:(!opts.posteId||opts.posteId===window.FSS_POSTE_ID),profil:opts.profil||fssProfilImpression(),html:html}).then(function(r){
       if(r&&r.avertissement)toastLong('⚠️ '+r.avertissement,'i',9000);
       if(r&&r.refus){
         var msgRefus='Impression refusée'+(opts.libelle?' ('+opts.libelle+')':'')+' : '+r.avertissement;
@@ -2148,6 +2149,7 @@ function prtRender(){
   var sc=g('prtCaisse');sc.innerHTML='<option value="">— Imprimante Windows par défaut —</option>';
   cfg.printers.forEach(function(p){var o=document.createElement('option');o.value=p.id;o.textContent=p.nom+(p.usage==='bons'?' (bons seulement)':'');sc.appendChild(o);});
   sc.value=cfg.imprimanteCaisse||'';
+  if(g('prtBonsCaisse'))g('prtBonsCaisse').checked=!!cfg.bonsSurCaisseServeur;
   var pf=Object.assign({super:true,admin:true,caissier:true,autres:false},cfg.profilsToutImprimer||{});
   ['super','admin','caissier','autres'].forEach(function(k){var e=g('prtProf_'+k);if(e)e.checked=!!pf[k];});
   // --- trouvées sur le réseau (pas encore ajoutées)
@@ -2202,6 +2204,7 @@ function prtRender(){
 function prtActif(id,v){var p=prt.cfg.printers.find(function(x){return x.id===id;});if(p){p.actif=v;prtPersist();}}
 function prtChangerAutoNet(){prt.cfg.autoAjoutReseau=g('prtAutoAddNet').checked;prtPersist();}
 function prtChangerAuto(){prt.cfg.autoAjoutWindows=g('prtAutoAdd').checked;prtPersist();}
+function prtChangerBonsCaisse(){prt.cfg.bonsSurCaisseServeur=g('prtBonsCaisse').checked;prtPersist();}
 function prtChangerCaisse(){prt.cfg.imprimanteCaisse=g('prtCaisse').value||null;prtPersist();}
 function prtModePoste(id,mode){
   if(!mode)delete prt.cfg.routes[id];
@@ -5344,6 +5347,34 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 </script>
 <script src="/socket.io/socket.io.js"></script>
+<style id="fssLoginBg">
+/* Écran de connexion : visuel FALL SERVICES & SOLUTIONS ENTIER en filigrane 3D animé + projecteurs du bas vers le haut */
+#authOverlay{background:#0e0e0e !important;justify-content:center !important;padding-right:0 !important;overflow:hidden !important;perspective:900px;perspective-origin:50% 50%}
+#authWatermark{display:none !important}
+#authOverlay::before{content:"";position:absolute;inset:0;background:url(login-bg.jpg) center center/contain no-repeat;opacity:.34;pointer-events:none;z-index:0;transform-origin:50% 50%;backface-visibility:hidden;will-change:transform,opacity;animation:fssWm3d 14s ease-in-out infinite alternate}
+@keyframes fssWm3d{
+  0%{transform:translate3d(-4%,-2%,-60px) rotateY(-20deg) rotateX(8deg) rotateZ(-1.5deg) scale(1.02);opacity:.30}
+  30%{transform:translate3d(3%,2%,70px) rotateY(14deg) rotateX(-7deg) rotateZ(1deg) scale(1.08);opacity:.40}
+  60%{transform:translate3d(4%,-2%,0) rotateY(22deg) rotateX(6deg) rotateZ(1.5deg) scale(1.04);opacity:.34}
+  100%{transform:translate3d(-3%,3%,80px) rotateY(-14deg) rotateX(-8deg) rotateZ(-1deg) scale(1.1);opacity:.38}
+}
+/* Faisceaux de projecteurs (rouge / blanc / bleu FSS) qui montent du bas vers le haut et se balancent lentement */
+#authOverlay::after{content:"";position:absolute;bottom:-3%;left:-30%;right:-30%;height:112%;pointer-events:none;z-index:0;transform-origin:50% 100%;will-change:transform;background:
+  radial-gradient(ellipse 7% 95% at 26% 100%,rgba(204,0,0,.38),rgba(204,0,0,.10) 55%,transparent 100%),
+  radial-gradient(ellipse 7% 100% at 50% 100%,rgba(255,240,235,.30),rgba(255,240,235,.09) 55%,transparent 100%),
+  radial-gradient(ellipse 7% 95% at 74% 100%,rgba(50,100,230,.38),rgba(50,100,230,.10) 55%,transparent 100%);
+  animation:fssWmLight 11s ease-in-out infinite alternate}
+@keyframes fssWmLight{
+  0%{transform:rotate(7deg) translateX(-3%)}
+  50%{transform:rotate(-2deg) translateX(2%)}
+  100%{transform:rotate(-7deg) translateX(3%)}
+}
+@media (prefers-reduced-motion:reduce){#authOverlay::before{animation:none;transform:scale(1.02)}#authOverlay::after{animation:none}}
+</style>
+<script>
+// Après alert()/confirm()/prompt(), Electron/Windows peut laisser la fenêtre sans focus clavier (écran « figé » jusqu'à Alt) : on le rend.
+(function(){['alert','confirm','prompt'].forEach(function(n){var o=window[n];if(!o)return;window[n]=function(){var r=o.apply(window,arguments);try{if(window.electronAPI&&window.electronAPI.refocus)window.electronAPI.refocus();}catch(e){}return r;};});})();
+</script>
 <script src="login-watermark.js"></script>
 <script src="auth.js"></script>
 <script src="etab.js"></script>
@@ -5357,5 +5388,195 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 </div>
+<!-- CLAVIER VIRTUEL AZERTY + PAVÉ NUMÉRIQUE (V19) -->
+<style>
+#fssKbBtn{position:fixed;left:10px;bottom:10px;z-index:2147483000;width:46px;height:46px;border-radius:50%;border:2px solid #CC0000;background:#1a1a1a;color:#fff;font-size:22px;cursor:pointer;opacity:.85;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+#fssKbBtn:hover,#fssKbBtn.on{opacity:1;background:#CC0000}
+#fssKbBtn.on{display:none}
+#fssKb{position:fixed;left:50%;transform:translateX(-50%);bottom:10px;z-index:2147483001;width:min(1000px,98vw);background:#111;border:2px solid #CC0000;border-radius:12px;padding:6px 8px 8px;display:none;box-shadow:0 6px 24px rgba(0,0,0,.7);user-select:none;-webkit-user-select:none;touch-action:none;font-family:Arial,sans-serif}
+#fssKb.on{display:block}
+#fssKb .kbh{display:flex;align-items:center;gap:8px;color:#aaa;font-size:11px;padding:0 2px 5px;cursor:move}
+#fssKb .kbh .kbx{margin-left:auto;background:#CC0000;color:#fff;border:0;border-radius:6px;padding:3px 12px;font-size:13px;cursor:pointer}
+#fssKb .kbm{display:flex;gap:10px}
+#fssKb .kbl{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+#fssKb .kbn{width:24%;min-width:150px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+#fssKb .kr{display:flex;gap:4px}
+#fssKb .k{flex:1;min-width:0;height:46px;background:#2a2a2a;color:#fff;border:1px solid #3a3a3a;border-radius:7px;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:none}
+#fssKb .k:active,#fssKb .k.press{background:#CC0000}
+#fssKb .k.f{background:#1b2a55;border-color:#2c4388}
+#fssKb .k.sp{flex:5}
+#fssKb .k.w{flex:1.5}
+#fssKb .k.act{background:#CC0000}
+#fssKb .k.ent{background:#1F7A3A;grid-column:3;grid-row:4 / span 2;height:auto}
+@media (max-width:700px){#fssKb .k{height:40px;font-size:15px}#fssKb .kbn{min-width:120px}}
+@media print{#fssKb,#fssKbBtn{display:none!important}}
+</style>
+<button id="fssKbBtn" type="button" title="Clavier à l'écran (AZERTY + pavé numérique)">⌨️</button>
+<div id="fssKb"><div class="kbh" id="fssKbH"><span>⌨️ Clavier — glisser pour déplacer</span><button class="kbx" id="fssKbX" type="button">✕ Fermer</button></div>
+<div class="kbm"><div class="kbl" id="fssKbL"></div><div class="kbn" id="fssKbN"></div></div></div>
+<script>
+(function(){
+  var kb=document.getElementById('fssKb'),btn=document.getElementById('fssKbBtn'),L=document.getElementById('fssKbL'),N=document.getElementById('fssKbN');
+  var cible=null,maj=false,verr=false,deplace=false,touches=[];
+  var lignes=[
+    ['é','è','à','ç','ù','ê','ô','î','@','-'],
+    ['a','z','e','r','t','y','u','i','o','p'],
+    ['q','s','d','f','g','h','j','k','l','m'],
+    ['SHIFT','w','x','c','v','b','n',"'",',','.','BACK'],
+    ['SPACE']
+  ];
+  var pave=['7','8','9','4','5','6','1','2','3','0','000','BACK2','ENTER'];
+  var touchesMaj=[];
+  function champ(el){
+    if(!el||!el.matches)return false;
+    if(el.matches('textarea'))return !el.readOnly&&!el.disabled;
+    if(!el.matches('input'))return el.isContentEditable===true;
+    var t=(el.type||'text').toLowerCase();
+    if(['checkbox','radio','button','submit','file','color','range','hidden','image','reset'].indexOf(t)!==-1)return false;
+    return !el.readOnly&&!el.disabled;
+  }
+  document.addEventListener('focusin',function(e){
+    if(kb.contains(e.target)||e.target===btn)return;
+    if(champ(e.target)){cible=e.target;if(kb.classList.contains('on')){neutraliser(cible);placer();}}
+  });
+  function neutraliser(el){try{if(!el.__kbIm){el.__kbIm=[el.getAttribute('inputmode')];touches.push(el);}el.setAttribute('inputmode','none');}catch(e){}}
+  function restaurer(){touches.forEach(function(el){try{var v=el.__kbIm&&el.__kbIm[0];if(v==null)el.removeAttribute('inputmode');else el.setAttribute('inputmode',v);delete el.__kbIm;}catch(e){}});touches=[];}
+  function placer(){
+    if(deplace||!cible||!document.body.contains(cible))return;
+    var r=cible.getBoundingClientRect();
+    kb.style.left='50%';kb.style.transform='translateX(-50%)';
+    // Toujours en BAS de l'écran (jamais en haut). Si le champ visé passe derrière le clavier,
+    // on fait défiler la page pour le ramener au-dessus plutôt que de déplacer le clavier.
+    kb.style.bottom='10px';kb.style.top='auto';
+    var h=kb.offsetHeight||300;
+    if(r.bottom>window.innerHeight-h-10){try{cible.scrollIntoView({block:'center'});}catch(e){}}
+  }
+  function lettre(k){return (maj||verr)?k.toUpperCase():k;}
+  function majLabels(){
+    L.querySelectorAll('.k[data-t]').forEach(function(b){b.textContent=lettre(b.getAttribute('data-t'));});
+    var s=L.querySelector('.k[data-a="SHIFT"]');if(s){s.classList.toggle('act',maj||verr);s.textContent=verr?'⇪':'⇧';}
+  }
+  function mk(parent,def,classes){
+    var b=document.createElement('div');b.className='k'+(classes?' '+classes:'');b.setAttribute('role','button');
+    if(def.length===1&&def!==' '){b.setAttribute('data-t',def);b.textContent=def;}
+    parent.appendChild(b);return b;
+  }
+  lignes.forEach(function(row){
+    var r=document.createElement('div');r.className='kr';L.appendChild(r);
+    row.forEach(function(k){
+      var b;
+      if(k==='SHIFT'){b=mk(r,'','f w');b.setAttribute('data-a','SHIFT');b.textContent='⇧';}
+      else if(k==='BACK'){b=mk(r,'','f w');b.setAttribute('data-a','BACK');b.textContent='⌫';}
+      else if(k==='SPACE'){var bh=mk(r,'','f w');bh.setAttribute('data-a','HIDE');bh.textContent='⌨ Masquer';
+        b=mk(r,'','sp');b.setAttribute('data-a','SPACE');b.textContent='Espace';
+        var b2=mk(r,'','f w');b2.setAttribute('data-a','TAB');b2.textContent='Tab';
+        var b3=mk(r,'','f w');b3.setAttribute('data-a','ENTER');b3.textContent='Entrée ↵';}
+      else{b=mk(r,k,'');b.setAttribute('data-t',k);}
+    });
+  });
+  pave.forEach(function(k){
+    var b=document.createElement('div');b.className='k'+(k==='ENTER'?' ent':(k==='BACK2'||k==='000'?' f':''));b.setAttribute('role','button');
+    if(k==='BACK2'){b.setAttribute('data-a','BACK');b.textContent='⌫';}
+    else if(k==='ENTER'){b.setAttribute('data-a','ENTER');b.textContent='↵';}
+    else{b.setAttribute('data-n',k);b.textContent=k;}
+    N.appendChild(b);
+  });
+  function declencher(el,type,opts){try{el.dispatchEvent(new Event(type,Object.assign({bubbles:true},opts||{})));}catch(e){}}
+  function nombre(el){return (el.type||'').toLowerCase()==='number'||!('selectionStart' in el)||el.selectionStart==null;}
+  function inserer(txt){
+    var el=cible;if(!el||!document.body.contains(el))return;
+    if(document.activeElement!==el)try{el.focus({preventScroll:true});}catch(e){}
+    if(el.isContentEditable){document.execCommand('insertText',false,txt);return;}
+    if(nombre(el)){
+      if(txt==='.'||txt===',')txt=(el.type||'')==='number'?'.':txt;
+      el.value=(el.value||'')+txt;
+    }else{
+      var s=el.selectionStart,e2=el.selectionEnd;
+      el.setRangeText(txt,s,e2,'end');
+    }
+    declencher(el,'input');
+  }
+  function effacer(){
+    var el=cible;if(!el||!document.body.contains(el))return;
+    if(document.activeElement!==el)try{el.focus({preventScroll:true});}catch(e){}
+    if(el.isContentEditable){document.execCommand('delete');return;}
+    if(nombre(el)){el.value=String(el.value||'').slice(0,-1);}
+    else{
+      var s=el.selectionStart,e2=el.selectionEnd;
+      if(s!==e2)el.setRangeText('',s,e2,'end');
+      else if(s>0)el.setRangeText('',s-1,s,'end');
+    }
+    declencher(el,'input');
+  }
+  function entree(){
+    var el=cible;if(!el)return;
+    if(el.matches&&el.matches('textarea')){inserer('\n');return;}
+    ['keydown','keypress','keyup'].forEach(function(t){
+      try{el.dispatchEvent(new KeyboardEvent(t,{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true}));}catch(e){}
+    });
+    declencher(el,'change');
+    if(el.form&&el.form.requestSubmit&&el.matches('input')){try{el.form.requestSubmit();}catch(e){}}
+  }
+  function tab(){
+    var el=cible;if(!el)return;
+    var liste=[].filter.call(document.querySelectorAll('input,textarea,select'),function(x){return champ(x)&&x.offsetParent!==null;});
+    var i=liste.indexOf(el),n=liste[i+1]||liste[0];if(n){n.focus();}
+  }
+  function action(b){
+    var a=b.getAttribute('data-a'),t=b.getAttribute('data-t'),n=b.getAttribute('data-n');
+    if(t!=null){inserer(lettre(t));if(maj&&!verr){maj=false;majLabels();}return;}
+    if(n!=null){inserer(n);return;}
+    if(a==='SPACE')inserer(' ');
+    else if(a==='BACK')effacer();
+    else if(a==='ENTER')entree();
+    else if(a==='TAB')tab();
+    else if(a==='HIDE')fermer();
+    else if(a==='SHIFT'){
+      if(verr){verr=false;maj=false;}else if(maj){verr=true;}else{maj=true;}
+      majLabels();
+    }
+  }
+  var rep=null,repI=null;
+  function stopRep(){clearTimeout(rep);clearInterval(repI);rep=repI=null;document.querySelectorAll('#fssKb .k.press').forEach(function(k){k.classList.remove('press');});}
+  kb.addEventListener('pointerdown',function(e){
+    var b=e.target.closest&&e.target.closest('.k');
+    if(!b)return;
+    e.preventDefault();
+    b.classList.add('press');
+    action(b);
+    if(b.getAttribute('data-a')==='BACK'||b.getAttribute('data-a')==='SPACE'){
+      rep=setTimeout(function(){repI=setInterval(function(){action(b);},70);},420);
+    }
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(ev){kb.addEventListener(ev,stopRep);});
+  kb.addEventListener('mousedown',function(e){if(!(e.target.id==='fssKbX'))e.preventDefault();});
+  // déplacer le clavier
+  var dx=0,dy=0,drag=false;
+  document.getElementById('fssKbH').addEventListener('pointerdown',function(e){
+    if(e.target.id==='fssKbX')return;
+    drag=true;var r=kb.getBoundingClientRect();dx=e.clientX-r.left;dy=e.clientY-r.top;
+    try{this.setPointerCapture(e.pointerId);}catch(x){}
+    e.preventDefault();
+  });
+  document.getElementById('fssKbH').addEventListener('pointermove',function(e){
+    if(!drag)return;deplace=true;
+    kb.style.transform='none';kb.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-dx))+'px';kb.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-dy))+'px';kb.style.bottom='auto';
+  });
+  document.getElementById('fssKbH').addEventListener('pointerup',function(){drag=false;});
+  function ouvrir(){
+    kb.classList.add('on');btn.classList.add('on');deplace=false;
+    var a=document.activeElement;if(champ(a)&&!kb.contains(a))cible=a;
+    if(cible)neutraliser(cible);
+    placer();majLabels();
+  }
+  function fermer(){kb.classList.remove('on');btn.classList.remove('on');restaurer();stopRep();}
+  btn.addEventListener('mousedown',function(e){e.preventDefault();});
+  btn.addEventListener('pointerdown',function(e){e.preventDefault();});
+  btn.addEventListener('click',function(){if(kb.classList.contains('on'))fermer();else ouvrir();});
+  document.getElementById('fssKbX').addEventListener('click',fermer);
+  document.addEventListener('keydown',function(e){if(e.key==='F8'){e.preventDefault();if(kb.classList.contains('on'))fermer();else ouvrir();}});
+  window.fssClavierOuvrir=ouvrir;window.fssClavierFermer=fermer;
+})();
+</script>
 </body>
 </html>

@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron')
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 const licensing = require('./licensing');
 const printers = require('./printers');
 
@@ -127,6 +128,52 @@ function createWindow() {
   });
 
   buildMenu();
+
+  // Poste CLIENT : l'adresse/port du serveur ne s'affichent jamais et ne se modifient que par
+  // le raccourci technicien Ctrl+Maj+Alt+K (code technicien demandé).
+  win.webContents.on('before-input-event', (event, input) => {
+    try {
+      if (input.type === 'keyDown' && input.control && input.shift && input.alt && String(input.key).toLowerCase() === 'k') {
+        const c = loadConfig();
+        if (c.role === 'client' && c.serverUrl) {
+          event.preventDefault();
+          techAutorise = false;
+          win.loadFile(path.join(__dirname, 'acces-technicien.html'));
+        }
+      }
+    } catch (e) {}
+  });
+  // Petit bouton discret en haut à gauche (poste CLIENT) : ouvre l'accès technicien
+  // (code requis) pour modifier l'adresse du serveur ou changer de mode (Serveur / Client).
+  win.webContents.on('did-finish-load', () => {
+    try {
+      const c = loadConfig();
+      if (c.role !== 'client' || !c.serverUrl) return;
+      const u = win.webContents.getURL();
+      if (u.indexOf(String(c.serverUrl).replace(/\/$/, '')) !== 0) return;
+      win.webContents.executeJavaScript(`(function(){
+        if (document.getElementById('fssTechBtn')) return;
+        var b = document.createElement('button');
+        b.id = 'fssTechBtn'; b.type = 'button'; b.title = 'Accès technicien'; b.textContent = '\u2699';
+        b.style.cssText = 'position:fixed;top:2px;left:2px;z-index:2147483600;width:16px;height:16px;padding:0;margin:0;border:0;border-radius:3px;background:rgba(0,0,0,.35);color:#fff;font-size:11px;line-height:16px;text-align:center;cursor:pointer;opacity:.4';
+        b.onmouseenter = function(){ b.style.opacity = '1'; };
+        b.onmouseleave = function(){ b.style.opacity = '.4'; };
+        b.onclick = function(){ try { window.electronAPI.ouvrirAccesTechnicien(); } catch (e) {} };
+        document.body.appendChild(b);
+      })();`).catch(() => {});
+    } catch (e) {}
+  });
+  // Serveur injoignable : écran neutre avec réessai automatique (au lieu de la page d'erreur
+  // du navigateur, qui afficherait l'adresse IP du serveur).
+  win.webContents.on('did-fail-load', (e, code, desc, url, isMainFrame) => {
+    try {
+      if (!isMainFrame || code === -3) return;
+      const c = loadConfig();
+      if (c.role === 'client' && c.serverUrl && url && String(url).indexOf(String(c.serverUrl).replace(/\/$/, '')) === 0) {
+        win.loadFile(path.join(__dirname, 'serveur-injoignable.html'));
+      }
+    } catch (err) {}
+  });
 
   // Repaint forcé + chien de garde de dessin.
   const repaint = () => { try { if (win && !win.isDestroyed() && win.isVisible() && !win.isMinimized()) win.webContents.invalidate(); } catch (e) {} };
@@ -295,6 +342,7 @@ function createWindow() {
 
 async function boot(declencheParUtilisateur) {
   const cfg = loadConfig();
+  try { buildMenu(); } catch (e) {}
   if (!cfg.role) {
     win.loadFile(path.join(__dirname, 'choice.html'));
   } else if (cfg.role === 'server') {
@@ -342,6 +390,7 @@ function buildMenu() {
       submenu: [
         {
           label: 'Changer de rôle (Serveur / Client)',
+          visible: loadConfig().role !== 'client',
           click: () => {
             const cfg = loadConfig();
             delete cfg.role;
@@ -352,6 +401,7 @@ function buildMenu() {
         },
         {
           label: "Changer l'adresse du serveur / Voir mon adresse",
+          visible: loadConfig().role !== 'client',
           click: () => {
             const cfg = loadConfig();
             if (cfg.role === 'client') {
@@ -368,6 +418,7 @@ function buildMenu() {
         },
         {
           label: 'Outils de développement (diagnostic)',
+          visible: loadConfig().role !== 'client',
           click: () => win.webContents.openDevTools({ mode: 'detach' })
         },
         { role: 'quit', label: 'Quitter' }
@@ -402,12 +453,74 @@ ipcMain.handle('choose-role', async (event, role) => {
   return true;
 });
 
-ipcMain.handle('save-server', (event, ip, port) => {
+// --- Code technicien (poste client) : protège la modification de l'adresse/port du serveur ---
+let techAutorise = false;
+let essaisCode = 0, bloqueJusqua = 0;
+function hacherCode(code, sel) { return crypto.createHash('sha256').update(sel + '|' + code).digest('hex'); }
+ipcMain.handle('verifier-code-tech', (event, code) => {
+  const cfg = loadConfig();
+  if (!cfg.codeTech) { techAutorise = true; return { ok: true, aucunCode: true }; }
+  const maintenant = Date.now();
+  if (maintenant < bloqueJusqua) return { ok: false, attente: Math.ceil((bloqueJusqua - maintenant) / 1000) };
+  if (hacherCode(String(code || ''), cfg.codeTech.sel) === cfg.codeTech.hash) { essaisCode = 0; techAutorise = true; return { ok: true }; }
+  essaisCode++;
+  if (essaisCode >= 5) { essaisCode = 0; bloqueJusqua = maintenant + 30000; }
+  journalIncident('code technicien incorrect (poste client)');
+  return { ok: false };
+});
+ipcMain.handle('ouvrir-reglage-serveur', (event, creer) => {
+  if (!techAutorise) return false;
+  win.loadFile(path.join(__dirname, 'client.html'), { query: creer ? { modif: '1', creer: '1' } : { modif: '1' } });
+  return true;
+});
+ipcMain.handle('annuler-reglage-serveur', () => {
+  techAutorise = false;
+  const cfg = loadConfig();
+  if (cfg.role === 'client' && cfg.serverUrl) win.loadURL(cfg.serverUrl); else win.loadFile(path.join(__dirname, 'client.html'));
+  return true;
+});
+ipcMain.handle('ouvrir-acces-technicien', () => {
+  const cfg = loadConfig();
+  if (cfg.role !== 'client' || !cfg.serverUrl) return false;
+  techAutorise = false;
+  win.loadFile(path.join(__dirname, 'acces-technicien.html'));
+  return true;
+});
+// Changer de mode (Serveur / Client) depuis un poste client : réservé à la session technicien.
+ipcMain.handle('changer-de-role', () => {
+  if (!techAutorise) return false;
+  const cfg = loadConfig();
+  delete cfg.role; delete cfg.serverUrl; delete cfg.codeTech;
+  saveConfig(cfg);
+  techAutorise = false;
+  try { buildMenu(); } catch (e) {}
+  win.loadFile(path.join(__dirname, 'choice.html'));
+  return true;
+});
+ipcMain.handle('reessayer-serveur', () => {
+  const cfg = loadConfig();
+  if (cfg.role === 'client' && cfg.serverUrl) win.loadURL(cfg.serverUrl);
+  return true;
+});
+
+ipcMain.handle('save-server', (event, ip, port, code) => {
   const url = 'http://' + ip + ':' + (port || PORT);
   const cfgC = loadConfig();
+  const premiere = !(cfgC.role === 'client' && cfgC.serverUrl);
+  const codeValide = code && String(code).length >= 4;
+  // Après la première configuration, seule une session technicien (code saisi) peut modifier.
+  if (!premiere && !techAutorise) return false;
+  // Un code technicien est obligatoire pour toute nouvelle configuration.
+  if (!codeValide && !cfgC.codeTech) return false;
+  if (codeValide) {
+    const sel = crypto.randomBytes(8).toString('hex');
+    cfgC.codeTech = { sel: sel, hash: hacherCode(String(code), sel) };
+  }
   cfgC.role = 'client';
   cfgC.serverUrl = url;
   saveConfig(cfgC);
+  techAutorise = false;
+  try { buildMenu(); } catch (e) {}
   win.loadURL(url);
   return true;
 });
@@ -579,7 +692,29 @@ function imprimerSilencieuxDefaut(html) {
   });
 }
 
-ipcMain.handle('print-silent', (event, html) => imprimerSilencieuxDefaut(html));
+// ---------------------------------------------------------------------
+// GARDE DE FOCUS : une impression (fenêtre cachée, spouleur Windows, script d'impression brute)
+// peut voler le focus clavier de la fenêtre principale. Résultat : l'écran semble « figé »
+// (clics et clavier sans effet) jusqu'à ce qu'on appuie sur Alt. Après chaque impression, et
+// après chaque boîte de dialogue (alert/confirm), on redonne donc le focus à l'application
+// — seulement si elle l'avait avant, pour ne jamais voler le focus à un autre logiciel.
+// ---------------------------------------------------------------------
+function rendreFocus() {
+  try {
+    if (!win || win.isDestroyed() || !win.isVisible() || win.isMinimized()) return;
+    if (!win.isFocused()) win.focus();
+    win.webContents.focus();
+  } catch (e) {}
+}
+async function avecGardeFocus(fn) {
+  let avait = false;
+  try { avait = !!(win && !win.isDestroyed() && win.isFocused()); } catch (e) {}
+  try { return await fn(); }
+  finally { if (avait) [0, 300, 1200, 3000].forEach(d => setTimeout(rendreFocus, d)); }
+}
+ipcMain.on('refocus', (e) => { if (win && e.sender === win.webContents) [0, 150].forEach(d => setTimeout(rendreFocus, d)); });
+
+ipcMain.handle('print-silent', (event, html) => avecGardeFocus(() => imprimerSilencieuxDefaut(html)));
 
 // ---------------------------------------------------------------------
 // IMPRIMANTES (poste Serveur) — voir printers.js
@@ -648,12 +783,12 @@ ipcMain.handle('printers-scan', async (event) => {
   return { trouvees: trouvees, reseaux: printers.sousReseauxLocaux().map(r => r.base + '.x') };
 });
 ipcMain.handle('printers-test', async (event, imp) => {
-  const r = await printers.imprimerSur({ BrowserWindow }, imp, printers.htmlTest(imp));
+  const r = await avecGardeFocus(() => printers.imprimerSur({ BrowserWindow }, imp, printers.htmlTest(imp)));
   return r;
 });
 ipcMain.handle('printers-test-port', async (event, ip, port) => printers.testerPort(ip, Number(port) || 9100, 1500));
 ipcMain.handle('printers-route', async (event, demande) => {
-  const r = await printers.router({ BrowserWindow }, demande, imprimerSilencieuxDefaut);
+  const r = await avecGardeFocus(() => printers.router({ BrowserWindow }, demande, imprimerSilencieuxDefaut));
   // n'avertit qu'une fois par poste (pas à chaque commande)
   if (r.avertissement) {
     const cle = demande.posteId || '?';

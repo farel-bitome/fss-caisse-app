@@ -29,6 +29,8 @@
       "licensing.js",
       "choice.html",
       "client.html",
+      "acces-technicien.html",
+      "serveur-injoignable.html",
       "server-ip.html",
       "activation.html",
       "app/**/*",
