@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const licensing = require('./licensing');
 const printers = require('./printers');
 const afficheur = require('./afficheur');
+const tiroir = require('./tiroir');
 
 // ---- Anti-gel de la fenêtre -------------------------------------------------------------
 // Symptôme : après un moment la fenêtre se fige (ou reste blanche) et il faut appuyer sur Alt
@@ -799,6 +800,11 @@ ipcMain.handle('printers-route', async (event, demande) => {
 });
 // AFFICHEUR CLIENT (afficheur de prix 2 lignes) — voir afficheur.js
 afficheur.init(app.getPath('userData'));
+// TIROIR-CAISSE — voir tiroir.js
+tiroir.init(app.getPath('userData'));
+ipcMain.handle('tiroir-get', () => tiroir.charger());
+ipcMain.handle('tiroir-save', (event, cfg) => tiroir.sauver(cfg));
+ipcMain.handle('tiroir-ouvrir', (event, opts) => tiroir.ouvrir(opts || {}));
 ipcMain.handle('afficheur-get', () => afficheur.charger());
 ipcMain.handle('afficheur-save', (event, cfg) => afficheur.sauver(cfg));
 ipcMain.handle('afficheur-ports', () => afficheur.listerPorts());

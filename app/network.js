@@ -36,7 +36,7 @@
   function fullState() {
     return {
       arts: arts, clis: clis, fours: fours, cmds: cmds, txs: txs, mouv: mouv,
-      prls: prls, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
+      prls: prls, entrees: entrees, cmdAttente: cmdAttente, nextTk: nextTk, attenteSeq: attenteSeq,
       users: users, nextUserId: nextUserId, usersRev: window.usersRev || 0, logo: logoData, etab: etabInfo, tables: tables, servers: servers, caisses: caisses, categories: categories, fondsOuverture: fondsOuverture, printBatches: printBatches,
       clotureHistorique: clotureHistorique,
       categoryAlerteActive: categoryAlerteActive,
@@ -71,6 +71,7 @@
     prevTxIds = txs.map(function (t) { return t.id; });
     mouv = s.mouv || [];
     prls = s.prls || [];
+    entrees = s.entrees || [];
     var idsAvantReception = cmdAttente.map(function (c) { return c.id; });
     cmdAttente = (s.cmdAttente || []).filter(function (c) { return !retraitsEnVol[c.id]; });
     Object.keys(cmdEnVol).forEach(function (id) {
@@ -98,6 +99,8 @@
             if (batch.type === 'cloture') {
               logDistant('Tentative impression clôture pour lot ' + batch.batchId);
               if (window.imprimerBilanClotureAuto) { window.fssProfilImprOverride = batch.profil || null; try { window.imprimerBilanClotureAuto(batch.snapshot); } finally { window.fssProfilImprOverride = null; } }
+            } else if (batch.type === 'tiroir') {
+              if (window.fssOuvrirTiroirLocal) window.fssOuvrirTiroirLocal(batch.pay);
             } else if (batch.type === 'ticket') {
               logDistant('Tentative impression ticket de caisse pour lot ' + batch.batchId + (batch.copies ? (' (' + batch.copies.length + ' exemplaire(s))') : ''));
               if (window.imprimerSilencieux) {

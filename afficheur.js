@@ -65,6 +65,13 @@ async function ouvrir(cfg) {
   fd = fs.openSync(cheminPort(cfg.port), 'w');
   fdPort = cle;
 }
+// Écriture brute ponctuelle sur un port série (ouverture, envoi, fermeture) — utilisé aussi par le tiroir-caisse
+async function ecrirePort(port, baud, buffer) {
+  const cfg = { port: String(port || '').trim(), baud: parseInt(baud, 10) || 9600 };
+  await configurerPort(cfg);
+  const f = fs.openSync(cheminPort(cfg.port), 'w');
+  try { fs.writeSync(f, buffer); } finally { try { fs.closeSync(f); } catch (e) {} }
+}
 let chaine = Promise.resolve();
 // Envoie 2 lignes (les envois sont mis en file pour rester dans l'ordre)
 function afficher(l1, l2, cfgForcee) {
@@ -128,4 +135,4 @@ function essais() {
   bauds.forEach(b => protos.forEach(p => r.push({ baud: b, protocole: p })));
   return r;
 }
-module.exports = { init, charger, sauver, afficher, listerPorts, pilotesManquants, LIENS_PUCES, essais, trame, ascii, ligne, DEFAUT };
+module.exports = { init, charger, sauver, afficher, ecrirePort, listerPorts, pilotesManquants, LIENS_PUCES, essais, trame, ascii, ligne, DEFAUT };

@@ -27,6 +27,7 @@
       "embedded-server.js",
       "printers.js",
       "afficheur.js",
+      "tiroir.js",
       "licensing.js",
       "choice.html",
       "client.html",

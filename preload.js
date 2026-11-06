@@ -13,6 +13,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   printSilent: (html) => ipcRenderer.invoke('print-silent', html),
   getHostname: () => ipcRenderer.invoke('get-hostname'),
   refocus: () => ipcRenderer.send('refocus'),
+  tiroir: {
+    get: () => ipcRenderer.invoke('tiroir-get'),
+    save: (cfg) => ipcRenderer.invoke('tiroir-save', cfg),
+    ouvrir: (opts) => ipcRenderer.invoke('tiroir-ouvrir', opts)
+  },
   afficheur: {
     get: () => ipcRenderer.invoke('afficheur-get'),
     save: (cfg) => ipcRenderer.invoke('afficheur-save', cfg),

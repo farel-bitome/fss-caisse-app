@@ -637,7 +637,8 @@ td{padding:8px 11px;vertical-align:middle}
         <div class="cln"><span>Dont espèces</span><span id="cl3">0 FCFA</span></div>
         <div class="cln"><span>Dont crédit client (non déduit)</span><span id="cl4">0 FCFA</span></div>
         <div class="cln"><span>Dont Mobile Money</span><span id="cl4m">0 FCFA</span></div>
-        <div class="cln"><span>Prélèvements</span><span id="cl5" style="color:#FF4444">0 FCFA</span></div>
+        <div class="cln"><span>Entrées de caisse</span><span id="cl5e" style="color:#4488FF">0 FCFA</span></div>
+        <div class="cln"><span>Sorties de caisse</span><span id="cl5" style="color:#FF4444">0 FCFA</span></div>
         <div class="cln" style="font-weight:700;color:#CC0000;font-size:14px;padding-top:8px"><span>Solde espèces (tiroir)</span><span id="cl6">50 000 FCFA</span></div>
       </div>
       <div class="ccard"><div class="ccti">📊 Ventes &amp; Tickets</div>
@@ -646,14 +647,23 @@ td{padding:8px 11px;vertical-align:middle}
         <div class="cln"><span>Panier moyen</span><span id="cn3">0 FCFA</span></div>
         <div class="cln" style="font-weight:700;color:#CC0000;font-size:14px;padding-top:8px"><span>CA total</span><span id="cn6">0 FCFA</span></div>
       </div>
-      <div class="ccard"><div class="ccti">💸 Prélèvements</div>
-        <div id="prelList" style="min-height:40px;margin-bottom:10px;font-size:12px"><span style="color:#444">Aucun prélèvement</span></div>
+      <div class="ccard"><div class="ccti">💵 Entrées de caisse</div>
+        <div id="entList" style="min-height:40px;margin-bottom:10px;font-size:12px"><span style="color:#444">Aucune entrée de caisse</span></div>
+        <div style="display:flex;gap:6px">
+          <input class="fi" type="number" id="entMnt" placeholder="Montant FCFA" style="flex:1;font-size:11px;padding:5px 8px">
+          <input class="fi" id="entMotif" placeholder="Motif (ex : apport, monnaie)..." style="flex:1;font-size:11px;padding:5px 8px">
+          <button class="btn btn-b sm" onclick="addEntree()">Ajouter</button>
+        </div>
+        <div class="cln" style="margin-top:8px"><span>Total entrées de caisse</span><span id="clEnt" style="color:#4488FF;font-weight:700">0 FCFA</span></div>
+      </div>
+      <div class="ccard"><div class="ccti">💸 Sorties de caisse (prélèvements)</div>
+        <div id="prelList" style="min-height:40px;margin-bottom:10px;font-size:12px"><span style="color:#444">Aucune sortie de caisse</span></div>
         <div style="display:flex;gap:6px">
           <input class="fi" type="number" id="prelMnt" placeholder="Montant FCFA" style="flex:1;font-size:11px;padding:5px 8px">
           <input class="fi" id="prelMotif" placeholder="Motif..." style="flex:1;font-size:11px;padding:5px 8px">
-          <button class="btn btn-r sm" onclick="addPrel()">Prélever</button>
+          <button class="btn btn-r sm" onclick="addPrel()">Sortir</button>
         </div>
-        <div class="cln" style="margin-top:8px"><span>Total prélèvements</span><span id="clPrel" style="color:#FF4444;font-weight:700">0 FCFA</span></div>
+        <div class="cln" style="margin-top:8px"><span>Total sorties de caisse</span><span id="clPrel" style="color:#FF4444;font-weight:700">0 FCFA</span></div>
       </div>
       <div class="ccard"><div class="ccti">💰 Comptage Physique</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
@@ -792,6 +802,20 @@ td{padding:8px 11px;vertical-align:middle}
     </div>
     <div class="sub" id="sub-params-dev">
       <div class="slay">
+        <div class="ssect" id="secTiroir"><div class="ssti">🗄️ Tiroir-caisse (ouverture automatique à chaque vente)</div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px">Le tiroir s'ouvre dès qu'une vente est validée. Branchement le plus courant : le tiroir est relié à l'imprimante de caisse par un câble RJ11/RJ12.</div>
+          <label style="font-size:13px;display:flex;gap:8px;align-items:center;margin-bottom:10px"><input type="checkbox" id="tiActif"> <strong>Ouvrir le tiroir-caisse automatiquement</strong></label>
+          <div class="sg">
+            <div class="fg"><label class="fl">Le tiroir est relié à</label><select class="fi" id="tiMode" onchange="tiMajMode()"><option value="imprimante">L'imprimante de caisse (RJ11)</option><option value="com">Un port série (COM)</option></select></div>
+            <div class="fg"><label class="fl">S'ouvre pour</label><select class="fi" id="tiQuand"><option value="especes">Les paiements en espèces seulement</option><option value="toutes">Toutes les ventes</option></select></div>
+            <div class="fg" id="tiFgPort" style="display:none"><label class="fl">Port (COM)</label><input class="fi" id="tiPort" value="COM1"></div>
+            <div class="fg" id="tiFgBaud" style="display:none"><label class="fl">Vitesse (bauds)</label><select class="fi" id="tiBaud"><option>2400</option><option>4800</option><option selected>9600</option><option>19200</option></select></div>
+            <div class="fg"><label class="fl">Broche du tiroir</label><select class="fi" id="tiBroche"><option value="2" selected>Broche 2 (standard)</option><option value="5">Broche 5</option><option value="les deux">Les deux</option></select></div>
+            <div class="fg"><label class="fl">Durée de l'impulsion (ms)</label><input class="fi" type="number" id="tiDuree" value="100" min="20" max="500"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center"><button class="btn btn-r sm" type="button" onclick="tiSauver()">💾 Enregistrer</button><button class="btn btn-o sm" type="button" onclick="tiTester()">▶ Ouvrir le tiroir (test)</button><span id="tiEtat" style="font-size:12px;color:#888"></span></div>
+          <div style="font-size:11px;color:#777;margin-top:8px">Le tiroir ne s'ouvre pas ? Essayez « Broche 5 » ou « Les deux », puis allongez la durée (150–200 ms). Vérifiez que le câble RJ11 est bien dans la prise « DK » / « Drawer » de l'imprimante.</div>
+        </div>
         <div class="ssect" id="secAfficheur"><div class="ssti">🔢 Afficheur client (afficheur de prix 2 lignes)</div>
           <div style="font-size:12px;color:#888;margin-bottom:10px">Affiche chaque article saisi avec son prix, le total, puis le montant reçu et la monnaie à rendre. À régler sur le poste où l'afficheur est branché.</div>
           <label style="font-size:13px;display:flex;gap:8px;align-items:center;margin-bottom:10px"><input type="checkbox" id="afActif"> <strong>Activer l'afficheur client</strong></label>
@@ -1227,7 +1251,7 @@ var fours=[];
 var cmds=[];
 var txs=[];
 var mouv=[];
-var prls=[],tkt=[],editArtId=null,editCliId=null,activeCat='Tout',payMode='esp',recAmt=0,nextTk=1;
+var prls=[],entrees=[],tkt=[],editArtId=null,editCliId=null,activeCat='Tout',payMode='esp',recAmt=0,nextTk=1;
 
 function fmt(n){return Math.round(n).toLocaleString('fr-FR')+' FCFA';}
 function g(id){return document.getElementById(id);}
@@ -2617,6 +2641,7 @@ function valPay(){
   resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;resumingNumero=null;
   closeM('ovPay');clearTk(true);libererTable();renderProds('');renderStk();renderTkList();renderRap();initCloture();
   afficherRecu(txs[0]);
+  try{if(window.fssOuvrirTiroir)window.fssOuvrirTiroir(txs[0].pay);}catch(e){}
   // Une facture à crédit (client OU employé) sort toujours sur l'imprimante, tout de suite.
   if(txs[0].creditNom){try{imprimerRecu();}catch(e){toast('Impression de la facture à crédit impossible : '+e.message,'e');}}
   toast('Paiement validé — '+fmt(tot),'s');
@@ -3705,11 +3730,13 @@ function renderLC(){
   var b=g('bLC');if(!b)return;b.innerHTML='';
   var fonds=getFondsOuverture(null);
   var s=fonds;
-  var lignes=[{d:'08:00',l:'Fonds ouverture',enc:fonds}].concat(txs.map(function(t){return{d:t.date,l:'Vente — '+t.id,enc:t.ttc};}));
+  var lignes=[{d:'08:00',l:'Fonds ouverture',enc:fonds}].concat(txs.map(function(t){return{d:t.date,l:'Vente — '+t.id,enc:t.ttc};}))
+    .concat(entrees.map(function(e){return{d:e.heure,l:'Entrée de caisse — '+e.motif,enc:e.mnt,typ:'Entrée'};}))
+    .concat(prls.map(function(e){return{d:e.heure,l:'Sortie de caisse — '+e.motif,dec:e.mnt,typ:'Sortie'};}));
   lignes.forEach(function(l,i){
-    if(i>0)s+=l.enc;
+    if(i>0)s+=(l.enc||0)-(l.dec||0);
     var tr=document.createElement('tr');
-    tr.innerHTML='<td>'+l.d+'</td><td>'+l.l+'</td><td><span class="badge bg">Encaissement</span></td><td>'+fmt(l.enc)+'</td><td>—</td><td><strong>'+fmt(s)+'</strong></td>';
+    tr.innerHTML='<td>'+l.d+'</td><td>'+l.l+'</td><td><span class="badge '+(l.dec?'br':'bg')+'">'+(l.typ||'Encaissement')+'</span></td><td>'+(l.enc?fmt(l.enc):'—')+'</td><td>'+(l.dec?fmt(l.dec):'—')+'</td><td><strong>'+fmt(s)+'</strong></td>';
     b.appendChild(tr);
   });
 }
@@ -3798,10 +3825,12 @@ function initCloture(){
   var ttc=tl.reduce(function(s,t){return s+t.ttc;},0),ht=tl.reduce(function(s,t){return s+t.ht;},0),tva=tl.reduce(function(s,t){return s+t.tva;},0),nb=tl.reduce(function(s,t){return s+t.arts;},0);
   var tp=prls.reduce(function(s,p){return s+p.mnt;},0);
   if(g('clFondsOuv'))g('clFondsOuv').textContent=fmt(fonds);
-  g('cl2').textContent=fmt(ttc);g('cl3').textContent=fmt(esp);g('cl4').textContent=fmt(cart);if(g('cl4e'))g('cl4e').textContent=(cEmp?'-':'')+fmt(cEmp);if(g('clJust'))g('clJust').textContent=fmt(ttc-cEmp);g('cl5').textContent=fmt(tp);g('cl6').textContent=fmt(fonds+esp-tp);
+  g('cl2').textContent=fmt(ttc);g('cl3').textContent=fmt(esp);g('cl4').textContent=fmt(cart);if(g('cl4e'))g('cl4e').textContent=(cEmp?'-':'')+fmt(cEmp);if(g('clJust'))g('clJust').textContent=fmt(ttc-cEmp);g('cl5').textContent=fmt(tp);g('cl6').textContent=fmt(fonds+esp+entrees.reduce(function(s,p){return s+p.mnt;},0)-tp);
   g('cn1').textContent=tl.length;g('cn2').textContent=nb;g('cn3').textContent=tl.length?fmt(Math.round(ttc/tl.length)):fmt(0);g('cn6').textContent=fmt(ttc);
   if(g('clDate'))g('clDate').textContent=new Date().toLocaleDateString('fr-FR');
-  renderPrls();calcCpt();
+  var ent=entrees.reduce(function(s,p){return s+p.mnt;},0);
+  if(g('cl5e'))g('cl5e').textContent=fmt(ent);
+  renderPrls();renderEntrees();calcCpt();
 }
 function addPrel(){
   var rawMnt=(g('prelMnt').value||'').replace(/[^\d]/g,'');
@@ -3810,7 +3839,7 @@ function addPrel(){
   // Seules les espèces sont physiquement dans le tiroir (pas la carte ni le Mobile Money)
   var ca=especesDe(txsCloture());
   var dejaPrel=prls.reduce(function(s,p){return s+p.mnt;},0);
-  var solde=ca-dejaPrel;
+  var solde=ca+entrees.reduce(function(s,p){return s+p.mnt;},0)-dejaPrel;
   if(solde<=0){toast('❌ Caisse à zéro — prélèvement impossible','e');return;}
   if(mnt>solde){toast('❌ Montant supérieur au solde disponible ('+fmt(solde)+' FCFA)','e');return;}
   var heure=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
@@ -3825,7 +3854,8 @@ function addPrel(){
 }
 // Petit ticket 80mm imprimé automatiquement à chaque prélèvement, pour garder
 // une trace papier immédiate (montant, motif, heure, caissier, nouveau solde).
-function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
+function imprimerPrelevement(mnt,motif,heure,nouveauSolde,type){
+  var estEntree=(type==='entree');
   // Ne PAS appeler une variable locale "fmt" : elle masquerait la fonction globale fmt(n).
   var papierFmt=formatCloture();
   var etab=g('etabNom')?g('etabNom').value:'FSS-CAISSE';
@@ -3864,16 +3894,16 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
   }
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body>';
   html+='<div class="c" style="font-size:13px">'+etab+'</div>';
-  html+='<div class="c" style="font-size:11px;margin:3px 0">PRÉLÈVEMENT</div>';
+  html+='<div class="c" style="font-size:11px;margin:3px 0">'+(estEntree?'ENTRÉE DE CAISSE':'SORTIE DE CAISSE (PRÉLÈVEMENT)')+'</div>';
   html+='<div class="sep"></div>';
   html+=ligneG('Caisse',cxLbl,8);
   html+=ligneG('Heure',heure,8);
   html+=ligneG('Caissier',caissier,8);
   html+=ligneG('Motif',motif,8);
   html+='<div class="sep"></div>';
-  html+='<div style="font-size:14px">'+ligneG('MONTANT','-'+Math.round(mnt).toLocaleString('fr-FR')+' F')+'</div>';
+  html+='<div style="font-size:14px">'+ligneG('MONTANT',(estEntree?'+':'-')+Math.round(mnt).toLocaleString('fr-FR')+' F')+'</div>';
   html+='<div class="sep"></div>';
-  html+=ligneG('Solde restant',Math.round(Math.max(0,nouveauSolde)).toLocaleString('fr-FR')+' F');
+  html+=ligneG(estEntree?'Solde espèces':'Solde restant',Math.round(Math.max(0,nouveauSolde)).toLocaleString('fr-FR')+' F');
   html+='<div class="sep"></div>';
   html+='<div class="stit">DÉTAIL DES VENTES</div>';
   html+='<div class="sep"></div>';
@@ -3909,7 +3939,26 @@ function imprimerPrelevement(mnt,motif,heure,nouveauSolde){
     setTimeout(function(){if(!w.closed)w.close();},15000);
   }
 }
-function renderPrls(){var w=g('prelList');if(!w)return;var tot=prls.reduce(function(s,p){return s+p.mnt;},0);if(!prls.length){w.innerHTML='<span style="color:#444">Aucun prélèvement</span>';}else{w.innerHTML='';prls.forEach(function(p){var d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #222;font-size:12px';d.innerHTML='<span>'+p.heure+' — '+p.motif+'</span><span style="color:#FF4444;font-weight:700">'+fmt(p.mnt)+'</span>';w.appendChild(d);});}g('clPrel').textContent=fmt(tot);}
+function renderEntrees(){
+  var w=g('entList');if(!w)return;var tot=entrees.reduce(function(s,p){return s+p.mnt;},0);
+  if(!entrees.length){w.innerHTML='<span style="color:#444">Aucune entrée de caisse</span>';}
+  else{w.innerHTML='';entrees.forEach(function(p){var d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #222;font-size:12px';d.innerHTML='<span>'+p.heure+' — '+p.motif+'</span><span style="color:#4488FF;font-weight:700">+'+fmt(p.mnt)+'</span>';w.appendChild(d);});}
+  if(g('clEnt'))g('clEnt').textContent=fmt(tot);
+}
+function addEntree(){
+  var mnt=parseInt((g('entMnt').value||'').replace(/[^\d]/g,''))||0,motif=g('entMotif').value.trim()||'Entrée de caisse';
+  if(!mnt){toast('Montant requis','e');return;}
+  var heure=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  entrees.push({mnt:mnt,motif:motif,heure:heure,user:(window.currentUser&&window.currentUser.nom)||'—',caisse:g('cloCaisse')?g('cloCaisse').value:''});
+  g('entMnt').value='';g('entMotif').value='';
+  renderEntrees();initCloture();
+  try{var sn=construireInstantaneCloture();if(sn.tl.length)archiverCloture(sn,false);}catch(e){}
+  if(window.fssSyncPush)window.fssSyncPush();
+  toast('+'+fmt(mnt)+' — entrée de caisse enregistrée','s');
+  var tl=txsCloture();
+  imprimerPrelevement(mnt,motif,heure,especesDe(tl)+entrees.reduce(function(s,p){return s+p.mnt;},0)-prls.reduce(function(s,p){return s+p.mnt;},0),'entree');
+}
+function renderPrls(){var w=g('prelList');if(!w)return;var tot=prls.reduce(function(s,p){return s+p.mnt;},0);if(!prls.length){w.innerHTML='<span style="color:#444">Aucune sortie de caisse</span>';}else{w.innerHTML='';prls.forEach(function(p){var d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #222;font-size:12px';d.innerHTML='<span>'+p.heure+' — '+p.motif+'</span><span style="color:#FF4444;font-weight:700">'+fmt(p.mnt)+'</span>';w.appendChild(d);});}g('clPrel').textContent=fmt(tot);}
 function doCloture(){
   if(!prls.length){toast('Veuillez effectuer au moins un prélèvement avant de clôturer la caisse','e');return;}
   if(!confirm('Confirmer la clôture ?'))return;
@@ -4011,7 +4060,7 @@ function razCaisse(){
   var msg=(f?'Remettre uniquement la caisse "<strong>'+f+'</strong>" à zéro ?':'Remettre <strong>TOUTES les caisses</strong> à zéro ?')+' C\'est irréversible.<br><br>Saisissez votre mot de passe administrateur pour confirmer :';
   openAdminPwdConfirm(msg,'🔄 Confirmer la RAZ',function(){
     if(f){txs=txs.filter(function(t){return t.caisse!==f;});}
-    else{txs=[];prls=[];}
+    else{txs=[];prls=[];entrees=[];}
     renderPrls();initCloture();renderTkList();renderRap();
     if(window.fssSyncPush)window.fssSyncPush();
     toast('Caisse remise à zéro','s');
@@ -4085,6 +4134,14 @@ function buildBilanClotureHTML(snapshot,papier){
     html+='<div class="sep"></div><div class="stit">BONS EMPLOYÉS</div>';
     bonsEmp2.forEach(function(b){html+=ligne(b.nom+(b.n>1?' ('+b.n+' bons)':''),nb(b.total)+' F');});
   }
+  if((snapshot.entrees||[]).length){
+    html+='<div class="sep"></div><div class="stit">ENTRÉES DE CAISSE</div>';
+    snapshot.entrees.forEach(function(e){html+=ligne(e.heure+' — '+e.motif,'+'+nb(e.mnt)+' F');});
+  }
+  if((snapshot.sorties||[]).length){
+    html+='<div class="sep"></div><div class="stit">SORTIES DE CAISSE</div>';
+    snapshot.sorties.forEach(function(e){html+=ligne(e.heure+' — '+e.motif,'-'+nb(e.mnt)+' F');});
+  }
   html+='<div class="sep"></div>';
   // Montants de la clôture en BAS du ticket.
   var espT=especesDe(tl),momoT=mobileMoneyDe(tl),empT=creditEmpDe(tl),carteT=creditCliDe(tl);
@@ -4093,8 +4150,10 @@ function buildBilanClotureHTML(snapshot,papier){
   html+=ligne('Dont espèces',nb(espT)+' F');
   if(carteT)html+=ligne('Dont crédit client (non déduit)',nb(carteT)+' F');
   if(momoT)html+=ligne('Dont Mobile Money',nb(momoT)+' F');
-  if(tp)html+=ligne('Prélèvements','<span class="b">-'+nb(tp)+' F</span>');
-  html+=ligne('<span class="b">SOLDE ESPÈCES</span>','<span class="b">'+nb(espT-tp)+' F</span>','font-size:14px;margin-top:2px');
+  var entT=snapshot.ent||0;
+  if(entT)html+=ligne('Entrées de caisse','<span class="b">+'+nb(entT)+' F</span>');
+  if(tp)html+=ligne('Sorties de caisse','<span class="b">-'+nb(tp)+' F</span>');
+  html+=ligne('<span class="b">SOLDE ESPÈCES</span>','<span class="b">'+nb(espT+entT-tp)+' F</span>','font-size:14px;margin-top:2px');
   html+='<div class="sep"></div>';
   html+='<div class="c" style="font-size:11px">Merci</div>';
   html+='</body></html>';
@@ -4129,7 +4188,7 @@ function archiverCloture(snapshot,officielle){
     ttc:snapshot.ttc,
     net:snapshot.net,
     prelevements:snapshot.tp,
-    solde:especesDe(snapshot.tl)-snapshot.tp,
+    solde:especesDe(snapshot.tl)+(snapshot.ent||0)-snapshot.tp,
     snapshot:snapshot,
     officielle:!!officielle
   };
@@ -4168,6 +4227,9 @@ function construireInstantaneCloture(){
     cxLbl:cloLibelle(),
     ttc:tl.reduce(function(s,t){return s+t.ttc;},0),
     emp:creditEmpDe(tl),
+    ent:entrees.reduce(function(s,p){return s+p.mnt;},0),
+    entrees:JSON.parse(JSON.stringify(entrees)),
+    sorties:JSON.parse(JSON.stringify(prls)),
     net:tl.reduce(function(s,t){return s+t.ttc;},0)-creditEmpDe(tl),
     tp:prls.reduce(function(s,p){return s+p.mnt;},0),
     now:new Date().toLocaleString('fr-FR'),
@@ -5769,6 +5831,32 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load',function(){ajuster();setTimeout(ajuster,600);});
   if(document.readyState!=='loading')ajuster();else document.addEventListener('DOMContentLoaded',ajuster);
   window.fssAjusterOnglets=ajuster;
+})();
+</script>
+<script>
+// ===== TIROIR-CAISSE =====
+(function(){
+  var api=window.electronAPI&&window.electronAPI.tiroir;
+  function G(i){return document.getElementById(i);}
+  function etat(t,ok){var e=G('tiEtat');if(e){e.textContent=t;e.style.color=ok?'#4CAF50':'#FF6666';}}
+  function lire(){return {actif:G('tiActif').checked,mode:G('tiMode').value,quand:G('tiQuand').value,port:G('tiPort').value.trim().toUpperCase(),baud:parseInt(G('tiBaud').value,10),broche:G('tiBroche').value,duree:parseInt(G('tiDuree').value,10)||100};}
+  window.tiMajMode=function(){var c=G('tiMode').value==='com';G('tiFgPort').style.display=c?'':'none';G('tiFgBaud').style.display=c?'':'none';};
+  window.tiSauver=function(){if(!api){etat('Disponible uniquement dans l\'application Windows',false);return;}api.save(lire()).then(function(){etat('Enregistré ✔',true);});};
+  window.tiTester=function(){
+    if(!api){etat('Disponible uniquement dans l\'application Windows',false);return;}
+    etat('Envoi…',true);
+    api.ouvrir({force:true,cfg:lire()}).then(function(r){etat(r&&r.ok?'Impulsion envoyée — le tiroir doit s\'ouvrir':'Échec : '+((r&&r.error)||'erreur'),!!(r&&r.ok));});
+  };
+  // Appelée à chaque vente validée. Poste Serveur : ouverture directe. Autre poste : demande relayée au Serveur.
+  window.fssOuvrirTiroirLocal=function(pay){if(api)api.ouvrir({pay:pay}).then(function(r){if(r&&r.ok===false)toast('Tiroir-caisse : '+(r.error||'ouverture impossible'),'e');}).catch(function(){});};
+  window.fssOuvrirTiroir=function(pay){
+    if(window.FSS_IS_SERVER){window.fssOuvrirTiroirLocal(pay);}
+    else if(window.fssEnvoyerBonCommande){try{printBatches.push({batchId:'TIR-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),type:'tiroir',pay:pay});window.fssEnvoyerBonCommande(printBatches[printBatches.length-1]);}catch(e){}}
+  };
+  if(api)api.get().then(function(c){
+    G('tiActif').checked=!!c.actif;G('tiMode').value=c.mode||'imprimante';G('tiQuand').value=c.quand||'especes';G('tiPort').value=c.port||'COM1';
+    G('tiBaud').value=String(c.baud||9600);G('tiBroche').value=String(c.broche||'2');G('tiDuree').value=c.duree||100;tiMajMode();
+  }).catch(function(){});
 })();
 </script>
 </body>
