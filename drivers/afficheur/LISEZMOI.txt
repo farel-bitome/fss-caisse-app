@@ -1,0 +1,26 @@
+PILOTES DE L'AFFICHEUR CLIENT (afficheur de prix 2 lignes)
+==========================================================
+
+La plupart des afficheurs se branchent en USB et apparaissent comme un "port COM"
+grace a une puce USB-serie. Windows 10/11 installe en general le pilote tout seul
+(PC connecte a Internet). Si ce n'est pas le cas, le Gestionnaire de peripheriques
+montre un "Peripherique inconnu" avec un point d'exclamation jaune.
+
+FSS-CAISSE > Parametres > Peripheriques > Afficheur client > bouton "Detecter"
+vous dit quelle puce est presente et propose le bon lien de telechargement.
+
+COMMENT AJOUTER UN PILOTE (une seule fois, avant l'installation chez le client)
+1. Telechargez le pilote sur le site OFFICIEL du fabricant de la puce :
+     FTDI ................ https://ftdichip.com/drivers/vcp-drivers/
+     Prolific (PL2303) ... https://www.prolific.com.tw/US/ShowProduct.aspx?p_id=225&pcid=41
+     CH340 / CH341 (WCH) . https://www.wch-ic.com/downloads/CH341SER_EXE.html
+     Silicon Labs CP210x . https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers
+2. Placez les fichiers dans ce dossier :
+     inf\   -> les dossiers de pilotes contenant des fichiers .inf (zip decompresse)
+     auto\  -> les installateurs .exe (lances en mode silencieux)
+3. Rebuild de l'application (GitHub Actions) : ces dossiers sont embarques dans
+   l'installateur, comme les pilotes d'imprimantes.
+4. Sur la caisse : bouton "Installer les pilotes de l'afficheur" (demande l'autorisation
+   administrateur de Windows), puis rebranchez l'afficheur.
+
+Journal : C:\ProgramData\FSS-CAISSE-pilotes-afficheur.log

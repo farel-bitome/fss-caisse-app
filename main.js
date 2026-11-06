@@ -5,6 +5,7 @@ const os = require('os');
 const crypto = require('crypto');
 const licensing = require('./licensing');
 const printers = require('./printers');
+const afficheur = require('./afficheur');
 
 // ---- Anti-gel de la fenêtre -------------------------------------------------------------
 // Symptôme : après un moment la fenêtre se fige (ou reste blanche) et il faut appuyer sur Alt
@@ -796,6 +797,35 @@ ipcMain.handle('printers-route', async (event, demande) => {
   }
   return r;
 });
+// AFFICHEUR CLIENT (afficheur de prix 2 lignes) — voir afficheur.js
+afficheur.init(app.getPath('userData'));
+ipcMain.handle('afficheur-get', () => afficheur.charger());
+ipcMain.handle('afficheur-save', (event, cfg) => afficheur.sauver(cfg));
+ipcMain.handle('afficheur-ports', () => afficheur.listerPorts());
+ipcMain.handle('afficheur-test', (event, cfg, l1, l2) => afficheur.afficher(l1 || 'FSS-CAISSE', l2 || 'TEST AFFICHEUR OK', Object.assign({}, afficheur.charger(), cfg || {}, { actif: true })));
+ipcMain.handle('afficheur-pilotes-manquants', () => afficheur.pilotesManquants());
+ipcMain.handle('afficheur-open-url', (event, url) => {
+  // Uniquement les pages officielles des fabricants de puces
+  if (Object.values(afficheur.LIENS_PUCES).indexOf(url) === -1) return { ok: false };
+  shell.openExternal(url); return { ok: true };
+});
+ipcMain.handle('afficheur-open-drivers', async () => {
+  const candidats = [path.join(process.resourcesPath || '', 'drivers', 'afficheur'), path.join(__dirname, 'drivers', 'afficheur')];
+  for (const c of candidats) { try { if (fs.existsSync(c)) { await shell.openPath(c); return { ok: true, chemin: c }; } } catch (e) {} }
+  return { ok: false };
+});
+ipcMain.handle('afficheur-install-drivers', () => new Promise((resolve) => {
+  const candidats = [path.join(process.resourcesPath || '', 'drivers'), path.join(__dirname, 'drivers')];
+  const dossier = candidats.find(c => fs.existsSync(path.join(c, 'installer-pilotes-afficheur.ps1')));
+  if (!dossier) return resolve({ ok: false, error: 'Script des pilotes de l\'afficheur introuvable' });
+  const script = path.join(dossier, 'installer-pilotes-afficheur.ps1');
+  const { execFile } = require('child_process');
+  execFile('powershell.exe', ['-NoProfile', '-Command',
+    "Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','\"" + script + "\"','-Interactif'"],
+    { timeout: 600000 }, (err) => resolve(err ? { ok: false, error: err.message } : { ok: true }));
+}));
+ipcMain.handle('afficheur-essais', () => afficheur.essais());
+ipcMain.on('afficheur-afficher', (event, l1, l2) => { afficheur.afficher(l1, l2); });
 ipcMain.handle('printers-open-drivers', async () => {
   const candidats = [path.join(process.resourcesPath || '', 'drivers'), path.join(__dirname, 'drivers')];
   for (const c of candidats) {

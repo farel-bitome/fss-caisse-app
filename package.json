@@ -26,6 +26,7 @@
       "preload.js",
       "embedded-server.js",
       "printers.js",
+      "afficheur.js",
       "licensing.js",
       "choice.html",
       "client.html",

@@ -13,6 +13,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   printSilent: (html) => ipcRenderer.invoke('print-silent', html),
   getHostname: () => ipcRenderer.invoke('get-hostname'),
   refocus: () => ipcRenderer.send('refocus'),
+  afficheur: {
+    get: () => ipcRenderer.invoke('afficheur-get'),
+    save: (cfg) => ipcRenderer.invoke('afficheur-save', cfg),
+    ports: () => ipcRenderer.invoke('afficheur-ports'),
+    test: (cfg, l1, l2) => ipcRenderer.invoke('afficheur-test', cfg, l1, l2),
+    essais: () => ipcRenderer.invoke('afficheur-essais'),
+    pilotesManquants: () => ipcRenderer.invoke('afficheur-pilotes-manquants'),
+    ouvrirLien: (u) => ipcRenderer.invoke('afficheur-open-url', u),
+    ouvrirDossierPilotes: () => ipcRenderer.invoke('afficheur-open-drivers'),
+    installerPilotes: () => ipcRenderer.invoke('afficheur-install-drivers'),
+    afficher: (l1, l2) => ipcRenderer.send('afficheur-afficher', l1, l2)
+  },
   printers: {
     get: () => ipcRenderer.invoke('printers-get'),
     save: (cfg) => ipcRenderer.invoke('printers-save', cfg),
