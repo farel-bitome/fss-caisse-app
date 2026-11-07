@@ -27,9 +27,8 @@
   <input id="ip" placeholder="ex: 192.168.1.24" autofocus>
   <label>Port</label>
   <input id="port" placeholder="3000" value="3000">
-  <label id="lblCode">Code technicien (à créer)</label>
-  <input id="code" type="password" placeholder="4 caractères minimum" autocomplete="off">
-  <div class="note" id="noteCode">Ce code sera demandé pour modifier ces informations plus tard. Notez-le bien.</div>
+  <div class="note">Pour modifier ces informations plus tard, un compte admin ou super-admin sera demandé.</div>
+  <input id="code" type="hidden" value="">
   <button onclick="connect()" id="btn">Se connecter</button>
   <button class="sec" id="btnAnnuler" style="display:none" onclick="window.electronAPI.annulerReglageServeur()">Annuler</button>
   <button class="sec" id="btnMode" style="display:none" onclick="if(confirm('Changer de mode (Serveur / Client) sur cet ordinateur ?')){window.electronAPI.changerDeRole();}">Changer de mode (Serveur / Client)</button>
@@ -45,11 +44,6 @@
     document.getElementById('btn').textContent = 'Enregistrer';
     document.getElementById('btnAnnuler').style.display = '';
     document.getElementById('btnMode').style.display = '';
-    if (!creer) {
-      document.getElementById('lblCode').textContent = 'Nouveau code technicien (facultatif)';
-      document.getElementById('code').placeholder = 'laisser vide pour garder le code actuel';
-      document.getElementById('noteCode').style.display = 'none';
-    }
   }
   window.electronAPI.getCurrentServer().then(function (url) {
     if (url) {
@@ -67,9 +61,6 @@
     var code = document.getElementById('code').value;
     var err = document.getElementById('err');
     if (!ip) { err.textContent = "Merci d'entrer une adresse IP"; return; }
-    var codeRequis = !modif || creer;
-    if (codeRequis && code.length < 4) { err.textContent = 'Le code technicien doit contenir au moins 4 caractères'; return; }
-    if (code && code.length < 4) { err.textContent = 'Le code technicien doit contenir au moins 4 caractères'; return; }
     err.textContent = '';
     Promise.resolve(window.electronAPI.saveServer(ip, port, code)).then(function (ok) {
       if (ok === false) err.textContent = 'Enregistrement refusé';

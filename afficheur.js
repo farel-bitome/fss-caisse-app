@@ -31,6 +31,11 @@ function ligne(t, larg, droite) {
   return droite ? t.padStart(larg, ' ') : t.padEnd(larg, ' ');
 }
 // Construit les octets à envoyer pour 2 lignes, selon le protocole de l'afficheur
+// Montant seul pour un afficheur numérique : dernier nombre de la ligne « TOTAL » (sinon de la 1re ligne), sans espaces
+function montantLed(l1, l2) {
+  const dernier = (t) => { const m = String(t || '').match(/(\d[\d\s\u00a0\u202f.,]*)\s*$/); return m ? m[1].replace(/\D/g, '') : ''; };
+  return (dernier(l2) || dernier(l1) || '0').replace(/^0+(?=\d)/, '').slice(-8);
+}
 function trame(l1, l2, cfg) {
   const L = cfg.largeur || 20, a = ligne(l1, L), b = ligne(l2, L);
   const B = (s) => Buffer.from(s, 'latin1');
@@ -41,6 +46,10 @@ function trame(l1, l2, cfg) {
       return Buffer.concat([B('\x1b\x40'), B('\x0c'), B('\x1f\x24\x01\x01' + a), B('\x1f\x24\x01\x02' + b)]);
     case 'aedex': // AEDEX / « ESC [ » : effacer puis 2 lignes
       return Buffer.concat([B('\x1b\x5b\x32\x4a'), B('\x1b\x5b\x31\x3b\x31\x48' + a), B('\x1b\x5b\x32\x3b\x31\x48' + b)]);
+    case 'led': // Afficheur LED 7 segments (montant seul, ex. caisse F10) : ESC s 2 (total) + ESC Q A montant CR
+      return Buffer.concat([B('\x1b\x73\x32'), B('\x1bQA' + montantLed(l1, l2) + '\r')]);
+    case 'led2': // LED 7 segments, variante simple : montant + retour chariot
+      return B(montantLed(l1, l2) + '\r');
     default: // « simple » : effacer + 2 lignes complètes (retour à la ligne automatique de l'afficheur)
       return Buffer.concat([B('\x0c'), B(a + b)]);
   }
@@ -56,21 +65,28 @@ function configurerPort(cfg) {
       { windowsHide: true, timeout: 5000 }, () => resolve());
   });
 }
-function fermer() { try { if (fd !== null) fs.closeSync(fd); } catch (e) {} fd = null; fdPort = null; }
+// Ne jamais bloquer le processus principal : un port série mal branché peut faire attendre indéfiniment
+// une écriture synchrone et figer TOUTE l'application. Tout passe donc par des appels asynchrones avec délai maximum.
+function avecDelai(promesse, ms, msg) {
+  let t;
+  return Promise.race([promesse, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg || 'Port série sans réponse')), ms); })]).finally(() => clearTimeout(t));
+}
+function fermer() { const f = fd; fd = null; fdPort = null; try { if (f !== null) fs.close(f, () => {}); } catch (e) {} }
 async function ouvrir(cfg) {
   const cle = cfg.port + '|' + cfg.baud;
   if (fd !== null && fdPort === cle) return;
   fermer();
   await configurerPort(cfg);
-  fd = fs.openSync(cheminPort(cfg.port), 'w');
+  fd = await avecDelai(new Promise((res, rej) => fs.open(cheminPort(cfg.port), 'w', (e, f) => e ? rej(e) : res(f))), 3000, 'Ouverture du port ' + cfg.port + ' impossible (délai dépassé)');
   fdPort = cle;
 }
 // Écriture brute ponctuelle sur un port série (ouverture, envoi, fermeture) — utilisé aussi par le tiroir-caisse
 async function ecrirePort(port, baud, buffer) {
   const cfg = { port: String(port || '').trim(), baud: parseInt(baud, 10) || 9600 };
   await configurerPort(cfg);
-  const f = fs.openSync(cheminPort(cfg.port), 'w');
-  try { fs.writeSync(f, buffer); } finally { try { fs.closeSync(f); } catch (e) {} }
+  const f = await avecDelai(new Promise((res, rej) => fs.open(cheminPort(cfg.port), 'w', (e, h) => e ? rej(e) : res(h))), 3000, 'Ouverture du port ' + cfg.port + ' impossible (délai dépassé)');
+  try { await avecDelai(new Promise((res, rej) => fs.write(f, buffer, (e) => e ? rej(e) : res())), 3000, 'Écriture sur ' + cfg.port + ' bloquée (délai dépassé)'); }
+  finally { try { fs.close(f, () => {}); } catch (e) {} }
 }
 let chaine = Promise.resolve();
 // Envoie 2 lignes (les envois sont mis en file pour rester dans l'ordre)
@@ -80,7 +96,8 @@ function afficher(l1, l2, cfgForcee) {
   chaine = chaine.then(async () => {
     try {
       await ouvrir(cfg);
-      fs.writeSync(fd, trame(l1, l2, cfg));
+      const f = fd, buf = trame(l1, l2, cfg);
+      await avecDelai(new Promise((res, rej) => fs.write(f, buf, (e) => e ? rej(e) : res())), 3000, 'Écriture sur l\'afficheur bloquée (délai dépassé)');
       return { ok: true };
     } catch (e) { fermer(); return { ok: false, error: e.message }; }
   });
@@ -131,8 +148,8 @@ function pilotesManquants() {
 }
 // Liste des essais pour la détection automatique (le plus courant d'abord)
 function essais() {
-  const protos = ['simple', 'escpos', 'cd5220', 'aedex'], bauds = [9600, 19200, 2400, 4800, 38400, 115200], r = [];
+  const protos = ['simple', 'escpos', 'cd5220', 'aedex', 'led', 'led2'], bauds = [9600, 19200, 2400, 4800, 38400, 115200], r = [];
   bauds.forEach(b => protos.forEach(p => r.push({ baud: b, protocole: p })));
   return r;
 }
-module.exports = { init, charger, sauver, afficher, ecrirePort, listerPorts, pilotesManquants, LIENS_PUCES, essais, trame, ascii, ligne, DEFAUT };
+module.exports = { montantLed, init, charger, sauver, afficher, ecrirePort, listerPorts, pilotesManquants, LIENS_PUCES, essais, trame, ascii, ligne, DEFAUT };

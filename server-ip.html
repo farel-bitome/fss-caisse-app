@@ -117,6 +117,15 @@
   <button class="sec" onclick="resetAuto()">↺ Revenir à la détection 100% automatique</button>
   <div class="err" id="err"></div>
 
+  <div class="sep"></div>
+  <p style="margin-bottom:8px"><b style="color:#fff">📌 Adresse IP fixe de ce PC</b><br>Empêche l'adresse de changer, même si le DHCP du routeur est activé.</p>
+  <div class="detected" id="resInfo">Lecture du réseau…</div>
+  <label>Adresse fixe à appliquer à ce PC</label>
+  <input id="ipFixe" placeholder="ex : 192.168.1.200">
+  <div class="note" style="font-size:11px;color:#888;text-align:left;margin:-4px 0 10px">Conseil : choisissez une adresse HORS de la plage distribuée par le routeur (par ex. 192.168.1.200 à .250) pour éviter tout conflit avec un autre appareil. Windows demandera l'autorisation administrateur.</div>
+  <button onclick="fixerIp()" id="btnFixer">📌 Fixer cette adresse sur ce PC</button>
+  <button class="sec" onclick="remettreDhcp()">↺ Remettre en automatique (DHCP)</button>
+  <div class="err" id="errFixe"></div>
   <div class="back" onclick="window.electronAPI.reloadApp()">← Retour</div>
 </div>
 <script>
@@ -146,6 +155,35 @@
     });
   }
   refresh();
+
+  function lireReseau() {
+    window.electronAPI.reseauInfo().then(function (r) {
+      var b = document.getElementById('resInfo');
+      if (!r || !r.ok) { b.textContent = (r && r.error) || 'Réseau indisponible.'; return; }
+      b.innerHTML = 'Carte : <b>' + r.alias + '</b><br>Adresse : <b>' + r.ip + '</b> — Masque : ' + r.masque + '<br>Routeur : ' + r.gw + '<br>Mode actuel : <b>' + (r.dhcp ? 'automatique (DHCP) — peut changer' : 'adresse FIXE') + '</b>';
+      if (!document.getElementById('ipFixe').value) document.getElementById('ipFixe').value = r.ip;
+    });
+  }
+  lireReseau();
+  function fixerIp() {
+    var e = document.getElementById('errFixe'), ip = document.getElementById('ipFixe').value.trim();
+    e.className = 'err'; e.textContent = '⏳ Application en cours (acceptez la fenêtre Windows)…';
+    window.electronAPI.reseauFixer(ip).then(function (r) {
+      if (r && r.ok) {
+        e.className = 'ok'; e.textContent = '✓ Adresse fixée sur ' + r.ip + '.';
+        document.getElementById('ip').value = r.ip; lireReseau();
+        window.electronAPI.saveManualIp(r.ip, document.getElementById('port').value.trim() || '3000').then(refresh);
+      } else { e.className = 'err'; e.textContent = (r && r.error) || 'Échec.'; }
+    });
+  }
+  function remettreDhcp() {
+    var e = document.getElementById('errFixe');
+    e.className = 'err'; e.textContent = '⏳ Application en cours…';
+    window.electronAPI.reseauDhcp().then(function (r) {
+      if (r && r.ok) { e.className = 'ok'; e.textContent = '✓ Adresse remise en automatique.'; setTimeout(lireReseau, 3000); }
+      else { e.className = 'err'; e.textContent = (r && r.error) || 'Échec.'; }
+    });
+  }
 
   function utiliserDetectee() {
     window.electronAPI.getServerIpInfo().then(function (info) {

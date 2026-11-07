@@ -197,13 +197,18 @@ function createWindow() {
   }, 15000);
   // Réveil énergique de l'affichage : reproduit ce que fait la touche Alt (barre de menu
   // qui apparaît puis disparaît + léger redimensionnement) pour forcer Windows à redessiner.
-  let dernierReveil = 0;
-  const reveilAffichage = (raison) => {
+  let dernierReveil = 0, reveilsRecents = [];
+  const reveilAffichage = (raison, retardMs) => {
     try {
       if (!win || win.isDestroyed() || win.isMinimized()) return;
       const maintenant = Date.now();
-      if (maintenant - dernierReveil < 4000) return;
+      if (maintenant - dernierReveil < 1000) return;
       dernierReveil = maintenant;
+      // Escalade : si l'affichage re-fige plusieurs fois en 90 s, on passe aux grands moyens
+      // (cycle de focus, puis rechargement de la page — les données sont sur le serveur, rien n'est perdu).
+      reveilsRecents = reveilsRecents.filter(t => maintenant - t < 90000); if (!retardMs || retardMs >= 3000) reveilsRecents.push(maintenant); // seuls les vrais gels (≥ 3 s) comptent pour l'escalade
+      if (reveilsRecents.length === 3) { try { win.blur(); win.focus(); win.webContents.focus(); } catch (e) {} journalIncident('escalade : cycle de focus'); }
+      if (reveilsRecents.length >= 5) { reveilsRecents = []; journalIncident('escalade : rechargement automatique de la page'); try { boot(); } catch (e) {} return; }
       journalIncident('affichage figé détecté (' + raison + ') — repaint forcé');
       win.webContents.invalidate();
       win.setMenuBarVisibility(true);
@@ -218,7 +223,7 @@ function createWindow() {
       }, 120);
     } catch (e) {}
   };
-  ipcMain.on('ecran-fige', (e, retard) => { if (win && e.sender === win.webContents) reveilAffichage('plus d\'image depuis ' + retard + ' ms'); });
+  ipcMain.on('ecran-fige', (e, retard) => { if (win && e.sender === win.webContents) reveilAffichage('plus d\'image depuis ' + retard + ' ms', retard); });
   const { powerMonitor } = require('electron');
   powerMonitor.on('resume', () => { journalIncident('sortie de veille'); setTimeout(repaint, 1500); });
   powerMonitor.on('unlock-screen', () => setTimeout(repaint, 500));
@@ -459,15 +464,28 @@ ipcMain.handle('choose-role', async (event, role) => {
 let techAutorise = false;
 let essaisCode = 0, bloqueJusqua = 0;
 function hacherCode(code, sel) { return crypto.createHash('sha256').update(sel + '|' + code).digest('hex'); }
-ipcMain.handle('verifier-code-tech', (event, code) => {
-  const cfg = loadConfig();
-  if (!cfg.codeTech) { techAutorise = true; return { ok: true, aucunCode: true }; }
+// Accès technicien : AUCUN identifiant ni mot de passe n'est mémorisé sur ce poste. Le compte admin / super-admin
+// est vérifié EN DIRECT par le serveur (adresse actuelle, ou adresse saisie si l'actuelle ne répond plus).
+ipcMain.handle('verifier-code-tech', async (event, code, nom, adresse) => {
   const maintenant = Date.now();
   if (maintenant < bloqueJusqua) return { ok: false, attente: Math.ceil((bloqueJusqua - maintenant) / 1000) };
-  if (hacherCode(String(code || ''), cfg.codeTech.sel) === cfg.codeTech.hash) { essaisCode = 0; techAutorise = true; return { ok: true }; }
+  const cfg = loadConfig();
+  let base = cfg.role === 'client' && cfg.serverUrl ? cfg.serverUrl : '';
+  const adr = String(adresse || '').trim();
+  if (adr) { const m = adr.replace(/^https?:\/\//, '').split('/')[0]; base = 'http://' + (m.indexOf(':') === -1 ? m + ':' + PORT : m); }
+  if (!base) return { ok: false, injoignable: true };
+  try {
+    const r = await fetch(base.replace(/\/$/, '') + '/api/verif-admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom: String(nom || ''), mdp: String(code || '') }), signal: AbortSignal.timeout(4000)
+    });
+    if (r.status === 429) return { ok: false, attente: 30 };
+    const j = await r.json().catch(() => ({}));
+    if (j && j.ok) { essaisCode = 0; techAutorise = true; return { ok: true }; }
+  } catch (e) { return { ok: false, injoignable: true }; }
   essaisCode++;
-  if (essaisCode >= 5) { essaisCode = 0; bloqueJusqua = maintenant + 30000; }
-  journalIncident('code technicien incorrect (poste client)');
+  if (essaisCode >= 5) { essaisCode = 0; bloqueJusqua = Date.now() + 30000; }
+  journalIncident('identifiants technicien incorrects (poste client)');
   return { ok: false };
 });
 ipcMain.handle('ouvrir-reglage-serveur', (event, creer) => {
@@ -513,11 +531,9 @@ ipcMain.handle('save-server', (event, ip, port, code) => {
   // Après la première configuration, seule une session technicien (code saisi) peut modifier.
   if (!premiere && !techAutorise) return false;
   // Un code technicien est obligatoire pour toute nouvelle configuration.
-  if (!codeValide && !cfgC.codeTech) return false;
-  if (codeValide) {
-    const sel = crypto.randomBytes(8).toString('hex');
-    cfgC.codeTech = { sel: sel, hash: hacherCode(String(code), sel) };
-  }
+  
+  // Plus aucun code mémorisé sur le poste (l'accès technicien passe par le compte admin du serveur).
+  delete cfgC.codeTech; delete cfgC.adminsCache;
   cfgC.role = 'client';
   cfgC.serverUrl = url;
   saveConfig(cfgC);
@@ -543,6 +559,62 @@ ipcMain.handle('get-server-ip-info', () => {
   };
 });
 
+// ---------------------------------------------------------------------
+// ADRESSE IP FIXE : fixe l'adresse de ce PC (statique) dans Windows, pour qu'elle ne change plus,
+// même si le DHCP du routeur reste activé. Demande l'autorisation administrateur (fenêtre Windows).
+// ---------------------------------------------------------------------
+function prefixVersMasque(p) { p = Math.max(0, Math.min(32, p | 0)); const b = p === 0 ? 0 : (0xffffffff << (32 - p)) >>> 0; return [b >>> 24, (b >>> 16) & 255, (b >>> 8) & 255, b & 255].join('.'); }
+function ipv4Valide(x) { return /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(x) && x.split('.').every(n => +n <= 255); }
+function ipVersInt(x) { return x.split('.').reduce((a, n) => ((a << 8) | +n) >>> 0, 0); }
+ipcMain.handle('reseau-info', () => new Promise((resolve) => {
+  if (process.platform !== 'win32') return resolve({ ok: false, error: 'Disponible seulement sous Windows.' });
+  const cmd = "$c=Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1; if(-not $c){ '{}' } else { $i=Get-NetIPInterface -InterfaceIndex $c.InterfaceIndex -AddressFamily IPv4; [pscustomobject]@{alias=$c.InterfaceAlias; ip=$c.IPv4Address[0].IPAddress; prefix=$c.IPv4Address[0].PrefixLength; gw=$c.IPv4DefaultGateway.NextHop; dns=@($c.DNSServer | Where-Object { $_.AddressFamily -eq 2 } | ForEach-Object { $_.ServerAddresses }); dhcp=($i.Dhcp -eq 'Enabled')} | ConvertTo-Json -Compress }";
+  require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', cmd], { windowsHide: true, timeout: 15000 }, (err, out) => {
+    try { const j = JSON.parse(String(out || '{}').trim() || '{}'); if (!j.ip) return resolve({ ok: false, error: 'Aucune connexion réseau active trouvée.' }); j.dns = [].concat(j.dns || []); j.masque = prefixVersMasque(j.prefix); resolve(Object.assign({ ok: true }, j)); }
+    catch (e) { resolve({ ok: false, error: 'Lecture du réseau impossible.' }); }
+  });
+}));
+function lancerScriptAdmin(lignes) {
+  return new Promise((resolve) => {
+    try {
+      const f = path.join(os.tmpdir(), 'fss-reseau.cmd'), log = path.join(os.tmpdir(), 'fss-reseau.log');
+      try { fs.unlinkSync(log); } catch (e) {}
+      fs.writeFileSync(f, '@echo off\r\n' + lignes.join('\r\n') + '\r\necho FIN > "' + log + '"\r\n');
+      require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', "Start-Process -FilePath cmd.exe -ArgumentList '/c','\"" + f + "\"' -Verb RunAs -WindowStyle Hidden -Wait"], { windowsHide: true, timeout: 90000 }, (err) => {
+        let fini = false; try { fini = fs.existsSync(log); } catch (e) {}
+        resolve(fini ? { ok: true } : { ok: false, error: err ? 'Autorisation administrateur refusée ou impossible.' : 'Le changement n\'a pas pu s\'exécuter.' });
+      });
+    } catch (e) { resolve({ ok: false, error: e.message }); }
+  });
+}
+ipcMain.handle('reseau-fixer', async (event, ip) => {
+  if (process.platform !== 'win32') return { ok: false, error: 'Disponible seulement sous Windows.' };
+  const cur = await new Promise((res) => require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', "$c=Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1; [pscustomobject]@{alias=$c.InterfaceAlias; prefix=$c.IPv4Address[0].PrefixLength; gw=$c.IPv4DefaultGateway.NextHop; dns=@($c.DNSServer | Where-Object { $_.AddressFamily -eq 2 } | ForEach-Object { $_.ServerAddresses })} | ConvertTo-Json -Compress"], { windowsHide: true, timeout: 15000 }, (e, o) => { try { res(JSON.parse(String(o).trim())); } catch (x) { res(null); } }));
+  if (!cur || !cur.alias || !cur.gw) return { ok: false, error: 'Réseau actif introuvable.' };
+  ip = String(ip || '').trim();
+  if (!ipv4Valide(ip) || !ipv4Valide(cur.gw)) return { ok: false, error: 'Adresse IP invalide.' };
+  const m = ipVersInt(prefixVersMasque(cur.prefix));
+  if ((ipVersInt(ip) & m) !== (ipVersInt(cur.gw) & m)) return { ok: false, error: 'Cette adresse n\'est pas dans le même réseau que le routeur (' + cur.gw + ').' };
+  if (ip === cur.gw) return { ok: false, error: 'Cette adresse est celle du routeur.' };
+  const alias = String(cur.alias).replace(/["%\r\n&|<>^]/g, '');
+  const dns = [].concat(cur.dns || []).filter(ipv4Valide);
+  if (!dns.length) dns.push(cur.gw, '8.8.8.8');
+  const lignes = ['netsh interface ip set address name="' + alias + '" static ' + ip + ' ' + prefixVersMasque(cur.prefix) + ' ' + cur.gw + ' 1',
+    'netsh interface ip set dns name="' + alias + '" static ' + dns[0] + ' primary'];
+  if (dns[1]) lignes.push('netsh interface ip add dns name="' + alias + '" ' + dns[1] + ' index=2');
+  const r = await lancerScriptAdmin(lignes);
+  if (!r.ok) return r;
+  await new Promise(x => setTimeout(x, 4000));
+  journalIncident('adresse IP fixée sur ' + ip);
+  return { ok: true, ip: ip };
+});
+ipcMain.handle('reseau-dhcp', async () => {
+  if (process.platform !== 'win32') return { ok: false, error: 'Disponible seulement sous Windows.' };
+  const alias = await new Promise((res) => require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', "(Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1).InterfaceAlias"], { windowsHide: true, timeout: 15000 }, (e, o) => res(String(o || '').trim())));
+  if (!alias) return { ok: false, error: 'Réseau actif introuvable.' };
+  const a = alias.replace(/["%\r\n&|<>^]/g, '');
+  return lancerScriptAdmin(['netsh interface ip set address name="' + a + '" dhcp', 'netsh interface ip set dns name="' + a + '" dhcp']);
+});
 ipcMain.handle('save-manual-ip', (event, ip, port) => {
   const cfg = loadConfig();
   cfg.manualIP = ip;

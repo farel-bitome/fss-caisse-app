@@ -77,19 +77,8 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       // ne correspondait à aucun article réel, ce qui rendait notamment les
       // réglages "gestion de stock par catégorie" inopérants (aucune
       // correspondance exacte possible).
-      if (!state.categoriesMigratedV1) {
-        try {
-          const catsReelles = Array.from(new Set((state.arts || []).map(a => a.cat).filter(Boolean))).sort();
-          if (catsReelles.length) {
-            state.categories = catsReelles;
-          }
-          state.categoriesMigratedV1 = true;
-          saveState(state);
-          console.log('Migration : liste des catégories corrigée (' + catsReelles.length + ' catégories).');
-        } catch (e) {
-          console.error('Erreur pendant la migration des catégories :', e.message);
-        }
-      }
+      // Les catégories appartiennent à l'utilisateur : plus aucune migration ne les modifie.
+      state.categoriesMigratedV1 = true;
       // Migration unique : remplace l'ancienne liste de tables de démonstration
       // (8 tables) par les 400 tables demandées, toutes "Libre" par défaut —
       // à l'utilisateur de marquer ensuite lui-même celles qui sont réservées
@@ -189,6 +178,13 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
     const expressApp = express();
     const server = http.createServer(expressApp);
     const io = new Server(server);
+    // Diffusion de l'état regroupée : plusieurs changements rapprochés = UN seul envoi (au lieu d'un envoi complet
+    // par changement). Évite de saturer le processus principal (et donc de figer la fenêtre) quand l'historique grossit.
+    let diffusionTimer = null;
+    function diffuserEtat() {
+      if (diffusionTimer) return;
+      diffusionTimer = setTimeout(() => { diffusionTimer = null; try { io.emit('state:changed', state); } catch (e) {} }, 150);
+    }
 
     expressApp.use(function (req, res, next) {
       res.header('Access-Control-Allow-Origin', '*');
@@ -197,6 +193,20 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       next();
     });
     expressApp.use(express.json({ limit: '10mb' }));
+    // Vérification d'un compte admin / super-admin pour l'accès technicien des postes clients (rien n'est mémorisé côté client).
+    const essaisVerif = {};
+    expressApp.post('/api/verif-admin', (req, res) => {
+      const ip = req.ip || (req.socket && req.socket.remoteAddress) || '?';
+      const e = essaisVerif[ip] || { n: 0, bloque: 0 };
+      if (Date.now() < e.bloque) return res.status(429).json({ ok: false });
+      const nom = String((req.body && req.body.nom) || '').trim().toLowerCase();
+      const mdp = String((req.body && req.body.mdp) || '');
+      const ok = mdp !== '' && (state.users || []).some(u => u && (u.super || u.full) && u.mdp === mdp && (!nom || String(u.nom).toLowerCase() === nom));
+      if (ok) { delete essaisVerif[ip]; return res.json({ ok: true }); }
+      e.n++; if (e.n >= 5) { e.n = 0; e.bloque = Date.now() + 30000; }
+      essaisVerif[ip] = e;
+      res.json({ ok: false });
+    });
     // Compression gzip des réponses (surtout utile pour /api/state, qui peut
     // devenir volumineux avec beaucoup d'articles/tables/historique) — réduit
     // nettement le temps de chargement sur un réseau mobile plus faible.
@@ -240,7 +250,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         state.cmdAttente = state.cmdAttente.filter(function (c) { return c.id !== req.body.id; });
         state.cmdAttente.push(req.body);
         saveState(state);
-        io.emit('state:changed', state);
+        diffuserEtat();
         ecrireJournal('Commande en attente ajoutée : ' + req.body.id + ' (' + req.body.tableNom + ', ' + req.body.total + ' FCFA) — liste complète après ajout (' + state.cmdAttente.length + ') : ' + state.cmdAttente.map(function (c) { return c.id; }).join(', '));
         res.json({ ok: true });
       } catch (e) {
@@ -252,7 +262,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       try {
         state.cmdAttente = (state.cmdAttente || []).filter(function (c) { return c.id !== req.body.id; });
         saveState(state);
-        io.emit('state:changed', state);
+        diffuserEtat();
         ecrireJournal('Commande en attente retirée : ' + req.body.id + ' — liste complète après retrait (' + state.cmdAttente.length + ') : ' + state.cmdAttente.map(function (c) { return c.id; }).join(', '));
         res.json({ ok: true });
       } catch (e) {
@@ -288,7 +298,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         var idx = state.tables.findIndex(function (t) { return t.n === req.body.n; });
         if (idx >= 0) state.tables[idx] = req.body; else state.tables.push(req.body);
         saveState(state);
-        io.emit('state:changed', state);
+        diffuserEtat();
         ecrireJournal('Table enregistrée : n°' + req.body.n + ' (' + req.body.nom + ', statut: ' + req.body.st + ')');
         res.json({ ok: true });
       } catch (e) {
@@ -300,7 +310,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
       try {
         state.tables = (state.tables || []).filter(function (t) { return t.n !== req.body.n; });
         saveState(state);
-        io.emit('state:changed', state);
+        diffuserEtat();
         ecrireJournal('Table supprimée : n°' + req.body.n);
         res.json({ ok: true });
       } catch (e) {
@@ -327,7 +337,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         state.printBatches.forEach(function (bt) { if (!bt._recuLe) bt._recuLe = MAINTENANT; });
         state.printBatches = state.printBatches.filter(function (bt) { return (MAINTENANT - bt._recuLe) < 2 * 60 * 60 * 1000; });
         saveState(state);
-        io.emit('state:changed', state);
+        diffuserEtat();
         ecrireJournal('[route dédiée] Bon de commande ajouté : ' + req.body.batchId + ' (table: ' + req.body.tableNom + ', ' + (req.body.items || []).length + ' article(s)) — total en file : ' + state.printBatches.length);
         res.json({ ok: true });
       } catch (e) {
@@ -388,7 +398,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         const idx = state.clotureHistorique.findIndex(function (h) { return h.id === entree.id; });
         if (idx >= 0) state.clotureHistorique[idx] = entree; else state.clotureHistorique.unshift(entree);
         saveState(state);
-        io.emit('state:changed', state);
+        diffuserEtat();
         res.json({ ok: true });
       } catch (e) {
         console.error('[FSS-CAISSE] Erreur archivage clôture :', e);
@@ -428,7 +438,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         state.artsSupprimes = Array.from(supp).slice(-20000);
         state.artsUpdatedAt = Math.max(Date.now(), (state.artsUpdatedAt || 0) + 1);
         saveState(state);
-        io.emit('state:changed', state);
+        diffuserEtat();
         ecrireJournal('Catalogue : ' + upserts.length + ' article(s) ajouté(s)/modifié(s), ' + aSupprimer.size + ' supprimé(s) — total ' + state.arts.length);
         res.json({ ok: true, total: state.arts.length });
       } catch (err) {
@@ -493,7 +503,7 @@ module.exports = function startEmbeddedServer(port, userDataDir, appRootDir) {
         }
         state = nouvelEtat;
         saveState(state);
-        io.emit('state:changed', state);
+        diffuserEtat();
         res.json({ ok: true });
       } catch (e) {
         console.error('[FSS-CAISSE] Erreur lors de l\'enregistrement d\'un changement :', e);

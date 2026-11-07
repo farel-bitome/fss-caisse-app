@@ -139,7 +139,7 @@
     window.servers = servers;
     if (s.caisses && s.caisses.length) caisses = s.caisses;
     window.caisses = caisses;
-    if (s.categories && s.categories.length) categories = s.categories;
+    if (Array.isArray(s.categories)) categories = s.categories;
     window.categories = categories;
     categoryAlerteActive = s.categoryAlerteActive || {};
     window.categoryAlerteActive = categoryAlerteActive;
@@ -422,7 +422,7 @@
     } catch (e) {}
   }
   window.fssArtsSupprimer = function (ids) { try { postJsonAvecRetry('/api/arts/maj', { upserts: [], supprimes: ids }, function () {}); } catch (e) {} };
-  var FONCTIONS_ARTICLES = ['saveArt', 'delArt', 'togArt', 'importArticles', 'viderArticles'];
+  var FONCTIONS_ARTICLES = ['saveArt', 'delArt', 'togArt', 'importArticles', 'viderArticles', 'saveStk', 'toggleAlerteCategorie'];
   function wrap(name) {
     var orig = window[name];
     if (typeof orig !== 'function') return;
@@ -448,7 +448,7 @@
     'saveCmd', 'delCmd', 'valPay', 'addPrel', 'razCaisse',
     'mettreEnAttente', 'reprendreAttente', 'supprimerAttente',
     'saveEmp', 'delEmp', 'clockIn', 'clockOut', 'savePointageManuel', 'delPointage', 'savePaieDetail',
-    'importArticles', 'viderArticles'
+    'importArticles', 'viderArticles', 'toggleAlerteCategorie'
   ].forEach(wrap);
 
   if (socket) {

@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   chooseRole: (role) => ipcRenderer.invoke('choose-role', role),
   saveServer: (ip, port, code) => ipcRenderer.invoke('save-server', ip, port, code),
-  verifierCodeTech: (code) => ipcRenderer.invoke('verifier-code-tech', code),
+  verifierCodeTech: (code, nom, adresse) => ipcRenderer.invoke('verifier-code-tech', code, nom, adresse),
   ouvrirReglageServeur: (creer) => ipcRenderer.invoke('ouvrir-reglage-serveur', creer),
   annulerReglageServeur: () => ipcRenderer.invoke('annuler-reglage-serveur'),
   reessayerServeur: () => ipcRenderer.invoke('reessayer-serveur'),
@@ -43,6 +43,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onScanProgress: (cb) => ipcRenderer.on('printers-scan-progress', (e, d) => cb(d))
   },
   getServerIpInfo: () => ipcRenderer.invoke('get-server-ip-info'),
+  reseauInfo: () => ipcRenderer.invoke('reseau-info'),
+  reseauFixer: (ip) => ipcRenderer.invoke('reseau-fixer', ip),
+  reseauDhcp: () => ipcRenderer.invoke('reseau-dhcp'),
   saveManualIp: (ip, port) => ipcRenderer.invoke('save-manual-ip', ip, port),
   resetManualIp: () => ipcRenderer.invoke('reset-manual-ip'),
   reloadApp: () => ipcRenderer.invoke('reload-app'),
@@ -70,7 +73,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     try {
       if (document.hidden) { dernier = Date.now(); return; }
       const retard = Date.now() - dernier;
-      if (retard > 3500) ipcRenderer.send('ecran-fige', retard);
+      if (retard > 1000) ipcRenderer.send('ecran-fige', retard);
     } catch (e) {}
-  }, 1500);
+  }, 500);
 })();

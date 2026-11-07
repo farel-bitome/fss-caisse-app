@@ -22,9 +22,13 @@
 <body>
 <div class="box">
   <h1>Accès technicien</h1>
-  <p>Saisissez le code technicien pour modifier la connexion au serveur.</p>
-  <label>Code technicien</label>
-  <input id="code" type="password" autocomplete="off" autofocus>
+  <p>Saisissez l'identifiant et le mot de passe d'un compte <strong>admin ou super-admin</strong> pour modifier la connexion au serveur.</p>
+  <label>Identifiant</label>
+  <input id="nom" type="text" autocomplete="off" autofocus>
+  <label>Mot de passe</label>
+  <input id="code" type="password" autocomplete="off">
+  <label>Adresse du serveur <span style="color:#777">(facultatif — à remplir si l'ancienne adresse ne répond plus)</span></label>
+  <input id="adr" type="text" autocomplete="off" placeholder="ex : 192.168.1.24">
   <button onclick="valider()">Valider</button>
   <button class="sec" onclick="window.electronAPI.annulerReglageServeur()">Annuler</button>
   <div class="err" id="err"></div>
@@ -32,9 +36,9 @@
 <script>
   function valider() {
     var err = document.getElementById('err');
-    Promise.resolve(window.electronAPI.verifierCodeTech(document.getElementById('code').value)).then(function (r) {
-      if (r && r.ok) { window.electronAPI.ouvrirReglageServeur(!!r.aucunCode); return; }
-      err.textContent = (r && r.attente) ? ('Trop d\'essais. Réessayez dans ' + r.attente + ' s.') : 'Code incorrect';
+    Promise.resolve(window.electronAPI.verifierCodeTech(document.getElementById('code').value, document.getElementById('nom').value, document.getElementById('adr').value)).then(function (r) {
+      if (r && r.ok) { window.electronAPI.ouvrirReglageServeur(false); return; }
+      err.textContent = (r && r.attente) ? ('Trop d\'essais. Réessayez dans ' + r.attente + ' s.') : (r && r.injoignable) ? 'Serveur injoignable : saisissez l\'adresse du serveur ci-dessus' : 'Identifiant ou mot de passe incorrect';
       document.getElementById('code').value = '';
     });
   }
