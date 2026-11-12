@@ -2476,6 +2476,17 @@ function testScanner(){
   });
 }
 function clearTk(silent){
+  // « Annuler » sur une commande REPRISE depuis « En attente » : on propose de la supprimer pour de bon
+  // (avant, elle revenait toujours dans la liste et semblait impossible à faire disparaître).
+  if(!silent&&resumingAttenteId&&(!window.hasSuppressionAttentePermission||window.hasSuppressionAttentePermission())){
+    var idASupprimer=resumingAttenteId;
+    if(confirm('Supprimer aussi cette commande en attente ?\n\nOK = la SUPPRIMER définitivement\nAnnuler = la garder dans « En attente »')){
+      cmdAttente=cmdAttente.filter(function(c){return c.id!==idASupprimer;});
+      resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;resumingNumero=null;
+      try{if(window.fssRetirerCmdAttente)window.fssRetirerCmdAttente(idASupprimer);}catch(e){console.error(e);}
+      try{renderAttenteBar();updateTableOptions();}catch(e){}
+    }
+  }
   // Si le ticket en cours vient d'une commande REPRISE (déjà envoyée en
   // caisse/cuisine), "Annuler" ne doit jamais la faire disparaître purement
   // et simplement — elle est remise dans "Commandes en attente" telle
@@ -2687,6 +2698,7 @@ function valPay(){
   // Commande reprise depuis « En attente » : elle est maintenant PAYÉE, c'est le seul moment (avec
   // l'annulation ✕) où elle sort de la liste et où sa table redevient libre.
   if(resumingAttenteId){
+   try{
     var idPayee=resumingAttenteId;
     cmdAttente=cmdAttente.filter(function(c){return c.id!==idPayee;});
     // ORDRE IMPORTANT : le serveur répond à /api/cmdattente/retirer en rediffusant son état à
@@ -2700,10 +2712,17 @@ function valPay(){
       else window.fssRetirerCmdAttente(idPayee);
     }
     renderAttenteBar();updateTableOptions();
+   }catch(e){console.error('valPay attente:',e);}
   }
   resumingAttenteId=null;resumingBaseItems=null;resumingSentQty=null;resumingNumero=null;
-  closeM('ovPay');clearTk(true);libererTable();renderProds('');renderStk();renderTkList();renderRap();initCloture();
-  afficherRecu(txs[0]);
+  var tkValide=txs[0];
+  // Chaque étape est isolée : une erreur dans l'une d'elles ne doit JAMAIS empêcher l'affichage de la facture.
+  [function(){closeM('ovPay');},function(){clearTk(true);},function(){libererTable();},function(){renderProds('');},function(){renderStk();},function(){renderTkList();},function(){renderRap();},function(){initCloture();}].forEach(function(f){try{f();}catch(e){console.error('valPay:',e);}});
+  try{afficherRecu(tkValide);}catch(e){
+    console.error('afficherRecu:',e);
+    try{dernierTicket=tkValide;var rc=g('recuContent');if(rc)rc.innerHTML='<div style="text-align:center;font-weight:400"><strong>'+tkValide.id+'</strong><br>Total : '+tkValide.ttc.toLocaleString('fr-FR')+' F<br>Paiement : '+tkValide.pay+'</div>';}catch(e2){}
+  }
+  try{g('ovRecu').classList.add('on');}catch(e){}
   try{if(window.fssOuvrirTiroir)window.fssOuvrirTiroir(txs[0].pay);}catch(e){}
   // Une facture à crédit (client OU employé) sort toujours sur l'imprimante, tout de suite.
   if(txs[0].creditNom){try{imprimerRecu();}catch(e){toast('Impression de la facture à crédit impossible : '+e.message,'e');}}
@@ -2722,8 +2741,8 @@ function afficherRecu(tk){
   var now=new Date().toLocaleString('fr-FR');
   var lignes='';
   lignes+='<div style="border-top:1px dashed #000;margin:6px 0"></div>';
-  lignes+='<table style="width:100%;border-collapse:collapse;font-size:12px;font-weight:700">';
-  lignes+='<tr><td colspan="3" style="font-size:11px;color:#333;padding-bottom:2px;font-weight:700">Articles</td></tr>';
+  lignes+='<table style="width:100%;border-collapse:collapse;font-size:12px;font-weight:400">';
+  lignes+='<tr><td colspan="3" style="font-size:11px;color:#333;padding-bottom:2px;font-weight:400">Articles</td></tr>';
   if(tk.items&&tk.items.length){
     tk.items.forEach(function(it){
       lignes+='<tr><td>'+it.qty+'x</td><td>'+it.nom+'</td><td style="text-align:right">'+(it.pv*it.qty).toLocaleString('fr-FR')+' F</td></tr>';
@@ -2734,29 +2753,29 @@ function afficherRecu(tk){
   lignes+='</table>';
   lignes+='<div style="border-top:1px dashed #000;margin:6px 0"></div>';
   if(tvaActif){
-    lignes+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Sous-total HT</span><span>'+tk.ht.toLocaleString('fr-FR')+' F</span></div>';
-    lignes+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>TVA '+Math.round(tvaRate*100)+'%</span><span>'+tk.tva.toLocaleString('fr-FR')+' F</span></div>';
+    lignes+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:400"><span>Sous-total HT</span><span>'+tk.ht.toLocaleString('fr-FR')+' F</span></div>';
+    lignes+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:400"><span>TVA '+Math.round(tvaRate*100)+'%</span><span>'+tk.tva.toLocaleString('fr-FR')+' F</span></div>';
   }
-  lignes+='<div style="display:flex;justify-content:space-between;font-weight:900;font-size:12px;margin-top:4px"><span>TOTAL TTC</span><span>'+tk.ttc.toLocaleString('fr-FR')+' F</span></div>';
+  lignes+='<div style="display:flex;justify-content:space-between;font-weight:700;font-size:12px;margin-top:4px"><span>TOTAL TTC</span><span>'+tk.ttc.toLocaleString('fr-FR')+' F</span></div>';
   lignes+='<div style="border-top:1px dashed #000;margin:6px 0"></div>';
-  lignes+='<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:900"><span>Paiement</span><span>'+tk.pay+'</span></div>';
+  lignes+='<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700"><span>Paiement</span><span>'+tk.pay+'</span></div>';
   if(tk.creditNom){
-    lignes+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:900;margin-top:2px"><span>Nom</span><span>'+tk.creditNom+'</span></div>';
-    lignes+='<div style="text-align:center;font-size:12px;font-weight:900;margin-top:4px">'+(tk.creditEmploye?'BON EMPLOYÉ — à déduire':'FACTURE À CRÉDIT — à régler')+'</div>';
-    lignes+='<div style="margin-top:16px;font-size:11px;font-weight:700">Signature : ______________________</div>';
+    lignes+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-top:2px"><span>Nom</span><span>'+tk.creditNom+'</span></div>';
+    lignes+='<div style="text-align:center;font-size:12px;font-weight:700;margin-top:4px">'+(tk.creditEmploye?'BON EMPLOYÉ — à déduire':'FACTURE À CRÉDIT — à régler')+'</div>';
+    lignes+='<div style="margin-top:16px;font-size:11px;font-weight:400">Signature : ______________________</div>';
   }
   if(tk.momo){
-    lignes+='<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-top:2px"><span>Téléphone</span><span>'+tk.momo.tel+'</span></div>';
-    lignes+='<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700"><span>Réf. PVIT</span><span>'+tk.momo.ref+'</span></div>';
+    lignes+='<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:400;margin-top:2px"><span>Téléphone</span><span>'+tk.momo.tel+'</span></div>';
+    lignes+='<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:400"><span>Réf. PVIT</span><span>'+tk.momo.ref+'</span></div>';
   }
   if(tk.pay==='Espèces'&&tk.recu){
-    lignes+='<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-top:2px"><span>Montant reçu</span><span>'+tk.recu.toLocaleString('fr-FR')+' F</span></div>';
-    lignes+='<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700"><span>Monnaie rendue</span><span>'+(tk.rendu||0).toLocaleString('fr-FR')+' F</span></div>';
+    lignes+='<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:400;margin-top:2px"><span>Montant reçu</span><span>'+tk.recu.toLocaleString('fr-FR')+' F</span></div>';
+    lignes+='<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:400"><span>Monnaie rendue</span><span>'+(tk.rendu||0).toLocaleString('fr-FR')+' F</span></div>';
   }
   lignes+='<div style="border-top:1px dashed #000;margin:6px 0"></div>';
-  lignes+='<div style="text-align:center;font-size:12px;color:#333;font-weight:700">'+msgFin+'</div>';
+  lignes+='<div style="text-align:center;font-size:12px;color:#333;font-weight:400">'+msgFin+'</div>';
 
-  var html='<div style="text-align:center;margin-bottom:8px;font-weight:700">';
+  var html='<div style="text-align:center;margin-bottom:8px;font-weight:400">';
   if(logoData){html+='<img src="'+logoData+'" style="height:110px;object-fit:contain;margin-bottom:8px"><br>';}
   html+='<strong style="font-size:17px">'+etab+'</strong><br>';
   if(adr)html+='<span style="font-size:11px;color:#333">'+adr+'</span><br>';
@@ -2765,14 +2784,14 @@ function afficherRecu(tk){
   if(nif)html+='<span style="font-size:11px;color:#333">NIF: '+nif+'</span><br>';
   html+='</div>';
   html+='<div style="border-top:2px solid #000;margin:6px 0"></div>';
-  html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>N° Ticket</span><strong>'+tk.id+'</strong></div>';
-  html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Date</span><span>'+now+'</span></div>';
-  html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Table</span><span>'+tk.tbl+'</span></div>';
-  if(tk.srv&&tk.srv!=='—')html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Serveur</span><span>'+tk.srv+'</span></div>';
-  if(tk.caissier&&tk.caissier!=='—')html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>Caissier</span><span>'+tk.caissier+'</span></div>';
+  html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:400"><span>N° Ticket</span><strong>'+tk.id+'</strong></div>';
+  html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:400"><span>Date</span><span>'+now+'</span></div>';
+  html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:400"><span>Table</span><span>'+tk.tbl+'</span></div>';
+  if(tk.srv&&tk.srv!=='—')html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:400"><span>Serveur</span><span>'+tk.srv+'</span></div>';
+  if(tk.caissier&&tk.caissier!=='—')html+='<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:400"><span>Caissier</span><span>'+tk.caissier+'</span></div>';
   html+=lignes;
   g('recuContent').innerHTML=html;
-  g('recuContent').style.fontWeight='700';
+  g('recuContent').style.fontWeight='400';
   g('ovRecu').classList.add('on');
 }
 function imprimerRecu(){
@@ -2791,13 +2810,13 @@ function imprimerRecu(){
   var css='@page{size:80mm auto;margin:0}'+
     '*{margin:0;padding:0;box-sizing:border-box}'+
     'html,body{width:100%}'+
-    'body{font-family:Arial,Helvetica,sans-serif;font-size:'+tkFs()+'px;font-weight:700;padding:2mm 1mm}'+
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:'+tkFs()+'px;font-weight:400;padding:2mm 1mm}'+
     'table{width:100%;border-collapse:collapse;margin:0}'+
     'td{padding:0;vertical-align:top}'+
     'td.l{text-align:left}'+
     'td.r{text-align:right;padding-left:10px;white-space:nowrap}'+
     '.sep{border-top:1px dashed #000;margin:7px 0}'+
-    '.c{text-align:center}.b{font-weight:900}'+
+    '.c{text-align:center}.b{font-weight:700}'+
     '.pgbreak{page-break-after:always;break-after:page;}'+
     '.pgbreak{page-break-after:always;break-after:page}';
   function ligne(label,val,cls){
@@ -3253,7 +3272,7 @@ function saveStk(){
   var id=parseInt(g('sArt').value),qty=parseInt(g('sQty').value)||0,typ=g('sTyp').value;
   var a=arts.find(function(x){return x.id===id;});if(!a||qty<=0){toast('Données invalides','e');return;}
   var av=a.stk,vr=0;
-  if(typ==='in'){a.stk+=qty;vr=qty;}else if(typ==='out'){a.stk=Math.max(0,a.stk-qty);vr=-Math.min(qty,av);}else{vr=qty-av;a.stk=qty;a.alerte=true;}
+  if(typ==='in'){a.stk+=qty;vr=qty;}else if(typ==='out'){a.stk=Math.max(0,a.stk-qty);vr=-Math.min(qty,av);}else{vr=qty-av;a.stk=qty;a.alerte=true;a.stkRemis=true;}
   mouv.unshift({date:new Date().toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}),art:a.nom,typ:typ==='in'?'Entrée':typ==='out'?'Sortie':'Ajustement',av:av,vr:vr,ap:a.stk,four:g('sFour').value||'—',usr:'admin',note:g('sNote').value});
   closeM('ovStk');renderStk();renderProds('');renderArt();toast('Stock mis à jour','s');
 }
@@ -4859,7 +4878,13 @@ var categories=[]; // aucune catégorie imposée : seules celles créées par l'
 var categoryAlerteActive={};
 // Gestion de stock effective d'un article : active seulement si la catégorie ET l'article la gardent activée.
 // Sinon l'article se vend toujours (jamais grisé, jamais bloqué, stock non décompté).
-function stockGere(a){return !!a&&a.alerte!==false;} // la catégorie décochée met alerte=false sur ses articles ; seul un ajustement de stock la remet
+function stockGere(a){
+  if(!a||a.alerte===false)return false;
+  // La case de la catégorie fait foi : catégorie décochée => articles non gérés, même après un redémarrage ou une synchro,
+  // sauf article explicitement remis en gestion par un ajustement de stock (stkRemis).
+  if(typeof categoryAlerteActive!=='undefined'&&categoryAlerteActive&&categoryAlerteActive[a.cat]===false&&!a.stkRemis)return false;
+  return true;
+} // la catégorie décochée met alerte=false sur ses articles ; seul un ajustement de stock la remet
 var editCatNom=null;
 function renderCatSelect(){
   var sel=g('aCat');if(!sel)return;
@@ -5132,9 +5157,9 @@ function initCategories(){
 function toggleAlerteCategorie(cat,actif){
   categoryAlerteActive[cat]=actif;
   var nbOff=0;
-  if(!actif){arts.forEach(function(a){if(a.cat===cat&&a.alerte!==false){a.alerte=false;nbOff++;}});window.artsUpdatedAt=Date.now();}
+  if(!actif){arts.forEach(function(a){if(a.cat===cat){if(a.alerte!==false)nbOff++;a.alerte=false;delete a.stkRemis;}});window.artsUpdatedAt=Date.now();}
   initCategories();
-  renderStk();
+  renderStk();try{renderProds('');renderArt();}catch(e){}
   if(window.fssSyncPush)window.fssSyncPush();
   toast(actif?'Catégorie "'+cat+'" réactivée : chaque article reprend sa gestion de stock après un ajustement de stock':'Gestion de stock désactivée pour tous les articles de "'+cat+'"','i');
 }
