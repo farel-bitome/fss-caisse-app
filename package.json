@@ -20,6 +20,7 @@
   "build": {
     "appId": "com.fss.caisse",
     "productName": "FSS-CAISSE",
+    "artifactName": "FSS-CAISSE ${version}.${ext}",
     "asar": true,
     "files": [
       "main.js",

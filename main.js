@@ -119,6 +119,7 @@ function createWindow() {
     height: 900,
     minWidth: 1000,
     minHeight: 650,
+    title: 'FSS-CAISSE ' + app.getVersion(),
     autoHideMenuBar: true,
     icon: path.join(__dirname, 'app', 'icon.png'),
     webPreferences: {
@@ -290,6 +291,9 @@ function createWindow() {
   if (app.isPackaged) {
     win.webContents.on('devtools-opened', () => { try { win.webContents.closeDevTools(); } catch (e) {} });
   }
+
+  // Le nom de la fenêtre est toujours « FSS-CAISSE » suivi du numéro de version, quelle que soit la page.
+  win.on('page-title-updated', (e) => { e.preventDefault(); try { win.setTitle('FSS-CAISSE ' + app.getVersion()); } catch (err) {} });
 
   win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     if (errorCode !== -3) {
