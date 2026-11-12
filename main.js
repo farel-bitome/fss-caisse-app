@@ -277,10 +277,19 @@ function createWindow() {
   // F12 ouvre directement les outils de développement, sans avoir besoin
   // d'afficher le menu au préalable (la barre de menu est masquée par défaut).
   win.webContents.on('before-input-event', (event, input) => {
+    // Version installée : outils de développement interdits (F12, Ctrl+Maj+I/J/C) — protège le code.
+    if (app.isPackaged) {
+      const k = String(input.key || '').toLowerCase();
+      if (input.type === 'keyDown' && (k === 'f12' || (input.control && input.shift && ['i', 'j', 'c'].includes(k)))) event.preventDefault();
+      return;
+    }
     if (input.key === 'F12' && input.type === 'keyDown') {
       win.webContents.toggleDevTools();
     }
   });
+  if (app.isPackaged) {
+    win.webContents.on('devtools-opened', () => { try { win.webContents.closeDevTools(); } catch (e) {} });
+  }
 
   win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     if (errorCode !== -3) {
@@ -425,7 +434,7 @@ function buildMenu() {
         },
         {
           label: 'Outils de développement (diagnostic)',
-          visible: loadConfig().role !== 'client',
+          visible: !app.isPackaged && loadConfig().role !== 'client',
           click: () => win.webContents.openDevTools({ mode: 'detach' })
         },
         { role: 'quit', label: 'Quitter' }

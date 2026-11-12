@@ -103,7 +103,7 @@
     }
     window.electronAPI.getTrialStatus().then((trial) => {
       document.getElementById('subtitle').textContent = trial.expired
-        ? "Période d'essai de 3 jours terminée"
+        ? "Licence requise pour ce PC — envoyez l'identifiant machine ci-dessous pour obtenir votre clé"
         : `Version d'essai — ${trial.daysLeft} jour(s) restant(s)`;
     });
   });

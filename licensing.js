@@ -14,14 +14,38 @@ const { execSync } = require('child_process');
 // IMPORTANT : doit rester identique à LICENSE_SECRET dans FSS-CAISSE-SALON
 // (src/main/licensing.js) et dans tous les générateurs de licence.
 const LICENSE_SECRET = 'FSS-CAISSE-SALON-2026-FALLSERVICES-9f3a7c1e5b2d4681';
-const TRIAL_DAYS = 3;
+// 0 = AUCUN essai : sans licence valide pour CE PC, le logiciel est bloqué tout de suite.
+// Un dossier copié sur un autre PC ne démarre donc pas (la clé est liée au PC d'origine).
+const TRIAL_DAYS = 0;
 
 let licensePath = null;
 let trialPath = null;
+let backupLicensePath = null;
 
 function init(userDataPath) {
     licensePath = path.join(userDataPath, 'license.json');
     trialPath = path.join(userDataPath, 'trial.json');
+    // Copie de secours EN DEHORS du dossier de données de l'application : une mise à jour,
+    // une réinstallation ou un nettoyage du dossier AppData ne fait plus perdre la licence.
+    try {
+        const base = process.env.ProgramData || process.env.PUBLIC || path.dirname(userDataPath);
+        backupLicensePath = path.join(base, 'FSS-CAISSE', 'license.json');
+    } catch (e) { backupLicensePath = null; }
+}
+
+function lireLicence(chemin) {
+    try { return JSON.parse(fs.readFileSync(chemin, 'utf-8')); } catch (e) { return null; }
+}
+function ecrireLicence(chemin, data) {
+    try { fs.mkdirSync(path.dirname(chemin), { recursive: true }); fs.writeFileSync(chemin, JSON.stringify(data, null, 2), 'utf-8'); return true; } catch (e) { return false; }
+}
+function licenceValide(data) {
+    if (!data || !data.key) return false;
+    const guid = getWindowsMachineGuid();
+    if (guid) return isValidKey(getMachineId(), data.key);
+    // Lecture de l'identifiant Windows impossible à cet instant : on fait confiance à l'identifiant
+    // enregistré lors de l'activation (la clé doit toujours correspondre à cet identifiant).
+    return !!data.machineId && isValidKey(data.machineId, data.key);
 }
 
 // Identifiant Windows unique et stable, attribué une seule fois à
@@ -29,14 +53,26 @@ function init(userDataPath) {
 // réinstallé (contrairement à l'adresse MAC, que Windows change
 // régulièrement de lui-même par défaut pour le Wi-Fi, ce qui invalidait la
 // licence à chaque fois).
+let guidCache = null;
 function getWindowsMachineGuid() {
-    try {
-        const out = execSync('reg query "HKLM\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid', { windowsHide: true }).toString();
-        const m = out.match(/MachineGuid\s+REG_SZ\s+([0-9a-fA-F-]+)/);
-        return m ? m[1].trim() : null;
-    } catch (e) {
-        return null;
+    if (guidCache) return guidCache;
+    const sysRoot = process.env.SystemRoot || 'C:\\Windows';
+    const cmds = [
+        '"' + path.join(sysRoot, 'System32', 'reg.exe') + '" query "HKLM\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid',
+        'reg query "HKLM\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid'
+    ];
+    // Plusieurs essais : un échec ponctuel de lecture ne doit JAMAIS changer l'identifiant machine
+    // (c'est ce qui redemandait la licence après une mise à jour).
+    for (let essai = 0; essai < 3; essai++) {
+        for (const cmd of cmds) {
+            try {
+                const out = execSync(cmd, { windowsHide: true, timeout: 8000 }).toString();
+                const m = out.match(/MachineGuid\s+REG_SZ\s+([0-9a-fA-F-]+)/);
+                if (m) { guidCache = m[1].trim(); return guidCache; }
+            } catch (e) { /* on réessaie */ }
+        }
     }
+    return null;
 }
 
 function getMachineId() {
@@ -60,9 +96,19 @@ function isValidKey(machineId, key) {
 
 function isLicensed() {
     try {
-        const raw = fs.readFileSync(licensePath, 'utf-8');
-        const data = JSON.parse(raw);
-        return isValidKey(getMachineId(), data.key);
+        let data = lireLicence(licensePath);
+        if (licenceValide(data)) {
+            // Entretient la copie de secours
+            if (backupLicensePath && !lireLicence(backupLicensePath)) ecrireLicence(backupLicensePath, data);
+            return true;
+        }
+        // Fichier principal absent ou invalide : on tente la copie de secours et on restaure.
+        const sauv = backupLicensePath ? lireLicence(backupLicensePath) : null;
+        if (licenceValide(sauv)) {
+            ecrireLicence(licensePath, sauv);
+            return true;
+        }
+        return false;
     } catch (e) {
         return false;
     }
@@ -73,7 +119,9 @@ function activate(key) {
     if (!isValidKey(machineId, key)) {
         return { success: false, error: 'Clé de licence invalide pour ce PC.' };
     }
-    fs.writeFileSync(licensePath, JSON.stringify({ key: key.trim().toUpperCase(), machineId, activatedAt: new Date().toISOString() }, null, 2), 'utf-8');
+    const data = { key: key.trim().toUpperCase(), machineId, activatedAt: new Date().toISOString() };
+    fs.writeFileSync(licensePath, JSON.stringify(data, null, 2), 'utf-8');
+    if (backupLicensePath) ecrireLicence(backupLicensePath, data);
     return { success: true };
 }
 
