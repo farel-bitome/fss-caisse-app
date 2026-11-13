@@ -278,6 +278,7 @@ td{padding:8px 11px;vertical-align:middle}
   <div id="logo">FSS-CAISSE<small>GESTION RESTOBAR</small><small id="appVersionBadge" style="display:block;opacity:0.75;font-size:11px;margin-top:2px;color:#4488FF"></small></div>
   <div id="nav">
     <button class="nb on" onclick="goPage('caisse',this)">🧾 Caisse</button>
+    <button class="nb" id="navTables" onclick="goPage('tables',this)">🪑 Tables <span id="navTablesN" style="display:none;background:#FFCC00;color:#000;border-radius:9px;padding:0 6px;font-size:10px;font-weight:700;margin-left:3px"></span></button>
     <button class="nb" onclick="goPage('articles',this)">🍽️ Articles</button>
     <button class="nb" onclick="goPage('stock',this)">📦 Stock</button>
     <button class="nb" onclick="goPage('achats',this)">🛒 Achats</button>
@@ -307,10 +308,6 @@ td{padding:8px 11px;vertical-align:middle}
       <select class="ms" id="selCaisse" onchange="onCaisseChange()"><option value="">— Caisse —</option></select>
       <button class="btn btn-o sm" onclick="openTableModal()">＋ Table</button>
       <button class="btn btn-o sm" id="btnCompactIcons" onclick="toggleCompactIcons()" title="Réduire la taille des icônes des articles">🔎− Icônes</button>
-    </div>
-    <div id="attenteBar" style="display:none;background:#111;border-bottom:1px solid #333;padding:6px 10px">
-      <div style="font-size:11px;color:#FFCC00;font-weight:700;margin-bottom:4px">⏸ Commandes en attente</div>
-      <div id="attenteList" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     </div>
     <div id="prodGrid"></div>
   </div>
@@ -347,6 +344,14 @@ td{padding:8px 11px;vertical-align:middle}
   <span id="mobCartTot">0 FCFA</span>
 </div>
 <!-- ARTICLES -->
+<!-- TABLES (commandes en attente) -->
+<div class="pg" id="pg-tables" style="flex-direction:column;overflow:auto">
+  <div id="attenteBar" style="padding:14px 16px">
+    <div style="font-size:14px;color:#FFCC00;font-weight:700;margin-bottom:10px">⏸ Tables / commandes en attente</div>
+    <div id="attenteList" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start"></div>
+    <div id="attenteVide" style="display:none;color:#777;font-size:13px;padding:30px 0;text-align:center">Aucune table en attente.</div>
+  </div>
+</div>
 <div class="pg" id="pg-articles">
   <div class="sp">
     <div class="itabs">
@@ -2069,6 +2074,7 @@ function reprendreAttente(id){
   if(c.caisse&&selCx&&!selCx.disabled)selCx.value=c.caisse;
   renderTkt();updTotal();renderAttenteBar();updateTableOptions();
   toast('Commande '+c.id+' reprise ▶ — ajoutez vos articles puis "Envoyer" ou payez directement','s');
+  try{goPage('caisse',document.querySelector('#nav .nb'));}catch(e){}
 }
 function supprimerAttente(id){
   if(window.hasSuppressionAttentePermission&&!window.hasSuppressionAttentePermission()){toast('Vous n\'avez pas le droit de supprimer une commande en attente','e');return;}
@@ -2101,12 +2107,16 @@ function reimprimerBonComplet(id){
 }
 function renderAttenteBar(){
   var bar=g('attenteBar'),list=g('attenteList');if(!bar)return;
-  if(!cmdAttente.length||(window.waiterCanSeeAttente&&!window.waiterCanSeeAttente())){bar.style.display='none';return;}
+  var peutVoir=!(window.waiterCanSeeAttente&&!window.waiterCanSeeAttente());
+  var nb=peutVoir?cmdAttente.length:0;
+  var bdg=g('navTablesN');if(bdg){bdg.textContent=nb;bdg.style.display=nb?'':'none';}
+  var vide=g('attenteVide');if(vide)vide.style.display=nb?'none':'';
+  list.innerHTML='';
+  if(!nb)return;
   var canDel=!window.waiterCanDeleteAttente||window.waiterCanDeleteAttente();
-  bar.style.display='';list.innerHTML='';
   cmdAttente.forEach(function(c){
     var div=document.createElement('div');
-    div.style.cssText='background:#1a1a00;border:1px solid #FFCC00;border-radius:6px;padding:4px 8px;font-size:11px;display:flex;align-items:center;gap:7px';
+    div.style.cssText='background:#1a1a00;border:1px solid #FFCC00;border-radius:8px;padding:10px 12px;font-size:13px;display:flex;align-items:center;gap:9px;flex-wrap:wrap';
     var btnR=document.createElement('button');
     btnR.textContent='▶';btnR.style.cssText='background:#44FF88;color:#000;border:none;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer;font-weight:700';
     btnR.onclick=(function(id){return function(){reprendreAttente(id);};})(c.id);
