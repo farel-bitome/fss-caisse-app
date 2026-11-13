@@ -652,7 +652,8 @@ ipcMain.handle('reload-app', () => {
 ipcMain.handle('get-machine-id', () => licensing.getMachineId());
 // Ouvre WhatsApp (application ou navigateur) vers le numéro de FALLSERVICES&SOLUTIONS INFO uniquement.
 ipcMain.handle('ouvrir-whatsapp', (event, url) => {
-  if (typeof url !== 'string' || url.indexOf('https://wa.me/24177378602') !== 0) return { ok: false };
+  // Seuls le WhatsApp et l'e-mail de FALLSERVICES&SOLUTIONS INFO sont autorisés.
+  if (typeof url !== 'string' || (url.indexOf('https://wa.me/24177378602') !== 0 && url.indexOf('mailto:fallservices241@gmail.com') !== 0)) return { ok: false };
   shell.openExternal(url);
   return { ok: true };
 });
