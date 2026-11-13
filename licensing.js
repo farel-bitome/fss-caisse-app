@@ -75,23 +75,45 @@ function getWindowsMachineGuid() {
     return null;
 }
 
+// Identifiant de repli STABLE (quand le GUID Windows est illisible) : calculé UNE seule fois puis mémorisé,
+// car la mémoire totale / le nom peuvent varier d'un lancement à l'autre — l'identifiant affiché changeait
+// alors et la clé générée pour l'ancien identifiant « ne passait pas ».
+function identifiantRepli() {
+    const fichiers = [];
+    try { if (licensePath) fichiers.push(path.join(path.dirname(licensePath), 'machine-id.json')); } catch (e) {}
+    try { if (backupLicensePath) fichiers.push(path.join(path.dirname(backupLicensePath), 'machine-id.json')); } catch (e) {}
+    for (const f of fichiers) {
+        const d = lireLicence(f);
+        if (d && d.raw) { fichiers.forEach((g) => { if (g !== f && !lireLicence(g)) ecrireLicence(g, d); }); return d.raw; }
+    }
+    const raw = 'FALLBACK|' + [os.hostname(), os.cpus()?.[0]?.model || ''].join('|') + '|' + crypto.randomBytes(8).toString('hex');
+    fichiers.forEach((f) => ecrireLicence(f, { raw }));
+    return raw;
+}
+
 function getMachineId() {
     const guid = getWindowsMachineGuid();
     // Identifiant stable basé sur le GUID Windows si disponible (cas normal
-    // sur un PC Windows), sinon repli sur nom d'ordinateur + CPU + mémoire —
-    // volontairement SANS adresse MAC, qui n'est plus fiable pour ça.
-    const raw = guid
-        ? ('WINGUID|' + guid)
-        : [os.hostname(), os.cpus()?.[0]?.model || '', os.totalmem()].join('|');
+    // sur un PC Windows), sinon identifiant de repli mémorisé (voir ci-dessus).
+    const raw = guid ? ('WINGUID|' + guid) : identifiantRepli();
     const hash = crypto.createHash('sha256').update(raw).digest('hex').toUpperCase();
     return hash.slice(0, 16).match(/.{1,4}/g).join('-');
+}
+
+// Tolère les erreurs de copier-coller : espaces, retours à la ligne, tirets « longs », minuscules,
+// lettres O/I/L confondues avec 0/1 (la clé n'utilise que 0-9 et A-F).
+function normaliserCle(key) {
+    if (!key) return '';
+    let k = String(key).toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/[^0-9A-F]/g, '');
+    if (k.length !== 16) return String(key).trim().toUpperCase();
+    return k.match(/.{1,4}/g).join('-');
 }
 
 function isValidKey(machineId, key) {
     if (!key || !machineId) return false;
     const expected = crypto.createHmac('sha256', LICENSE_SECRET).update(machineId).digest('hex').toUpperCase();
     const expectedFormatted = expected.slice(0, 16).match(/.{1,4}/g).join('-');
-    return key.trim().toUpperCase() === expectedFormatted;
+    return normaliserCle(key) === expectedFormatted;
 }
 
 function isLicensed() {
@@ -119,7 +141,7 @@ function activate(key) {
     if (!isValidKey(machineId, key)) {
         return { success: false, error: 'Clé de licence invalide pour ce PC.' };
     }
-    const data = { key: key.trim().toUpperCase(), machineId, activatedAt: new Date().toISOString() };
+    const data = { key: normaliserCle(key), machineId, activatedAt: new Date().toISOString() };
     fs.writeFileSync(licensePath, JSON.stringify(data, null, 2), 'utf-8');
     if (backupLicensePath) ecrireLicence(backupLicensePath, data);
     return { success: true };
