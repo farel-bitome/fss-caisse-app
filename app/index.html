@@ -2133,7 +2133,6 @@ function renderAttenteBar(){
     var info=document.createElement('span');
     info.innerHTML='<span style="color:#FFCC00;font-weight:700">T-'+numTable+'</span> '+
       '<span style="color:#FF6666">'+(c.srv&&c.srv!=='—'?c.srv:c.tableNom)+'</span> '+
-      '<span style="color:#888">'+c.heure+'</span> '+
       '<span style="color:#fff;font-weight:700">'+Math.round(c.total).toLocaleString('fr-FR')+' F</span> ';
     div.appendChild(info);div.appendChild(btnA);div.appendChild(btnCuisine);div.appendChild(btnR);
     if(canDel){
