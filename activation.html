@@ -111,15 +111,15 @@
   // Bouton WhatsApp : message pré-rempli avec l'identifiant de ce PC
   document.getElementById('wa-btn').addEventListener('click', () => {
     const id = document.getElementById('machine-id').value || '';
-    const msg = "Bonjour, je souhaite la clé d'activation de FSS-CAISSE.\nIdentifiant de mon PC : " + id;
+    const msg = "Bonjour, je souhaite acheter une clé d'activation de FSS-CAISSE.\nIdentifiant de mon PC : " + id;
     window.electronAPI.ouvrirWhatsApp('https://wa.me/24177378602?text=' + encodeURIComponent(msg));
   });
 
   document.getElementById('mail-link').addEventListener('click', (e) => {
     e.preventDefault();
     const id = document.getElementById('machine-id').value || '';
-    const sujet = "Demande de clé d'activation FSS-CAISSE";
-    const corps = "Bonjour,\n\nJe souhaite la clé d'activation de FSS-CAISSE.\nIdentifiant de mon PC : " + id + "\n";
+    const sujet = "Achat d'une clé d'activation FSS-CAISSE";
+    const corps = "Bonjour,\n\nJe souhaite acheter une clé d'activation de FSS-CAISSE.\nIdentifiant de mon PC : " + id + "\n";
     window.electronAPI.ouvrirWhatsApp('mailto:fallservices241@gmail.com?subject=' + encodeURIComponent(sujet) + '&body=' + encodeURIComponent(corps));
   });
 
