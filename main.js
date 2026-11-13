@@ -120,7 +120,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 650,
     title: 'FSS-CAISSE ' + app.getVersion(),
-    autoHideMenuBar: true,
+    autoHideMenuBar: false, // la barre de menu n'apparaît plus sur un simple appui sur Alt (voir plus bas)
     icon: path.join(__dirname, 'app', 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -131,6 +131,41 @@ function createWindow() {
   });
 
   buildMenu();
+  try { win.setMenuBarVisibility(false); } catch (e) {}
+
+  // ---------------------------------------------------------------------------
+  // ANTI-BLOCAGE : une touche Alt isolée (ou envoyée par une douchette / un clavier) activait la
+  // barre de menu masquée de Windows : le clavier et la souris partaient dans le menu invisible
+  // et l'interface semblait « figée » jusqu'à un nouvel appui sur Alt. Un Alt isolé est donc
+  // ignoré. Le menu reste accessible par Ctrl+Maj+M. (AltGr / Ctrl+Alt+… ne sont pas touchés.)
+  // ---------------------------------------------------------------------------
+  win.webContents.on('before-input-event', (event, input) => {
+    try {
+      const k = String(input.key || '');
+      if (k === 'Alt' && !input.control && !input.shift && !input.meta) { event.preventDefault(); return; }
+      if (input.type === 'keyDown' && input.control && input.shift && !input.alt && k.toLowerCase() === 'm') {
+        event.preventDefault();
+        const m = Menu.getApplicationMenu();
+        if (m) m.popup({ window: win });
+      }
+    } catch (e) {}
+  });
+  // Dès que la fenêtre reprend le focus, le clavier est rendu à la page (jamais au menu ou à une autre fenêtre).
+  win.on('focus', () => { try { win.webContents.focus(); } catch (e) {} });
+  // Fenêtres filles (impression de tickets, étiquettes...) : sans menu, jamais laissées ouvertes
+  // indéfiniment, et le focus revient TOUJOURS à la fenêtre principale quand elles se ferment.
+  win.webContents.setWindowOpenHandler(() => ({ action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: false, skipTaskbar: false } }));
+  win.webContents.on('did-create-window', (child) => {
+    try {
+      child.setMenuBarVisibility(false);
+      child.removeMenu();
+      const garde = setTimeout(() => { try { if (!child.isDestroyed()) child.destroy(); } catch (e) {} }, 3 * 60 * 1000);
+      child.on('closed', () => {
+        clearTimeout(garde);
+        [0, 150, 600, 1500].forEach(d => setTimeout(rendreFocus, d));
+      });
+    } catch (e) {}
+  });
 
   // Poste CLIENT : l'adresse/port du serveur ne s'affichent jamais et ne se modifient que par
   // le raccourci technicien Ctrl+Maj+Alt+K (code technicien demandé).
@@ -212,11 +247,9 @@ function createWindow() {
       if (reveilsRecents.length >= 5) { reveilsRecents = []; journalIncident('escalade : rechargement automatique de la page'); try { boot(); } catch (e) {} return; }
       journalIncident('affichage figé détecté (' + raison + ') — repaint forcé');
       win.webContents.invalidate();
-      win.setMenuBarVisibility(true);
       setTimeout(() => {
         try {
           if (!win || win.isDestroyed()) return;
-          win.setMenuBarVisibility(false);
           if (win.isMaximized()) { win.unmaximize(); win.maximize(); }
           else if (!win.isFullScreen()) { const b = win.getBounds(); win.setBounds({ x: b.x, y: b.y, width: b.width + 1, height: b.height }); setTimeout(() => { try { win.setBounds(b); } catch (e) {} }, 60); }
           win.webContents.invalidate();
@@ -243,7 +276,7 @@ function createWindow() {
       title: 'Fermer FSS-CAISSE ?',
       message: 'Voulez-vous vraiment fermer cette application ?'
     });
-    if (choix !== 1) return; // "Annuler" (ou fermeture de la boîte de dialogue elle-même)
+    if (choix !== 1) { [0, 150, 600, 1500].forEach(d => setTimeout(rendreFocus, d)); return; } // "Annuler" (ou fermeture de la boîte de dialogue elle-même)
     let repondu = false;
     const terminerFermeture = () => {
       if (repondu) return;
@@ -446,6 +479,7 @@ function buildMenu() {
     }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  try { if (win && !win.isDestroyed()) win.setMenuBarVisibility(false); } catch (e) {}
 }
 
 ipcMain.handle('choose-role', async (event, role) => {
@@ -776,12 +810,24 @@ function imprimerSilencieuxDefaut(html) {
       show: false,
       webPreferences: { nodeIntegration: false, contextIsolation: true }
     });
-    printWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(printers.adapterHtml(html, 80, 72)));
+    let termine = false;
+    const finir = (r) => {
+      if (termine) return;
+      termine = true;
+      clearTimeout(garde);
+      try { if (!printWin.isDestroyed()) printWin.destroy(); } catch (e) {}
+      resolve(r);
+    };
+    // Garde-fou : une impression qui ne répond jamais ne doit pas laisser une fenêtre cachée ouverte (fuite + vol de focus).
+    const garde = setTimeout(() => finir({ success: false, error: 'délai dépassé' }), 60000);
+    printWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(printers.adapterHtml(html, 80, 72))).catch(() => finir({ success: false, error: 'chargement impossible' }));
+    printWin.webContents.on('did-fail-load', () => finir({ success: false, error: 'chargement impossible' }));
     printWin.webContents.on('did-finish-load', () => {
-      printWin.webContents.print({ silent: true, printBackground: true, margins: { marginType: 'none' } }, (success, errorType) => {
-        if (!printWin.isDestroyed()) printWin.close();
-        resolve({ success: success, error: success ? null : errorType });
-      });
+      try {
+        printWin.webContents.print({ silent: true, printBackground: true, margins: { marginType: 'none' } }, (success, errorType) => {
+          finir({ success: success, error: success ? null : errorType });
+        });
+      } catch (e) { finir({ success: false, error: e.message }); }
     });
   });
 }
