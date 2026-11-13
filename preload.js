@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resetManualIp: () => ipcRenderer.invoke('reset-manual-ip'),
   reloadApp: () => ipcRenderer.invoke('reload-app'),
   getMachineId: () => ipcRenderer.invoke('get-machine-id'),
+  ouvrirWhatsApp: (url) => ipcRenderer.invoke('ouvrir-whatsapp', url),
   isLicensed: () => ipcRenderer.invoke('is-licensed'),
   activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
   getTrialStatus: () => ipcRenderer.invoke('get-trial-status'),

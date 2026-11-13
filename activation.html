@@ -56,6 +56,8 @@
   .contact { background: #141414; border: 1px solid #2a2a2a; border-left: 3px solid #CC0000; border-radius: 8px; padding: 12px 14px; margin: 0 0 18px; font-size: 12.5px; line-height: 1.6; color: #ccc; }
   .contact b { color: #fff; font-size: 13px; }
   .contact .tel { color: #fff; font-size: 15px; font-weight: bold; letter-spacing: .5px; }
+  .btn-wa { background: #25D366; color: #fff; width: 100%; margin-top: 10px; padding: 10px 14px; }
+  .btn-wa:hover { background: #1ebe5a; }
   .contact small { display: block; color: #888; font-size: 11px; margin-top: 4px; }
 </style>
 </head>
@@ -68,6 +70,7 @@
     <b>FALLSERVICES&amp;SOLUTIONS INFO</b><br>
     Pour obtenir votre clé d'activation, contactez-nous :<br>
     📞 <span class="tel">+241 77 37 86 02</span>
+    <button type="button" id="wa-btn" class="btn-wa">💬 Écrire sur WhatsApp</button>
     <small>Gabon — Développeur du logiciel FSS-CAISSE</small>
   </div>
 
@@ -100,6 +103,13 @@
 <script>
   window.electronAPI.getMachineId().then((id) => {
     document.getElementById('machine-id').value = id;
+  });
+
+  // Bouton WhatsApp : message pré-rempli avec l'identifiant de ce PC
+  document.getElementById('wa-btn').addEventListener('click', () => {
+    const id = document.getElementById('machine-id').value || '';
+    const msg = "Bonjour, je souhaite la clé d'activation de FSS-CAISSE.\nIdentifiant de mon PC : " + id;
+    window.electronAPI.ouvrirWhatsApp('https://wa.me/24177378602?text=' + encodeURIComponent(msg));
   });
 
   window.electronAPI.isLicensed().then((licensed) => {

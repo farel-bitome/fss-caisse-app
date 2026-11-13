@@ -650,6 +650,12 @@ ipcMain.handle('reload-app', () => {
 });
 
 ipcMain.handle('get-machine-id', () => licensing.getMachineId());
+// Ouvre WhatsApp (application ou navigateur) vers le numéro de FALLSERVICES&SOLUTIONS INFO uniquement.
+ipcMain.handle('ouvrir-whatsapp', (event, url) => {
+  if (typeof url !== 'string' || url.indexOf('https://wa.me/24177378602') !== 0) return { ok: false };
+  shell.openExternal(url);
+  return { ok: true };
+});
 ipcMain.handle('is-licensed', () => licensing.isLicensed());
 ipcMain.handle('activate-license', (event, key) => licensing.activate(key));
 ipcMain.handle('get-trial-status', () => licensing.getTrialStatus());
