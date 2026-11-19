@@ -789,10 +789,47 @@ td{padding:8px 11px;vertical-align:middle}
     <div class="sub" id="sub-params-opts">
       <div class="slay"><div class="ssect"><div class="ssti">Options Caisse</div><div id="optsWrap"></div></div>
         <div class="ssect" id="reseauSect" style="display:none"><div class="ssti">Réseau</div>
-          <div style="font-size:12px;color:#888;margin-bottom:10px">Fixez l'adresse IP de ce PC pour que les autres caisses et les TPE retrouvent toujours le serveur à la même adresse.</div>
-          <button class="btn btn-b" onclick="window.electronAPI.ouvrirAdresseServeur()">📌 Adresse IP fixe du serveur</button>
+          <div style="font-size:12px;color:#888;margin-bottom:8px">Fixez l'adresse IP de ce PC pour que les autres caisses et les TPE le retrouvent toujours à la même adresse.</div>
+          <div id="reseauEtat" style="font-size:13px;margin-bottom:10px;color:#ccc">Lecture du réseau…</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-b" id="btnFixerIp" onclick="reseauFixerActuelle()">📌 Fixer l'adresse IP</button>
+            <button class="btn btn-o" onclick="reseauRemettreAuto()">↺ Remettre en automatique</button>
+            <button class="btn btn-o" onclick="window.electronAPI.ouvrirAdresseServeur()">⚙️ Choisir une autre adresse…</button>
+          </div>
         </div></div>
-      <script>(function(){try{if(window.electronAPI&&window.electronAPI.ouvrirAdresseServeur)document.getElementById('reseauSect').style.display='';}catch(e){}})();</script>
+      <script>
+      function reseauLire(){
+        var e=document.getElementById('reseauEtat');if(!e)return;
+        window.electronAPI.reseauInfo().then(function(r){
+          if(!r||!r.ok){e.textContent=(r&&r.error)||'Réseau indisponible.';return;}
+          window.__reseau=r;
+          e.innerHTML='Adresse de ce PC : <b style="color:#fff">'+r.ip+'</b> — '+(r.dhcp?'<span style="color:#FFAA44">automatique (peut changer)</span>':'<span style="color:#44FF88">✓ fixe</span>');
+          document.getElementById('btnFixerIp').disabled=!r.dhcp;
+        }).catch(function(){e.textContent='Réseau indisponible.';});
+      }
+      function reseauFixerActuelle(){
+        var r=window.__reseau;if(!r||!r.ip){toast('Réseau non lu','e');return;}
+        fssConfirm('Fixer l\'adresse IP de ce PC sur '+r.ip+' ?\n\nWindows va demander l\'autorisation administrateur. Si le routeur donne déjà cette adresse à un autre appareil, choisissez plutôt une autre adresse (bouton « Choisir une autre adresse »).',function(){
+          toast('Application en cours… acceptez la fenêtre Windows','i');
+          window.electronAPI.reseauFixer(r.ip).then(function(x){
+            if(x&&x.ok){
+              if(window.FSS_IS_SERVER&&window.electronAPI.saveManualIp)window.electronAPI.saveManualIp(x.ip,'3000');
+              toastLong('✓ Adresse IP fixée sur '+x.ip+'. Saisissez-la sur les autres postes si ce n\'est pas déjà fait.','s',8000);
+            }else toastLong('Échec : '+((x&&x.error)||'inconnu'),'e',8000);
+            reseauLire();
+          });
+        },null,{ok:'Fixer',cancel:'Annuler'});
+      }
+      function reseauRemettreAuto(){
+        fssConfirm('Remettre l\'adresse IP de ce PC en automatique (DHCP) ?\nElle pourra changer au redémarrage du routeur.',function(){
+          window.electronAPI.reseauDhcp().then(function(x){
+            if(x&&x.ok)toast('Adresse remise en automatique','s');else toast('Échec : '+((x&&x.error)||'inconnu'),'e');
+            setTimeout(reseauLire,3000);
+          });
+        },null,{ok:'Remettre'});
+      }
+      (function(){try{if(window.electronAPI&&window.electronAPI.reseauInfo&&window.electronAPI.ouvrirAdresseServeur){document.getElementById('reseauSect').style.display='';reseauLire();}}catch(e){}})();
+      </script>
     </div>
     <div class="sub" id="sub-params-sauv">
       <div class="slay">
@@ -1261,7 +1298,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.10.3';
+window.FSS_VERSION='1.10.4';
 var arts=[];
 var clis=[];
 var fours=[];
