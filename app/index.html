@@ -1256,7 +1256,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.10.1';
+window.FSS_VERSION='1.10.2';
 var arts=[];
 var clis=[];
 var fours=[];
@@ -2223,7 +2223,7 @@ function prtRender(){
   prt.trouvees.filter(function(x){return !cfg.printers.some(function(p){return p.type==='network'&&p.ip===x.ip;});}).forEach(function(x){
     var d=document.createElement('div');
     d.style.cssText='display:flex;gap:8px;align-items:center;font-size:12px;padding:4px 0';
-    d.innerHTML='🔎 Imprimante détectée : <strong>'+prtEsc(x.ip)+':'+x.port+'</strong> <button class="btn btn-b sm" onclick="prtAjouterTrouvee(\''+x.ip+'\','+x.port+')">➕ Ajouter</button>';
+    d.innerHTML='🔎 Imprimante détectée : <strong>'+prtEsc((x.marque&&x.modele?x.marque+' '+x.modele+' — ':'')+x.ip)+':'+x.port+'</strong> <button class="btn btn-b sm" onclick="prtAjouterTrouvee(\''+x.ip+'\','+x.port+')">➕ Ajouter</button>';
     t.appendChild(d);
   });
   // --- imprimantes vues par Windows (diagnostic + ajout manuel)
@@ -2378,7 +2378,11 @@ function prtAjouterWindows(nom){
   if(!prt.cfg.imprimanteCaisse)prt.cfg.imprimanteCaisse=n.id;
   prtPersist();prtRender();toast('Imprimante ajoutée','s');
 }
-function prtAjouterTrouvee(ip,port){prtOuvrirForm(null,ip,port);}
+function prtAjouterTrouvee(ip,port){
+  var f=(prt.trouvees||[]).find(function(x){return x.ip===ip&&String(x.port)===String(port);});
+  prtOuvrirForm(null,ip,port);
+  if(f&&f.marque&&f.modele){g('prtFMarque').value=f.marque;prtMajModeles(f.modele);g('prtFNom').value=f.marque+' '+f.modele;}
+}
 function prtRechercherReseau(){
   var st=g('prtScanStatus');st.textContent='Recherche en cours…';st.style.color='#FFCC00';
   window.electronAPI.printers.scan().then(function(r){

@@ -287,6 +287,49 @@ function testerPort(ip, port, timeoutMs) {
     s.connect(port, ip);
   });
 }
+// ---------------------------------------------------------------------
+// Identification du modèle d'une imprimante réseau (commande ESC/POS standard GS I : fabricant + modèle).
+// Ex. Xprinter XP-80T répond « Xprinter » / « XP-80T ». Si l'imprimante ne répond pas, on garde un profil générique.
+// ---------------------------------------------------------------------
+function normaliserModele(t) { return String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function trouverModele(texte) {
+  const brut = String(texte || '');
+  const n = normaliserModele(brut);
+  let meilleur = null;
+  MODELES.forEach((m) => {
+    const cle = normaliserModele(String(m.modele).split(/[\s(]/)[0]);
+    if (cle.length >= 4 && n.indexOf(cle) !== -1 && (!meilleur || cle.length > meilleur.cle.length)) meilleur = { m: m, cle: cle };
+  });
+  if (meilleur) return { marque: meilleur.m.marque, modele: meilleur.m.modele, papier: meilleur.m.papier, texte: brut };
+  const marque = devinerMarque(brut);
+  const modele = devinerModele(brut);
+  if (modele || marque !== 'ESC/POS') {
+    const m = MODELES.find((x) => x.marque === marque && normaliserModele(x.modele).indexOf(normaliserModele(modele)) === 0 && modele);
+    return { marque: marque, modele: m ? m.modele : '', papier: m ? m.papier : null, texte: brut };
+  }
+  return null;
+}
+function identifierImprimante(ip, port, timeoutMs) {
+  return new Promise((resolve) => {
+    const s = new net.Socket();
+    let recu = Buffer.alloc(0), fini = false, minuterie = null;
+    const fin = () => {
+      if (fini) return;
+      fini = true;
+      clearTimeout(minuterie);
+      try { s.destroy(); } catch (e) {}
+      const textes = (recu.toString('latin1').match(/[ -~]{3,}/g) || []).map((x) => x.replace(/^_/, '').trim()).filter(Boolean);
+      resolve(textes.length ? trouverModele(textes.join(' ')) : null);
+    };
+    s.setTimeout(timeoutMs || 1200);
+    s.on('timeout', fin); s.on('error', fin); s.on('close', fin);
+    s.on('data', (d) => { recu = Buffer.concat([recu, d]); if (recu.length > 200) fin(); else { clearTimeout(minuterie); minuterie = setTimeout(fin, 350); } });
+    s.connect(Number(port) || 9100, ip, () => {
+      // GS I 66 = fabricant, GS I 67 = nom du modèle (sans effet visible : aucune impression)
+      try { s.write(Buffer.from([0x1d, 0x49, 0x42, 0x1d, 0x49, 0x43])); } catch (e) { fin(); }
+    });
+  });
+}
 async function scannerReseau(options) {
   options = options || {};
   const port = options.port || 9100;
@@ -310,6 +353,14 @@ async function scannerReseau(options) {
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCE }, ouvrier));
+  if (options.identifier !== false) {
+    await Promise.all(trouvees.map(async (t) => {
+      try {
+        const id = await identifierImprimante(t.ip, t.port, 1200);
+        if (id) { t.marque = id.marque; t.modele = id.modele; t.papier = id.papier; t.identifie = id.texte; }
+      } catch (e) {}
+    }));
+  }
   trouvees.sort((a, b) => a.ip.localeCompare(b.ip, undefined, { numeric: true }));
   return trouvees;
 }
@@ -635,20 +686,25 @@ function ajoutAutomatique(listeWindows) {
 
 
 // Ajoute automatiquement les imprimantes RESEAU (IP) détectées. Retourne la liste des ajouts.
-function ajoutAutomatiqueReseau(trouvees) {
+async function ajoutAutomatiqueReseau(trouvees) {
   const cfg = chargerConfig();
   if (cfg.autoAjoutReseau === false) return [];
   const ajouts = [];
-  trouvees.forEach(t => {
-    if (cfg.printers.find(p => p.type === 'network' && p.ip === t.ip && (Number(p.port) || 9100) === (Number(t.port) || 9100))) return;
-    if ((cfg.ignorees || []).indexOf('net:' + t.ip) !== -1) return;
+  for (const t of trouvees) {
+    if (cfg.printers.find(p => p.type === 'network' && p.ip === t.ip && (Number(p.port) || 9100) === (Number(t.port) || 9100))) continue;
+    if ((cfg.ignorees || []).indexOf('net:' + t.ip) !== -1) continue;
+    let id = t.modele || t.marque ? t : null;
+    if (!id) { try { id = await identifierImprimante(t.ip, t.port, 1200); } catch (e) { id = null; } }
+    const marque = (id && id.marque) || 'ESC/POS';
+    const modele = (id && id.modele) || 'Générique 80 mm';
+    const papier = (id && id.papier) || 80;
     const imp = {
-      id: nouvelId(), nom: 'Imprimante réseau ' + t.ip, type: 'network', ip: t.ip, port: Number(t.port) || 9100,
-      marque: 'ESC/POS', modele: 'Générique 80 mm', papier: 80, actif: true, auto: true
+      id: nouvelId(), nom: (id && id.modele ? marque + ' ' + modele + ' — ' : 'Imprimante réseau ') + t.ip, type: 'network', ip: t.ip, port: Number(t.port) || 9100,
+      marque: marque, modele: modele, papier: papier, actif: true, auto: true
     };
     cfg.printers.push(imp);
     ajouts.push(imp);
-  });
+  }
   if (ajouts.length) {
     if (!cfg.imprimanteCaisse) cfg.imprimanteCaisse = ajouts[0].id;
     sauverConfig(cfg);
@@ -677,6 +733,6 @@ function htmlTest(imp) {
 
 module.exports = {
   MODELES, POINTS, ajoutAutomatiqueReseau, etatReseau, envoyerRawWindows, SCRIPT_RAW, init, chargerConfig, sauverConfig, nouvelId, rasterVersEscpos, envoyerTcp,
-  scannerReseau, sousReseauxLocaux, testerPort, listerWindows, ajoutAutomatique, imprimerSur,
+  scannerReseau, identifierImprimante, trouverModele, sousReseauxLocaux, testerPort, listerWindows, ajoutAutomatique, imprimerSur,
   router, choisirCibles, htmlTest, adapterHtml, htmlVersImage
 };

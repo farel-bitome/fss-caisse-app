@@ -881,7 +881,7 @@ function demarrerSurveillanceImprimantes() {
       const cfg = printers.chargerConfig();
       if (cfg.autoAjoutReseau === false) return;
       const trouvees = await printers.scannerReseau({});
-      const ajouts = printers.ajoutAutomatiqueReseau(trouvees);
+      const ajouts = await printers.ajoutAutomatiqueReseau(trouvees);
       if (ajouts.length) envoyerAuRenderer('printers-changed', { ajouts: ajouts.map(a => a.nom) });
     } catch (e) {} finally { scanReseauEnCours = false; }
   };
