@@ -662,6 +662,12 @@ ipcMain.handle('reseau-dhcp', async () => {
   const a = alias.replace(/["%\r\n&|<>^]/g, '');
   return lancerScriptAdmin(['netsh interface ip set address name="' + a + '" dhcp', 'netsh interface ip set dns name="' + a + '" dhcp']);
 });
+// Ouvre l'écran « Adresse du serveur / Adresse IP fixe » depuis Paramètres (sans passer par le menu masqué).
+ipcMain.handle('ouvrir-adresse-serveur', () => {
+  const cfg = loadConfig();
+  if (cfg.role === 'client') showClientScreen(); else win.loadFile(path.join(__dirname, 'server-ip.html'));
+  return true;
+});
 ipcMain.handle('save-manual-ip', (event, ip, port) => {
   const cfg = loadConfig();
   cfg.manualIP = ip;

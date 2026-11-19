@@ -787,7 +787,12 @@ td{padding:8px 11px;vertical-align:middle}
       </div></div>
     </div>
     <div class="sub" id="sub-params-opts">
-      <div class="slay"><div class="ssect"><div class="ssti">Options Caisse</div><div id="optsWrap"></div></div></div>
+      <div class="slay"><div class="ssect"><div class="ssti">Options Caisse</div><div id="optsWrap"></div></div>
+        <div class="ssect" id="reseauSect" style="display:none"><div class="ssti">Réseau</div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px">Fixez l'adresse IP de ce PC pour que les autres caisses et les TPE retrouvent toujours le serveur à la même adresse.</div>
+          <button class="btn btn-b" onclick="window.electronAPI.ouvrirAdresseServeur()">📌 Adresse IP fixe du serveur</button>
+        </div></div>
+      <script>(function(){try{if(window.electronAPI&&window.electronAPI.ouvrirAdresseServeur)document.getElementById('reseauSect').style.display='';}catch(e){}})();</script>
     </div>
     <div class="sub" id="sub-params-sauv">
       <div class="slay">
@@ -1256,7 +1261,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.10.2';
+window.FSS_VERSION='1.10.3';
 var arts=[];
 var clis=[];
 var fours=[];
