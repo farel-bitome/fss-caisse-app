@@ -1299,7 +1299,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.10.19';
+window.FSS_VERSION='1.10.20';
 var arts=[];
 var clis=[];
 var fours=[];
@@ -2245,7 +2245,7 @@ function prtRender(){
       d.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid #2a2a2a;border-radius:6px;padding:8px 10px;margin-bottom:6px';
       var etat='';
       if(p.type==='windows')etat=p.presente?'<span style="color:#44FF88">● branchée</span>':'<span style="color:#FF6666">○ non détectée</span>';
-      else etat=(p.presente?'<span style="color:#44FF88">● en ligne</span> ':'<span style="color:#FF6666">○ injoignable</span> ')+'<span style="color:#88AAFF">IP '+prtEsc(p.ip)+':'+prtEsc(p.port||9100)+'</span>';
+      else etat=(p.presente?'<span style="color:#44FF88">● en ligne</span> ':'<span style="color:#FF6666">○ injoignable</span> ')+'<span style="color:#88AAFF">IP '+prtEsc(p.ip)+' · Port '+prtEsc(p.port||9100)+' · MAC '+prtEsc(p.mac||'inconnue')+'</span>';
       d.innerHTML='<label style="display:flex;align-items:center;gap:6px;flex:1;min-width:220px"><input type="checkbox" '+(p.actif!==false?'checked':'')+' onchange="prtActif(\''+p.id+'\',this.checked)"><span><strong>'+prtEsc(p.nom)+'</strong> <span style="color:#888;font-size:11px">'+prtEsc((p.marque||'')+' '+(p.modele||''))+' · '+(p.papier||80)+' mm'+(p.type==='windows'?' · USB/Windows':' · Réseau')+'</span></span></label>'+
         '<span style="font-size:11px;padding:2px 6px;border-radius:4px;background:'+(p.usage==='bons'?'#3a2a00':'#0e2a14')+'">'+(p.usage==='bons'?'🧾 bons de commande seulement':'🖨️ imprime tout')+'</span>'+
         '<span style="font-size:12px">'+etat+'</span>'+
@@ -2268,7 +2268,7 @@ function prtRender(){
   prt.trouvees.filter(function(x){return !cfg.printers.some(function(p){return p.type==='network'&&p.ip===x.ip;});}).forEach(function(x){
     var d=document.createElement('div');
     d.style.cssText='display:flex;gap:8px;align-items:center;font-size:12px;padding:4px 0';
-    d.innerHTML='🔎 Imprimante détectée : <strong>'+prtEsc((x.marque&&x.modele?x.marque+' '+x.modele+' — ':'')+x.ip)+':'+x.port+'</strong> <button class="btn btn-b sm" onclick="prtAjouterTrouvee(\''+x.ip+'\','+x.port+')">➕ Ajouter</button> <button class="btn btn-o sm" onclick="prtFixerTrouvee(\''+x.ip+'\','+x.port+')" title="Fixer l\'adresse IP de cette imprimante">📌 Fixer l\'IP</button>';
+    d.innerHTML='🔎 Imprimante détectée : <strong>'+prtEsc((x.marque&&x.modele?x.marque+' '+x.modele+' — ':''))+'</strong> <span style="color:#88AAFF">IP '+prtEsc(x.ip)+' · Port '+prtEsc(x.port)+' · MAC '+prtEsc(x.mac||'inconnue')+'</span> <button class="btn btn-b sm" onclick="prtAjouterTrouvee(\''+x.ip+'\','+x.port+')">➕ Ajouter</button> <button class="btn btn-o sm" onclick="prtFixerTrouvee(\''+x.ip+'\','+x.port+')" title="Fixer l\'adresse IP de cette imprimante">📌 Fixer l\'IP</button>';
     t.appendChild(d);
   });
   // --- imprimantes vues par Windows (diagnostic + ajout manuel)
