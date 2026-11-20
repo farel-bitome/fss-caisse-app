@@ -943,6 +943,16 @@ ipcMain.handle('printers-test', async (event, imp) => {
   const r = await avecGardeFocus(() => printers.imprimerSur({ BrowserWindow }, imp, printers.htmlTest(imp)));
   return r;
 });
+// Fiche « fixer l'adresse » d'une imprimante réseau : MAC (identité réseau) à réserver dans le routeur.
+ipcMain.handle('printers-fiche-ip', async (event, ip, port) => {
+  await printers.testerPort(ip, Number(port) || 9100, 1500); // provoque l'entrée dans la table ARP
+  const t = await printers.tableArp();
+  return { mac: t[ip] || '' };
+});
+ipcMain.handle('printers-ouvrir-config', (event, ip) => {
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(String(ip || ''))) return false;
+  shell.openExternal('http://' + ip + '/'); return true;
+});
 ipcMain.handle('printers-test-port', async (event, ip, port) => printers.testerPort(ip, Number(port) || 9100, 1500));
 ipcMain.handle('printers-route', async (event, demande) => {
   const r = await avecGardeFocus(() => printers.router({ BrowserWindow }, demande, imprimerSilencieuxDefaut));

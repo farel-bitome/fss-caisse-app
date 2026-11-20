@@ -345,6 +345,21 @@ function identifierImprimante(ip, port, timeoutMs) {
 }
 // Voisins déjà vus par ce PC (table ARP) : une imprimante allumée sur le réseau y figure presque toujours,
 // même quand elle répond lentement. On les teste en priorité et avec plus de patience.
+// Table ARP complète {ip: adresse MAC} : la MAC est l'identité réseau d'une imprimante (elle ne change jamais, contrairement à l'IP).
+function tableArp() {
+  return new Promise((resolve) => {
+    try {
+      require('child_process').execFile('arp', ['-a'], { timeout: 4000, windowsHide: true }, (err, out) => {
+        const t = {};
+        String(out || '').split(/\r?\n/).forEach((l) => {
+          const m = l.match(/(\d{1,3}(?:\.\d{1,3}){3}).*?([0-9a-f]{2}(?:[-:][0-9a-f]{2}){5})/i);
+          if (m && !/^ff[-:]ff/i.test(m[2])) t[m[1]] = m[2].toLowerCase().replace(/-/g, ':');
+        });
+        resolve(t);
+      });
+    } catch (e) { resolve({}); }
+  });
+}
 function voisinsArp() {
   return new Promise((resolve) => {
     try {
@@ -376,6 +391,7 @@ async function scannerReseau(options) {
   const dejaVu = {};
   const noter = (ip, pt) => { if (dejaVu[ip + ':' + pt]) return; dejaVu[ip + ':' + pt] = 1; trouvees.push({ ip: ip, port: pt }); };
   const arp = await voisinsArp();
+  const macs = await tableArp();
   const file = [];
   bases.forEach(b => { for (let i = 1; i <= 254; i++) file.push(b + '.' + i); });
   // Adresses IP d'usine des imprimantes réseau (souvent hors du réseau du PC) : testées en plus, en premier.
@@ -411,6 +427,8 @@ async function scannerReseau(options) {
       } catch (e) {}
     }));
   }
+  const macs2 = await tableArp(); // relue après les connexions : les imprimantes trouvées y figurent désormais
+  trouvees.forEach(t => { const m = macs2[t.ip] || macs[t.ip]; if (m) t.mac = m; });
   trouvees.sort((a, b) => a.ip.localeCompare(b.ip, undefined, { numeric: true }));
   return trouvees;
 }
@@ -754,6 +772,16 @@ async function ajoutAutomatiqueReseau(trouvees) {
     // Même modèle qu'une imprimante enregistrée qui ne répond plus ? -> c'est elle qui a changé d'adresse : on met à jour
     // son IP (elle garde son nom, son rôle caisse/bar/cuisine, ses réglages) au lieu d'en créer une seconde.
     {
+      const parMac = t.mac ? orphelines.filter(o => !o._deplacee && o.mac && o.mac === t.mac) : [];
+      if (parMac.length === 1) {
+        const o = parMac[0], ancienne = o.ip;
+        o.ip = t.ip; o.port = Number(t.port) || o.port || 9100; o._deplacee = true;
+        if (o.nom && o.nom.indexOf(ancienne) !== -1) o.nom = o.nom.split(ancienne).join(t.ip);
+        deplacees.push({ id: o.id, nom: o.nom, de: ancienne, vers: t.ip });
+        continue;
+      }
+    }
+    {
       const marqueT = (id && id.marque) || 'ESC/POS', modeleT = (id && id.modele) || 'Générique 80 mm';
       const libres = orphelines.filter(o => !o._deplacee);
       let cand = libres.filter(o => o.marque === marqueT && o.modele === modeleT);
@@ -772,12 +800,16 @@ async function ajoutAutomatiqueReseau(trouvees) {
     const papier = (id && id.papier) || 80;
     const imp = {
       id: nouvelId(), nom: (id && id.modele ? marque + ' ' + modele + ' — ' : 'Imprimante réseau ') + t.ip, type: 'network', ip: t.ip, port: Number(t.port) || 9100,
-      marque: marque, modele: modele, papier: papier, actif: true, auto: true
+      marque: marque, modele: modele, papier: papier, actif: true, auto: true, mac: t.mac || ''
     };
     cfg.printers.push(imp);
     ajouts.push(imp);
   }
   cfg.printers.forEach(p => { delete p._deplacee; });
+  // Mémorise la MAC des imprimantes déjà enregistrées quand on la voit (sert à les retrouver même si le modèle n'est pas identifié)
+  let majMac = false;
+  trouvees.forEach(t => { const p = t.mac && cfg.printers.find(x => x.type === 'network' && x.ip === t.ip); if (p && p.mac !== t.mac) { p.mac = t.mac; majMac = true; } });
+  if (majMac && !ajouts.length && !deplacees.length) sauverConfig(cfg);
   if (ajouts.length && !cfg.imprimanteCaisse) cfg.imprimanteCaisse = ajouts[0].id;
   if (ajouts.length || deplacees.length) sauverConfig(cfg);
   ajouts.deplacees = deplacees;
@@ -805,6 +837,6 @@ function htmlTest(imp) {
 
 module.exports = {
   MODELES, POINTS, ajoutAutomatiqueReseau, etatReseau, envoyerRawWindows, SCRIPT_RAW, init, chargerConfig, sauverConfig, nouvelId, rasterVersEscpos, envoyerTcp,
-  scannerReseau, voisinsArp, identifierImprimante, trouverModele, sousReseauxLocaux, testerPort, listerWindows, ajoutAutomatique, imprimerSur,
+  scannerReseau, voisinsArp, tableArp, identifierImprimante, trouverModele, sousReseauxLocaux, testerPort, listerWindows, ajoutAutomatique, imprimerSur,
   router, choisirCibles, htmlTest, adapterHtml, htmlVersImage
 };

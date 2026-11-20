@@ -1298,7 +1298,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.10.12';
+window.FSS_VERSION='1.10.13';
 var arts=[];
 var clis=[];
 var fours=[];
@@ -2247,6 +2247,7 @@ function prtRender(){
       d.innerHTML='<label style="display:flex;align-items:center;gap:6px;flex:1;min-width:220px"><input type="checkbox" '+(p.actif!==false?'checked':'')+' onchange="prtActif(\''+p.id+'\',this.checked)"><span><strong>'+prtEsc(p.nom)+'</strong> <span style="color:#888;font-size:11px">'+prtEsc((p.marque||'')+' '+(p.modele||''))+' · '+(p.papier||80)+' mm'+(p.type==='windows'?' · USB/Windows':' · Réseau')+'</span></span></label>'+
         '<span style="font-size:11px;padding:2px 6px;border-radius:4px;background:'+(p.usage==='bons'?'#3a2a00':'#0e2a14')+'">'+(p.usage==='bons'?'🧾 bons de commande seulement':'🖨️ imprime tout')+'</span>'+
         '<span style="font-size:12px">'+etat+'</span>'+
+        (p.type==='network'?'<button class="btn btn-o sm" onclick="prtFixerIp(\''+p.id+'\')" title="Fixer l\'adresse IP de cette imprimante">📌 Fixer l\'IP</button>':'')+
         '<button class="btn btn-o sm" onclick="prtTester(\''+p.id+'\')">🖨️ Test</button>'+
         '<button class="btn btn-o sm" onclick="prtOuvrirForm(\''+p.id+'\')">✏️</button>'+
         '<button class="btn btn-o sm" onclick="prtSupprimer(\''+p.id+'\')">🗑️</button>';
@@ -2332,6 +2333,24 @@ function prtTousSurToutes(){
 }
 function prtEnregistrerTout(){
   prtPersist().then(function(){prt.cfg.configure=true;prtRender();toast('Configuration des imprimantes enregistrée — tout est maintenant automatique','s');});
+}
+function prtFixerIp(id){
+  var p=(prt.cfg.printers||[]).filter(function(x){return x.id===id;})[0];if(!p)return;
+  toast('Lecture de l\'identité réseau…','i');
+  window.electronAPI.printers.ficheIp(p.ip,p.port||9100).then(function(r){
+    var mac=(r&&r.mac)||p.mac||'';
+    if(mac&&p.mac!==mac){p.mac=mac;try{window.electronAPI.printers.save(prt.cfg);}catch(e){}}
+    var msg='📌 FIXER L\'ADRESSE DE CETTE IMPRIMANTE\n\n'+
+      'Imprimante : '+(p.nom||'')+'\nAdresse IP actuelle : '+p.ip+'\nAdresse MAC : '+(mac||'(non lue — imprimante éteinte ?)')+'\n\n'+
+      'Méthode la plus fiable (réservation dans le routeur) :\n'+
+      '1) Ouvrez la page de votre routeur (souvent http://192.168.1.1)\n'+
+      '2) Cherchez « DHCP » → « Réservation d\'adresse » (ou « IP statique / Address reservation »)\n'+
+      '3) Associez la MAC ci-dessus à l\'IP '+p.ip+'\n'+
+      '4) Éteignez/rallumez l\'imprimante.\n\n'+
+      'Sinon : « Page de l\'imprimante » ouvre sa propre page de réglage (si elle en a une) pour y entrer une IP fixe.\n\n'+
+      'Même sans cela, le logiciel retrouve seul l\'imprimante si son adresse change.';
+    fssConfirm(msg,function(){window.electronAPI.printers.ouvrirConfig(p.ip);},null,{ok:'Page de l\'imprimante',cancel:'Fermer'});
+  });
 }
 function prtTester(id){
   var p=prt.cfg.printers.find(function(x){return x.id===id;});if(!p)return;

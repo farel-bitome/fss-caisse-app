@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     save: (cfg) => ipcRenderer.invoke('printers-save', cfg),
     scan: () => ipcRenderer.invoke('printers-scan'),
     test: (imp) => ipcRenderer.invoke('printers-test', imp),
+    ficheIp: (ip, port) => ipcRenderer.invoke('printers-fiche-ip', ip, port),
+    ouvrirConfig: (ip) => ipcRenderer.invoke('printers-ouvrir-config', ip),
     testPort: (ip, port) => ipcRenderer.invoke('printers-test-port', ip, port),
     route: (demande) => ipcRenderer.invoke('printers-route', demande),
     installDrivers: () => ipcRenderer.invoke('printers-install-drivers'),
