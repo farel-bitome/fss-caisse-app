@@ -272,8 +272,18 @@ function sousReseauxLocaux() {
       if (n.family !== 'IPv4' || n.internal) continue;
       if (n.address.startsWith('169.254.')) continue;
       if (/virtualbox|vmware|hyper-v|docker|wsl|vethernet|bluetooth|tailscale|zerotier/i.test(nom)) continue;
-      const base = n.address.split('.').slice(0, 3).join('.');
+      const p = n.address.split('.').map(Number);
+      const base = p.slice(0, 3).join('.');
       if (!res.find(r => r.base === base)) res.push({ base: base, monIp: n.address });
+      // Masque plus large que /24 (ex. 255.255.254.0) : les blocs voisins font partie du même réseau -> on les inclut aussi.
+      const m = String(n.netmask || '').split('.').map(Number);
+      if (m.length === 4 && m[0] === 255 && m[1] === 255 && m[2] < 255 && m[2] >= 252) {
+        const taille = 256 - m[2], debut = p[2] - (p[2] % taille);
+        for (let k = debut; k < debut + taille; k++) {
+          const b2 = p[0] + '.' + p[1] + '.' + k;
+          if (!res.find(r => r.base === b2)) res.push({ base: b2, monIp: n.address });
+        }
+      }
     }
   }
   return res;
@@ -333,33 +343,70 @@ function identifierImprimante(ip, port, timeoutMs) {
     });
   });
 }
+// Voisins déjà vus par ce PC (table ARP) : une imprimante allumée sur le réseau y figure presque toujours,
+// même quand elle répond lentement. On les teste en priorité et avec plus de patience.
+function voisinsArp() {
+  return new Promise((resolve) => {
+    try {
+      require('child_process').execFile('arp', ['-a'], { timeout: 4000, windowsHide: true }, (err, out) => {
+        const ips = [];
+        String(out || '').split(/\r?\n/).forEach((l) => {
+          const m = l.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+          if (!m) return;
+          const ip = m[1];
+          if (/^(224|225|226|227|228|229|23\d)\./.test(ip) || /\.(255|0)$/.test(ip) || /^127\./.test(ip) || /^169\.254\./.test(ip)) return;
+          if (ips.indexOf(ip) === -1) ips.push(ip);
+        });
+        resolve(ips);
+      });
+    } catch (e) { resolve([]); }
+  });
+}
+// Réseaux d'usine / courants testés en plus pour la recherche approfondie.
+const RESEAUX_COURANTS = ['192.168.0', '192.168.1', '192.168.2', '192.168.8', '192.168.10', '192.168.100', '192.168.123', '192.168.192', '192.168.31', '10.0.0', '10.0.1', '172.16.0'];
+
 async function scannerReseau(options) {
   options = options || {};
-  const port = options.port || 9100;
-  const bases = options.bases || sousReseauxLocaux().map(r => r.base);
+  const ports = options.ports || [options.port || 9100];
+  const port = ports[0];
+  const bases = (options.bases || sousReseauxLocaux().map(r => r.base)).slice();
+  if (options.approfondi) RESEAUX_COURANTS.forEach(b => { if (bases.indexOf(b) === -1) bases.push(b); });
+  const monIps = sousReseauxLocaux().map(r => r.monIp);
   const trouvees = [];
-  let faits = 0;
-  const total = bases.length * 254 + 9;
+  const dejaVu = {};
+  const noter = (ip, pt) => { if (dejaVu[ip + ':' + pt]) return; dejaVu[ip + ':' + pt] = 1; trouvees.push({ ip: ip, port: pt }); };
+  const arp = await voisinsArp();
   const file = [];
   bases.forEach(b => { for (let i = 1; i <= 254; i++) file.push(b + '.' + i); });
   // Adresses IP d'usine des imprimantes réseau (souvent hors du réseau du PC) : testées en plus, en premier.
   const USINE = ['192.168.123.100', '192.168.192.168', '192.168.1.87', '192.168.0.87', '192.168.1.100', '192.168.0.100', '192.168.1.123', '192.168.0.123', '10.0.0.100'];
   USINE.slice().reverse().forEach(ip => { if (file.indexOf(ip) === -1) file.unshift(ip); });
-  const CONCURRENCE = options.concurrence || 80;
+  const total = file.length + arp.length;
+  let faits = 0;
+  const avance = () => { faits++; if (options.progress && (faits % 20 === 0 || faits === total)) options.progress(Math.min(faits, total), total); };
+  // Étape 1 : voisins ARP, patience plus grande + toutes les variantes de port
+  const portsArp = ports.concat([9101, 9102].filter(x => ports.indexOf(x) === -1));
+  await Promise.all(arp.map(async (ip) => {
+    for (const pt of portsArp) { if (await testerPort(ip, pt, options.timeoutArp || 1500)) noter(ip, pt); }
+    avance();
+  }));
+  // Étape 2 : balayage complet des sous-réseaux
+  const aTester = file.filter(ip => arp.indexOf(ip) === -1 && monIps.indexOf(ip) === -1);
+  const CONCURRENCE = options.concurrence || 120;
+  const timeout = options.timeout || 600;
   async function ouvrier() {
-    while (file.length) {
-      const ip = file.shift();
-      const ouvert = await testerPort(ip, port, options.timeout || 450);
-      if (ouvert) trouvees.push({ ip: ip, port: port });
-      faits++;
-      if (options.progress && (faits % 20 === 0 || faits === total)) options.progress(faits, total);
+    while (aTester.length) {
+      const ip = aTester.shift();
+      for (const pt of ports) { if (await testerPort(ip, pt, timeout)) noter(ip, pt); }
+      avance();
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCE }, ouvrier));
+  faits = total; if (options.progress) options.progress(total, total);
   if (options.identifier !== false) {
     await Promise.all(trouvees.map(async (t) => {
       try {
-        const id = await identifierImprimante(t.ip, t.port, 1200);
+        const id = await identifierImprimante(t.ip, t.port, 1500);
         if (id) { t.marque = id.marque; t.modele = id.modele; t.papier = id.papier; t.identifie = id.texte; }
       } catch (e) {}
     }));
@@ -736,6 +783,6 @@ function htmlTest(imp) {
 
 module.exports = {
   MODELES, POINTS, ajoutAutomatiqueReseau, etatReseau, envoyerRawWindows, SCRIPT_RAW, init, chargerConfig, sauverConfig, nouvelId, rasterVersEscpos, envoyerTcp,
-  scannerReseau, identifierImprimante, trouverModele, sousReseauxLocaux, testerPort, listerWindows, ajoutAutomatique, imprimerSur,
+  scannerReseau, voisinsArp, identifierImprimante, trouverModele, sousReseauxLocaux, testerPort, listerWindows, ajoutAutomatique, imprimerSur,
   router, choisirCibles, htmlTest, adapterHtml, htmlVersImage
 };

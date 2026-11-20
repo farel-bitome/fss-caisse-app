@@ -934,6 +934,7 @@ ipcMain.handle('printers-save', (event, cfg) => {
 });
 ipcMain.handle('printers-scan', async (event) => {
   const trouvees = await printers.scannerReseau({
+    approfondi: true, // recherche manuelle : on teste aussi les réseaux d'usine courants (192.168.0/1/123/192…)
     progress: (faits, total) => { try { event.sender.send('printers-scan-progress', { faits: faits, total: total }); } catch (e) {} }
   });
   return { trouvees: trouvees, reseaux: printers.sousReseauxLocaux().map(r => r.base + '.x') };
