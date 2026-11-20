@@ -876,6 +876,7 @@ td{padding:8px 11px;vertical-align:middle}
           <div class="sg">
             <div class="fg"><label class="fl">Port (COM)</label><div style="display:flex;gap:6px"><input class="fi" id="afPort" value="COM3" style="flex:1"><button class="btn btn-o sm" type="button" onclick="afDetecter()">🔍 Détecter</button></div><div id="afPorts" style="font-size:11px;color:#888;margin-top:4px"></div></div>
             <div class="fg"><label class="fl">Vitesse (bauds)</label><select class="fi" id="afBaud"><option>2400</option><option>4800</option><option selected>9600</option><option>19200</option><option>38400</option><option>115200</option></select></div>
+            <div class="fg"><label class="fl">Format de trame (8N1 = le plus courant ; 7E1 = afficheurs anciens)</label><select class="fi" id="afFormat"><option value="8N1" selected>8N1</option><option value="7E1">7E1</option><option value="7O1">7O1</option><option value="7N1">7N1</option><option value="8E1">8E1</option></select></div>
             <div class="fg"><label class="fl">Type d'afficheur (protocole)</label><select class="fi" id="afProto"><option value="simple">Standard (le plus courant)</option><option value="escpos">Epson DM-D / ESC-POS</option><option value="cd5220">CD5220 (Posiflex, Partner…)</option><option value="aedex">AEDEX</option><option value="led">Afficheur LED numérique (caisse F10, montant seul)</option><option value="led2">LED numérique — variante simple</option></select></div>
             <div class="fg"><label class="fl">Caractères par ligne</label><select class="fi" id="afLarg"><option>16</option><option selected>20</option><option>40</option></select></div>
             <div class="fg"><label class="fl">Message d'accueil (ligne 1)</label><input class="fi" id="afAccueil" maxlength="40" value="BIENVENUE"></div>
@@ -1299,7 +1300,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.10.20';
+window.FSS_VERSION='1.10.21';
 var arts=[];
 var clis=[];
 var fours=[];
@@ -6105,10 +6106,10 @@ if ('serviceWorker' in navigator) {
   function afForm(){
     var g2=function(i){return document.getElementById(i);};if(!g2('afActif'))return;
     g2('afActif').checked=!!cfg.actif;g2('afPort').value=cfg.port||'COM3';g2('afBaud').value=String(cfg.baud||9600);
-    g2('afProto').value=cfg.protocole||'simple';g2('afLarg').value=String(cfg.largeur||20);
+    g2('afProto').value=cfg.protocole||'simple';g2('afFormat').value=cfg.format||'8N1';g2('afLarg').value=String(cfg.largeur||20);
     g2('afAccueil').value=cfg.accueil||'';g2('afAccueil2').value=cfg.accueil2||'';
   }
-  function lire(){var g2=function(i){return document.getElementById(i);};return {actif:g2('afActif').checked,port:g2('afPort').value.trim().toUpperCase(),baud:parseInt(g2('afBaud').value,10),protocole:g2('afProto').value,largeur:parseInt(g2('afLarg').value,10),accueil:g2('afAccueil').value,accueil2:g2('afAccueil2').value};}
+  function lire(){var g2=function(i){return document.getElementById(i);};return {actif:g2('afActif').checked,port:g2('afPort').value.trim().toUpperCase(),baud:parseInt(g2('afBaud').value,10),format:g2('afFormat').value,protocole:g2('afProto').value,largeur:parseInt(g2('afLarg').value,10),accueil:g2('afAccueil').value,accueil2:g2('afAccueil2').value};}
   function etat(t,ok){var e=document.getElementById('afEtat');if(e){e.textContent=t;e.style.color=ok?'#4CAF50':'#FF6666';}}
   window.afSauver=function(){
     if(!api){etat('Disponible uniquement dans l\'application Windows',false);return;}
@@ -6123,8 +6124,8 @@ if ('serviceWorker' in navigator) {
   function afAutoEssai(){
     if(!auto)return;var e=auto.liste[auto.i];
     var noms={simple:'Standard',escpos:'Epson DM-D / ESC-POS',cd5220:'CD5220',aedex:'AEDEX',led:'LED numérique',led2:'LED numérique (simple)'};
-    document.getElementById('afAutoInfo').textContent='Essai '+(auto.i+1)+'/'+auto.liste.length+' — '+auto.port+' · '+e.baud+' bauds · '+noms[e.protocole];
-    var c=Object.assign(lire(),{port:auto.port,baud:e.baud,protocole:e.protocole});
+    document.getElementById('afAutoInfo').textContent='Essai '+(auto.i+1)+'/'+auto.liste.length+' — '+auto.port+' · '+e.baud+' bauds '+e.format+' · '+noms[e.protocole];
+    var c=Object.assign(lire(),{port:auto.port,baud:e.baud,format:e.format,protocole:e.protocole});
     api.test(c,'ESSAI '+(auto.i+1)+'/'+auto.liste.length,'FSS-CAISSE OK').then(function(r){
       if(r&&!r.ok){document.getElementById('afAutoInfo').textContent+=' — port inaccessible : '+(r.error||'');afAutoStop(true);}
     });
@@ -6139,7 +6140,7 @@ if ('serviceWorker' in navigator) {
   window.afAutoPas=function(){if(!auto)return;auto.i++;if(auto.i>=auto.liste.length){afAutoStop(true);document.getElementById('afAutoInfo').textContent='Aucune combinaison n\'a fonctionné : vérifiez le câble, le numéro de port, ou envoyez-moi le modèle exact de l\'afficheur.';return;}afAutoEssai();};
   window.afAutoOk=function(){
     if(!auto)return;var e=auto.liste[auto.i];clearTimeout(auto.t);
-    document.getElementById('afBaud').value=String(e.baud);document.getElementById('afProto').value=e.protocole;
+    document.getElementById('afBaud').value=String(e.baud);document.getElementById('afFormat').value=e.format||'8N1';document.getElementById('afProto').value=e.protocole;
     document.getElementById('afPort').value=auto.port;document.getElementById('afActif').checked=true;auto=null;
     document.getElementById('afAutoBox').style.display='none';afSauver();etat('Afficheur détecté et enregistré ✔',true);
   };

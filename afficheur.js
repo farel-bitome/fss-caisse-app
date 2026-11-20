@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 
-const DEFAUT = { actif: false, port: 'COM3', baud: 9600, protocole: 'simple', largeur: 20, accueil: 'BIENVENUE', accueil2: '' };
+const DEFAUT = { actif: false, port: 'COM3', baud: 9600, format: '8N1', protocole: 'simple', largeur: 20, accueil: 'BIENVENUE', accueil2: '' };
 let fichier = null;
 let fd = null, fdPort = null;
 
@@ -15,7 +15,7 @@ function charger() {
 }
 function sauver(cfg) {
   const c = Object.assign({}, DEFAUT, cfg || {});
-  c.baud = parseInt(c.baud, 10) || 9600; c.largeur = parseInt(c.largeur, 10) || 20;
+  c.baud = parseInt(c.baud, 10) || 9600; c.format = decoderFormat(c.format).data + decoderFormat(c.format).parite.toUpperCase() + decoderFormat(c.format).stop; c.largeur = parseInt(c.largeur, 10) || 20;
   fermer();
   try { fs.writeFileSync(fichier, JSON.stringify(c, null, 2)); } catch (e) {}
   return c;
@@ -58,11 +58,19 @@ function cheminPort(p) {
   p = String(p || '').trim();
   return /^COM\d+$/i.test(p) ? '\\\\.\\' + p.toUpperCase() : p;
 }
+// Format de trame « 8N1 » = 8 bits de données, parité N(one)/E(ven)/O(dd), 1 bit d'arrêt. Beaucoup d'afficheurs anciens utilisent 7E1.
+function decoderFormat(f) {
+  const m = /^([5-8])([NEOnEo])([12])$/.exec(String(f || '8N1').trim());
+  return m ? { data: m[1], parite: m[2].toLowerCase(), stop: m[3] } : { data: '8', parite: 'n', stop: '1' };
+}
+let dernierMode = '';
 function configurerPort(cfg) {
   return new Promise((resolve) => {
+    dernierMode = '';
     if (process.platform !== 'win32' || !/^COM\d+$/i.test(String(cfg.port))) return resolve();
-    execFile('cmd.exe', ['/c', 'mode', cfg.port.toUpperCase() + ':', 'BAUD=' + cfg.baud, 'PARITY=n', 'DATA=8', 'STOP=1', 'to=off', 'xon=off', 'odsr=off', 'octs=off', 'dtr=on', 'rts=on'],
-      { windowsHide: true, timeout: 5000 }, () => resolve());
+    const f = decoderFormat(cfg.format);
+    execFile('cmd.exe', ['/c', 'mode', cfg.port.toUpperCase() + ':', 'BAUD=' + cfg.baud, 'PARITY=' + f.parite, 'DATA=' + f.data, 'STOP=' + f.stop, 'to=off', 'xon=off', 'odsr=off', 'octs=off', 'dtr=on', 'rts=on'],
+      { windowsHide: true, timeout: 5000 }, (err, out, errout) => { if (err) dernierMode = String(errout || out || err.message || '').trim().split(/\r?\n/)[0].slice(0, 120); resolve(); });
   });
 }
 // Ne jamais bloquer le processus principal : un port série mal branché peut faire attendre indéfiniment
@@ -73,7 +81,7 @@ function avecDelai(promesse, ms, msg) {
 }
 function fermer() { const f = fd; fd = null; fdPort = null; try { if (f !== null) fs.close(f, () => {}); } catch (e) {} }
 async function ouvrir(cfg) {
-  const cle = cfg.port + '|' + cfg.baud;
+  const cle = cfg.port + '|' + cfg.baud + '|' + (cfg.format || '8N1');
   if (fd !== null && fdPort === cle) return;
   fermer();
   await configurerPort(cfg);
@@ -99,7 +107,7 @@ function afficher(l1, l2, cfgForcee) {
       const f = fd, buf = trame(l1, l2, cfg);
       await avecDelai(new Promise((res, rej) => fs.write(f, buf, (e) => e ? rej(e) : res())), 3000, 'Écriture sur l\'afficheur bloquée (délai dépassé)');
       return { ok: true };
-    } catch (e) { fermer(); return { ok: false, error: e.message }; }
+    } catch (e) { fermer(); return { ok: false, error: e.message + (dernierMode ? ' [réglage du port : ' + dernierMode + ']' : '') }; }
   });
   return chaine;
 }
@@ -148,8 +156,10 @@ function pilotesManquants() {
 }
 // Liste des essais pour la détection automatique (le plus courant d'abord)
 function essais() {
-  const protos = ['simple', 'escpos', 'cd5220', 'aedex', 'led', 'led2'], bauds = [9600, 19200, 2400, 4800, 38400, 115200], r = [];
-  bauds.forEach(b => protos.forEach(p => r.push({ baud: b, protocole: p })));
+  const protos = ['simple', 'escpos', 'cd5220', 'aedex', 'led', 'led2'], r = [];
+  // (vitesse, format) du plus courant au plus rare ; 7E1 = afficheurs anciens (2400 / 9600 bauds)
+  const reglages = [[9600, '8N1'], [2400, '8N1'], [2400, '7E1'], [9600, '7E1'], [19200, '8N1'], [4800, '8N1'], [4800, '7E1'], [38400, '8N1'], [115200, '8N1'], [19200, '7E1']];
+  reglages.forEach(([b, f]) => protos.forEach(p => r.push({ baud: b, format: f, protocole: p })));
   return r;
 }
 module.exports = { montantLed, init, charger, sauver, afficher, ecrirePort, listerPorts, pilotesManquants, LIENS_PUCES, essais, trame, ascii, ligne, DEFAUT };
