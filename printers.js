@@ -740,11 +740,33 @@ async function ajoutAutomatiqueReseau(trouvees) {
   const cfg = chargerConfig();
   if (cfg.autoAjoutReseau === false) return [];
   const ajouts = [];
+  const deplacees = [];
+  const cle = (ip, port) => ip + ':' + (Number(port) || 9100);
+  const vues = {};
+  trouvees.forEach(t => { vues[cle(t.ip, t.port)] = 1; });
+  // Imprimantes déjà enregistrées mais introuvables à leur adresse (l'IP a changé : routeur, switch, DHCP...).
+  const orphelines = cfg.printers.filter(p => p.type === 'network' && !vues[cle(p.ip, p.port)]);
   for (const t of trouvees) {
     if (cfg.printers.find(p => p.type === 'network' && p.ip === t.ip && (Number(p.port) || 9100) === (Number(t.port) || 9100))) continue;
     if ((cfg.ignorees || []).indexOf('net:' + t.ip) !== -1) continue;
     let id = t.modele || t.marque ? t : null;
     if (!id) { try { id = await identifierImprimante(t.ip, t.port, 1200); } catch (e) { id = null; } }
+    // Même modèle qu'une imprimante enregistrée qui ne répond plus ? -> c'est elle qui a changé d'adresse : on met à jour
+    // son IP (elle garde son nom, son rôle caisse/bar/cuisine, ses réglages) au lieu d'en créer une seconde.
+    {
+      const marqueT = (id && id.marque) || 'ESC/POS', modeleT = (id && id.modele) || 'Générique 80 mm';
+      const libres = orphelines.filter(o => !o._deplacee);
+      let cand = libres.filter(o => o.marque === marqueT && o.modele === modeleT);
+      // Prudence : seul un modèle IDENTIQUE (et unique) est rapproché. Une imprimante simplement éteinte + une autre qui arrive ne sont jamais confondues.
+      if (!id) cand = [];
+      if (cand.length === 1) {
+        const o = cand[0], ancienne = o.ip;
+        o.ip = t.ip; o.port = Number(t.port) || o.port || 9100; o._deplacee = true;
+        if (o.nom && o.nom.indexOf(ancienne) !== -1) o.nom = o.nom.split(ancienne).join(t.ip);
+        deplacees.push({ id: o.id, nom: o.nom, de: ancienne, vers: t.ip });
+        continue;
+      }
+    }
     const marque = (id && id.marque) || 'ESC/POS';
     const modele = (id && id.modele) || 'Générique 80 mm';
     const papier = (id && id.papier) || 80;
@@ -755,10 +777,10 @@ async function ajoutAutomatiqueReseau(trouvees) {
     cfg.printers.push(imp);
     ajouts.push(imp);
   }
-  if (ajouts.length) {
-    if (!cfg.imprimanteCaisse) cfg.imprimanteCaisse = ajouts[0].id;
-    sauverConfig(cfg);
-  }
+  cfg.printers.forEach(p => { delete p._deplacee; });
+  if (ajouts.length && !cfg.imprimanteCaisse) cfg.imprimanteCaisse = ajouts[0].id;
+  if (ajouts.length || deplacees.length) sauverConfig(cfg);
+  ajouts.deplacees = deplacees;
   return ajouts;
 }
 // Etat (joignable ou non) des imprimantes réseau déjà configurées.

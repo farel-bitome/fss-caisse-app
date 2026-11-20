@@ -1298,7 +1298,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.10.11';
+window.FSS_VERSION='1.10.12';
 var arts=[];
 var clis=[];
 var fours=[];
@@ -2451,6 +2451,7 @@ function prtInitAuto(){
   if(!prtDispo())return;
   window.electronAPI.printers.onChanged(function(d){
     if(d&&d.ajouts&&d.ajouts.length)toastLong('🖨️ Nouvelle imprimante détectée et ajoutée : '+d.ajouts.join(', '),'s',9000);
+    if(d&&d.deplacees&&d.deplacees.length)toastLong('🖨️ Imprimante retrouvée à sa nouvelle adresse : '+d.deplacees.join(' ; '),'s',9000);
     if(g('sub-params-dev')&&g('sub-params-dev').classList.contains('on'))prtCharger();
   });
   window.electronAPI.printers.onScanProgress(function(p){

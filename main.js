@@ -898,7 +898,7 @@ function demarrerSurveillanceImprimantes() {
       if (cfg.autoAjoutReseau === false) return;
       const trouvees = await printers.scannerReseau({});
       const ajouts = await printers.ajoutAutomatiqueReseau(trouvees);
-      if (ajouts.length) envoyerAuRenderer('printers-changed', { ajouts: ajouts.map(a => a.nom) });
+      if (ajouts.length || (ajouts.deplacees || []).length) envoyerAuRenderer('printers-changed', { ajouts: ajouts.map(a => a.nom), deplacees: (ajouts.deplacees || []).map(d => d.nom + ' : ' + d.de + ' → ' + d.vers) });
     } catch (e) {} finally { scanReseauEnCours = false; }
   };
   // 2) Imprimantes USB / Windows : toutes les 8 s.
