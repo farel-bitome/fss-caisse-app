@@ -470,27 +470,32 @@ async function htmlVersImage(electron, html, papier, marge) {
   marge = marge === undefined ? margeParDefaut(papier) : marge;
   const pointsUtiles = points - 2 * marge;
   const largeurCss = Math.round((LARGEUR_CSS[papier] || LARGEUR_CSS[80]) * pointsUtiles / points);
+  // Le ticket est dessiné DIRECTEMENT à la résolution de l'imprimante (zoom = points / largeur CSS) : plus d'agrandissement
+  // d'une image basse définition (qui donnait des lettres dentelées, d'épaisseur inégale, striées de traits horizontaux).
+  const zoom = pointsUtiles / largeurCss;
   const win = new BrowserWindow({
-    show: false, width: largeurCss, height: 600, useContentSize: true,
-    webPreferences: { offscreen: true, nodeIntegration: false, contextIsolation: true }
+    show: false, width: pointsUtiles, height: 600, useContentSize: true,
+    webPreferences: { offscreen: true, nodeIntegration: false, contextIsolation: true, zoomFactor: zoom }
   });
   try {
     await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(adapterHtml(html, papier, largeurCss * 25.4 / 96)));
-    await pause(250);
+    try { win.webContents.setZoomFactor(zoom); } catch (e) {}
+    await pause(350);
     // Hauteur réelle du contenu (et non celle de la fenêtre : scrollHeight vaut au moins la
     // hauteur de la fenêtre, ce qui ajouterait un grand blanc en bas du ticket).
     const hauteur = await win.webContents.executeJavaScript(
       '(function(){var b=document.body.getBoundingClientRect();var cs=getComputedStyle(document.body);' +
       'return Math.max(document.documentElement.getBoundingClientRect().height, b.bottom + (parseFloat(cs.marginBottom)||0));})()');
-    const h = Math.max(40, Math.min(12000, Math.ceil(hauteur) + 4));
-    win.setContentSize(largeurCss, h);
-    await pause(250);
-    let img = await win.webContents.capturePage({ x: 0, y: 0, width: largeurCss, height: h });
+    const h = Math.max(40, Math.min(12000, Math.ceil((hauteur + 4) * zoom)));
+    win.setContentSize(pointsUtiles, h);
+    await pause(350);
+    let img = await win.webContents.capturePage({ x: 0, y: 0, width: pointsUtiles, height: h });
     if (img.isEmpty()) { await pause(400); img = await win.webContents.capturePage(); }
     if (img.isEmpty()) throw new Error('Rendu du ticket impossible (image vide)');
     const dim = img.getSize();
     const hPoints = Math.max(1, Math.round(dim.height * pointsUtiles / dim.width));
-    const redim = img.resize({ width: pointsUtiles, height: hPoints, quality: 'best' });
+    // Normalement dim.width === pointsUtiles : aucun redimensionnement. (Écran Windows en mise à l'échelle 125/150 % : réduction nette.)
+    const redim = dim.width === pointsUtiles ? img : img.resize({ width: pointsUtiles, height: hPoints, quality: 'best' });
     const src = redim.toBitmap();
     // Toile blanche pleine largeur, contenu centré avec la marge de chaque côté.
     const out = Buffer.alloc(points * hPoints * 4, 255);

@@ -1,6 +1,6 @@
 {
   "name": "fss-caisse",
-  "version": "1.10.17",
+  "version": "1.10.18",
   "description": "FSS-CAISSE (Serveur ou Client)",
   "main": "main.js",
   "author": "FSS",
