@@ -590,6 +590,16 @@ ipcMain.handle('save-server', (event, ip, port, code) => {
   return true;
 });
 
+// Détection automatique du PC serveur (poste client) : balayage du réseau local sur le port du serveur.
+ipcMain.handle('chercher-serveur', async (event) => {
+  try {
+    return await require('./decouverte').chercherServeurs({
+      port: PORT,
+      progress: (faits, total) => { try { event.sender.send('chercher-serveur-progress', { faits: faits, total: total }); } catch (e) {} }
+    });
+  } catch (e) { return []; }
+});
+
 ipcMain.handle('get-current-server', () => {
   const cfg = loadConfig();
   return cfg.serverUrl || '';

@@ -224,7 +224,10 @@ function rasterVersEscpos(bgra, w, h, options) {
     morceaux.push(Buffer.from([0x1d, 0x76, 0x30, 0x00, octetsParLigne & 0xff, (octetsParLigne >> 8) & 0xff, hb & 0xff, (hb >> 8) & 0xff]));
     morceaux.push(data);
   }
-  morceaux.push(Buffer.from([0x1b, 0x64, 0x04])); // avance de 4 lignes
+  // Avance du papier AVANT la coupe : le couteau est à ~1,5–2 cm sous la tête d'impression. Avec seulement
+  // 4 lignes, le bas du ticket (montant reçu, monnaie rendue, message de fin) n'avait pas encore passé le couteau
+  // et restait coupé / attaché au rouleau. 9 lignes (~3,5 cm) dépassent largement la distance du couteau.
+  morceaux.push(Buffer.from([0x1b, 0x64, Math.min(255, Math.max(0, options.avance === undefined ? 9 : options.avance))]));
   if (options.coupe !== false) morceaux.push(Buffer.from([0x1d, 0x56, 0x01])); // coupe partielle
   return Buffer.concat(morceaux);
 }

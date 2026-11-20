@@ -42,6 +42,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onChanged: (cb) => ipcRenderer.on('printers-changed', (e, d) => cb(d)),
     onScanProgress: (cb) => ipcRenderer.on('printers-scan-progress', (e, d) => cb(d))
   },
+  chercherServeur: () => ipcRenderer.invoke('chercher-serveur'),
+  onChercherServeurProgress: (cb) => ipcRenderer.on('chercher-serveur-progress', (e, d) => cb(d)),
   getServerIpInfo: () => ipcRenderer.invoke('get-server-ip-info'),
   ouvrirAdresseServeur: () => ipcRenderer.invoke('ouvrir-adresse-serveur'),
   reseauInfo: () => ipcRenderer.invoke('reseau-info'),

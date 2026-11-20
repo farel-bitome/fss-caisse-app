@@ -23,6 +23,8 @@
 <div class="box">
   <h1>FSS-CAISSE</h1>
   <p id="sousTitre">Connexion au serveur central</p>
+  <button class="sec" id="btnCherche" style="margin:0 0 12px" onclick="chercher()">🔍 Rechercher le PC serveur automatiquement</button>
+  <div id="trouves" style="margin-bottom:12px"></div>
   <label>Adresse IP du serveur</label>
   <input id="ip" placeholder="ex: 192.168.1.24" autofocus>
   <label>Port</label>
@@ -54,6 +56,30 @@
       }
     }
   });
+
+  var enRecherche = false;
+  function chercher(auto) {
+    if (enRecherche) return;
+    enRecherche = true;
+    var err = document.getElementById('err'), box = document.getElementById('trouves'), b = document.getElementById('btnCherche');
+    box.innerHTML = ''; err.style.color = ''; err.textContent = 'Recherche du serveur sur le réseau…'; b.disabled = true;
+    window.electronAPI.onChercherServeurProgress(function (d) { if (enRecherche) err.textContent = 'Recherche du serveur… ' + Math.round(100 * d.faits / d.total) + ' %'; });
+    window.electronAPI.chercherServeur().then(function (liste) {
+      enRecherche = false; b.disabled = false;
+      if (!liste || !liste.length) { err.textContent = "Aucun serveur trouvé. Vérifiez que le PC serveur est allumé, sur le même réseau/Wi-Fi, et que le pare-feu Windows autorise FSS-CAISSE (réseau privé)."; return; }
+      err.textContent = liste.length + ' serveur' + (liste.length > 1 ? 's' : '') + ' trouvé' + (liste.length > 1 ? 's' : '') + ' :';
+      liste.forEach(function (s) {
+        var bt = document.createElement('button');
+        bt.textContent = '🖥️ ' + (s.nom ? s.nom + ' — ' : '') + s.ip + ':' + s.port;
+        bt.style.cssText = 'margin-bottom:6px;background:#1f5f2f';
+        bt.onclick = function () { document.getElementById('ip').value = s.ip; document.getElementById('port').value = s.port; connect(); };
+        box.appendChild(bt);
+      });
+      if (liste.length === 1 && auto) { document.getElementById('ip').value = liste[0].ip; document.getElementById('port').value = liste[0].port; }
+    }).catch(function () { enRecherche = false; b.disabled = false; err.textContent = 'Recherche impossible.'; });
+  }
+  // Première configuration : la recherche démarre toute seule.
+  if (!modif) setTimeout(function () { if (!document.getElementById('ip').value) chercher(true); }, 400);
 
   function connect() {
     var ip = document.getElementById('ip').value.trim();
