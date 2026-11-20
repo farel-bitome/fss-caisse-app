@@ -1298,7 +1298,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.10.4';
+window.FSS_VERSION='1.10.5';
 var arts=[];
 var clis=[];
 var fours=[];
@@ -5384,6 +5384,9 @@ function appliquerSauvegardeRestauree(jsonContent,sourceLabel){
   try{data=JSON.parse(jsonContent);}catch(e){toast('Fichier de sauvegarde invalide','e');return;}
   if(!data||typeof data!=='object'){toast('Fichier de sauvegarde invalide','e');return;}
   if(!window.fssApplyState){toast('Fonction indisponible','e');return;}
+  // Les lots d'impression (tickets, bons de commande) contenus dans la sauvegarde sont d'anciens travaux déjà imprimés :
+  // on garde la liste actuelle pour que le Serveur ne les réimprime JAMAIS à la restauration.
+  data.printBatches=(window.printBatches||[]).slice();
   window.fssApplyState(data);
   // Propage l'état restauré à tous les postes connectés
   if(window.fssSyncPush)window.fssSyncPush();
