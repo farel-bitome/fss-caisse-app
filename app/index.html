@@ -1298,7 +1298,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.10.13';
+window.FSS_VERSION='1.10.14';
 var arts=[];
 var clis=[];
 var fours=[];
@@ -2266,7 +2266,7 @@ function prtRender(){
   prt.trouvees.filter(function(x){return !cfg.printers.some(function(p){return p.type==='network'&&p.ip===x.ip;});}).forEach(function(x){
     var d=document.createElement('div');
     d.style.cssText='display:flex;gap:8px;align-items:center;font-size:12px;padding:4px 0';
-    d.innerHTML='🔎 Imprimante détectée : <strong>'+prtEsc((x.marque&&x.modele?x.marque+' '+x.modele+' — ':'')+x.ip)+':'+x.port+'</strong> <button class="btn btn-b sm" onclick="prtAjouterTrouvee(\''+x.ip+'\','+x.port+')">➕ Ajouter</button>';
+    d.innerHTML='🔎 Imprimante détectée : <strong>'+prtEsc((x.marque&&x.modele?x.marque+' '+x.modele+' — ':'')+x.ip)+':'+x.port+'</strong> <button class="btn btn-b sm" onclick="prtAjouterTrouvee(\''+x.ip+'\','+x.port+')">➕ Ajouter</button> <button class="btn btn-o sm" onclick="prtFixerTrouvee(\''+x.ip+'\','+x.port+')" title="Fixer l\'adresse IP de cette imprimante">📌 Fixer l\'IP</button>';
     t.appendChild(d);
   });
   // --- imprimantes vues par Windows (diagnostic + ajout manuel)
@@ -2334,12 +2334,19 @@ function prtTousSurToutes(){
 function prtEnregistrerTout(){
   prtPersist().then(function(){prt.cfg.configure=true;prtRender();toast('Configuration des imprimantes enregistrée — tout est maintenant automatique','s');});
 }
+function prtFixerTrouvee(ip,port){
+  var f=(prt.trouvees||[]).filter(function(x){return x.ip===ip&&String(x.port)===String(port);})[0]||{};
+  prtFicheIp({ip:ip,port:port,mac:f.mac||'',nom:(f.marque&&f.modele?f.marque+' '+f.modele+' — ':'Imprimante réseau ')+ip});
+}
 function prtFixerIp(id){
   var p=(prt.cfg.printers||[]).filter(function(x){return x.id===id;})[0];if(!p)return;
+  prtFicheIp(p);
+}
+function prtFicheIp(p){
   toast('Lecture de l\'identité réseau…','i');
   window.electronAPI.printers.ficheIp(p.ip,p.port||9100).then(function(r){
     var mac=(r&&r.mac)||p.mac||'';
-    if(mac&&p.mac!==mac){p.mac=mac;try{window.electronAPI.printers.save(prt.cfg);}catch(e){}}
+    if(mac&&p.mac!==mac){p.mac=mac;if(p.id){try{window.electronAPI.printers.save(prt.cfg);}catch(e){}}}
     var msg='📌 FIXER L\'ADRESSE DE CETTE IMPRIMANTE\n\n'+
       'Imprimante : '+(p.nom||'')+'\nAdresse IP actuelle : '+p.ip+'\nAdresse MAC : '+(mac||'(non lue — imprimante éteinte ?)')+'\n\n'+
       'Méthode la plus fiable (réservation dans le routeur) :\n'+
