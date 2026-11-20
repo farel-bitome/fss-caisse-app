@@ -380,9 +380,12 @@ function voisinsArp() {
 // Réseaux d'usine / courants testés en plus pour la recherche approfondie.
 const RESEAUX_COURANTS = ['192.168.0', '192.168.1', '192.168.2', '192.168.8', '192.168.10', '192.168.100', '192.168.123', '192.168.192', '192.168.31', '10.0.0', '10.0.1', '172.16.0'];
 
+// Ports RAW alternatifs (2e/3e sortie d'un boîtier d'impression, ports d'usine personnalisés). Testés sur les voisins ARP
+// (rapide) et, en recherche approfondie, sur tout le réseau. Une imprimante trouvée là n'est ajoutée toute seule que si elle est identifiée.
+const PORTS_SUPP = [9101, 9102, 9103, 4000, 6001];
 async function scannerReseau(options) {
   options = options || {};
-  const ports = options.ports || [options.port || 9100];
+  const ports = options.ports || [options.port || 9100].concat(options.approfondi ? PORTS_SUPP : []);
   const port = ports[0];
   const bases = (options.bases || sousReseauxLocaux().map(r => r.base)).slice();
   if (options.approfondi) RESEAUX_COURANTS.forEach(b => { if (bases.indexOf(b) === -1) bases.push(b); });
@@ -401,7 +404,7 @@ async function scannerReseau(options) {
   let faits = 0;
   const avance = () => { faits++; if (options.progress && (faits % 20 === 0 || faits === total)) options.progress(Math.min(faits, total), total); };
   // Étape 1 : voisins ARP, patience plus grande + toutes les variantes de port
-  const portsArp = ports.concat([9101, 9102].filter(x => ports.indexOf(x) === -1));
+  const portsArp = ports.concat(PORTS_SUPP.filter(x => ports.indexOf(x) === -1));
   await Promise.all(arp.map(async (ip) => {
     for (const pt of portsArp) { if (await testerPort(ip, pt, options.timeoutArp || 1500)) noter(ip, pt); }
     avance();
@@ -781,6 +784,7 @@ async function ajoutAutomatiqueReseau(trouvees) {
     if ((cfg.ignorees || []).indexOf('net:' + t.ip) !== -1) continue;
     let id = t.modele || t.marque ? t : null;
     if (!id) { try { id = await identifierImprimante(t.ip, t.port, 1200); } catch (e) { id = null; } }
+    if (!id && PORTS_SUPP.indexOf(Number(t.port)) !== -1) continue; // port alternatif non identifié : probablement pas une imprimante
     // Même modèle qu'une imprimante enregistrée qui ne répond plus ? -> c'est elle qui a changé d'adresse : on met à jour
     // son IP (elle garde son nom, son rôle caisse/bar/cuisine, ses réglages) au lieu d'en créer une seconde.
     {
