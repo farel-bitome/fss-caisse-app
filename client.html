@@ -25,12 +25,14 @@
   <p id="sousTitre">Connexion au serveur central</p>
   <button class="sec" id="btnCherche" style="margin:0 0 12px" onclick="chercher()">🔍 Rechercher le PC serveur automatiquement</button>
   <div id="trouves" style="margin-bottom:12px"></div>
+  <div style="font-size:11px;color:#aaa;margin:2px 0 10px;border-top:1px solid #2a2a2a;padding-top:12px">— ou saisissez l'adresse IP du PC serveur vous-même —</div>
   <label>Adresse IP du serveur</label>
   <input id="ip" placeholder="ex: 192.168.1.24" autofocus>
   <label>Port</label>
   <input id="port" placeholder="3000" value="3000">
   <div class="note">Pour modifier ces informations plus tard, un compte admin ou super-admin sera demandé.</div>
   <input id="code" type="hidden" value="">
+  <button class="sec" style="margin:0 0 10px" onclick="tester()">🔌 Tester l'adresse</button>
   <button onclick="connect()" id="btn">Se connecter</button>
   <button class="sec" id="btnAnnuler" style="display:none" onclick="window.electronAPI.annulerReglageServeur()">Annuler</button>
   <button class="sec" id="btnMode" style="display:none" onclick="if(confirm('Changer de mode (Serveur / Client) sur cet ordinateur ?')){window.electronAPI.changerDeRole();}">Changer de mode (Serveur / Client)</button>
@@ -80,6 +82,20 @@
   }
   // Première configuration : la recherche démarre toute seule.
   if (!modif) setTimeout(function () { if (!document.getElementById('ip').value) chercher(true); }, 400);
+
+  function tester() {
+    var ip = document.getElementById('ip').value.trim();
+    var port = document.getElementById('port').value.trim() || '3000';
+    var err = document.getElementById('err');
+    if (!ip) { err.style.color = ''; err.textContent = "Merci d'entrer une adresse IP"; return; }
+    err.style.color = ''; err.textContent = 'Test de ' + ip + ':' + port + '…';
+    var ctl = new AbortController(); var to = setTimeout(function () { ctl.abort(); }, 4000);
+    fetch('http://' + ip + ':' + port + '/api/ping', { signal: ctl.signal }).then(function (r) { return r.json(); }).then(function (j) {
+      clearTimeout(to);
+      if (j && j.ok) { err.style.color = '#44CC66'; err.textContent = '✓ Serveur FSS-CAISSE joignable. Vous pouvez vous connecter.'; }
+      else { err.textContent = 'Une machine répond, mais ce n\'est pas FSS-CAISSE.'; }
+    }).catch(function () { clearTimeout(to); err.textContent = 'Serveur injoignable à cette adresse (vérifiez l\'IP, le port 3000, le réseau et le pare-feu).'; });
+  }
 
   function connect() {
     var ip = document.getElementById('ip').value.trim();
