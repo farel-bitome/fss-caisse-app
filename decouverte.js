@@ -54,4 +54,30 @@ async function chercherServeurs(opts) {
   return trouves;
 }
 
-module.exports = { chercherServeurs, sousReseaux, ping };
+// Test d'UNE adresse précise (même dans un autre réseau, tant que le routage le permet) avec un diagnostic de la cause en cas d'échec.
+function diagnostiquer(ip, port, delai) {
+  return new Promise((resolve) => {
+    let fini = false;
+    const fin = (v) => { if (!fini) { fini = true; resolve(v); } };
+    const req = http.get({ host: ip, port: Number(port) || 3000, path: '/api/ping', timeout: delai || 4000, agent: false }, (r) => {
+      let corps = '';
+      r.setEncoding('utf8');
+      r.on('data', (d) => { corps += d; if (corps.length > 2000) r.destroy(); });
+      r.on('end', () => {
+        try {
+          const j = JSON.parse(corps);
+          if (j && j.ok && j.app === 'FSS-CAISSE') return fin({ ok: true, nom: j.nom || '' });
+        } catch (e) {}
+        fin({ ok: false, erreur: 'autre' });
+      });
+      r.on('error', () => fin({ ok: false, erreur: 'autre' }));
+    });
+    req.on('timeout', () => { req.destroy(); fin({ ok: false, erreur: 'delai' }); });
+    req.on('error', (e) => {
+      const c = e && e.code;
+      fin({ ok: false, erreur: c === 'ECONNREFUSED' ? 'refuse' : (c === 'EHOSTUNREACH' || c === 'ENETUNREACH' ? 'route' : 'delai') });
+    });
+  });
+}
+
+module.exports = { chercherServeurs, sousReseaux, ping, diagnostiquer };

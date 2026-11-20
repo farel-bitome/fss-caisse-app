@@ -83,29 +83,59 @@
   // Première configuration : la recherche démarre toute seule.
   if (!modif) setTimeout(function () { if (!document.getElementById('ip').value) chercher(true); }, 400);
 
-  function tester() {
+  var MSG = {
+    refuse: "Cette machine répond mais FSS-CAISSE n'écoute pas sur ce port : lancez le logiciel en mode SERVEUR sur ce PC (ou vérifiez le port).",
+    delai: "Aucune réponse. Causes possibles : le serveur est éteint, le pare-feu Windows du PC serveur bloque FSS-CAISSE (autoriser le réseau privé, port 3000), ou le routeur bloque la communication entre les deux réseaux.",
+    route: "Aucun chemin vers ce réseau : ce PC n'est pas relié au réseau du serveur (vérifiez le câble/Wi-Fi et la passerelle du routeur).",
+    autre: "Une machine répond à cette adresse, mais ce n'est pas FSS-CAISSE."
+  };
+  var seqTest = 0;
+  function validIp(v) { return /^\d{1,3}(\.\d{1,3}){3}$/.test(v) || /^[A-Za-z][A-Za-z0-9.\-]*$/.test(v); }
+  // Teste l'adresse saisie (même si le serveur est dans un autre réseau) et appelle cb(ok, resultat)
+  function tester(cb, silencieux) {
     var ip = document.getElementById('ip').value.trim();
     var port = document.getElementById('port').value.trim() || '3000';
     var err = document.getElementById('err');
-    if (!ip) { err.style.color = ''; err.textContent = "Merci d'entrer une adresse IP"; return; }
-    err.style.color = ''; err.textContent = 'Test de ' + ip + ':' + port + '…';
-    var ctl = new AbortController(); var to = setTimeout(function () { ctl.abort(); }, 4000);
-    fetch('http://' + ip + ':' + port + '/api/ping', { signal: ctl.signal }).then(function (r) { return r.json(); }).then(function (j) {
-      clearTimeout(to);
-      if (j && j.ok) { err.style.color = '#44CC66'; err.textContent = '✓ Serveur FSS-CAISSE joignable. Vous pouvez vous connecter.'; }
-      else { err.textContent = 'Une machine répond, mais ce n\'est pas FSS-CAISSE.'; }
-    }).catch(function () { clearTimeout(to); err.textContent = 'Serveur injoignable à cette adresse (vérifiez l\'IP, le port 3000, le réseau et le pare-feu).'; });
+    if (!ip) { err.style.color = ''; err.textContent = "Merci d'entrer une adresse IP"; if (cb) cb(false); return; }
+    var n = ++seqTest;
+    err.style.color = ''; err.textContent = 'Recherche du serveur à ' + ip + ':' + port + '…';
+    window.electronAPI.testerServeur(ip, port).then(function (r) {
+      if (n !== seqTest) return; // une saisie plus récente a pris le relais
+      if (r && r.ok) { err.style.color = '#44CC66'; err.textContent = '✓ Serveur FSS-CAISSE détecté' + (r.nom ? ' : « ' + r.nom + ' »' : '') + ' à ' + ip + ':' + port; }
+      else { err.style.color = ''; err.textContent = '✗ ' + MSG[(r && r.erreur) || 'delai']; }
+      if (cb) cb(!!(r && r.ok), r);
+    }).catch(function () { if (n === seqTest) { err.style.color = ''; err.textContent = 'Test impossible.'; } if (cb) cb(false); });
   }
+  // Détection automatique dès qu'une adresse complète est saisie (sans cliquer)
+  var tDebounce = null;
+  function saisieIp() {
+    clearTimeout(tDebounce);
+    var v = document.getElementById('ip').value.trim();
+    if (!validIp(v) || (/^\d/.test(v) && v.split('.').some(function (x) { return Number(x) > 255; }))) return;
+    tDebounce = setTimeout(function () { tester(null, true); }, 700);
+  }
+  document.getElementById('ip').addEventListener('input', saisieIp);
+  document.getElementById('port').addEventListener('input', saisieIp);
 
-  function connect() {
+  var forcer = false;
+  function enregistrer() {
     var ip = document.getElementById('ip').value.trim();
     var port = document.getElementById('port').value.trim() || '3000';
-    var code = document.getElementById('code').value;
+    var code = document.getElementById('code') ? document.getElementById('code').value : '';
     var err = document.getElementById('err');
-    if (!ip) { err.textContent = "Merci d'entrer une adresse IP"; return; }
-    err.textContent = '';
     Promise.resolve(window.electronAPI.saveServer(ip, port, code)).then(function (ok) {
-      if (ok === false) err.textContent = 'Enregistrement refusé';
+      if (ok === false) { err.style.color = ''; err.textContent = 'Enregistrement refusé'; }
+    });
+  }
+  function connect() {
+    var err = document.getElementById('err');
+    var ip = document.getElementById('ip').value.trim();
+    if (!ip) { err.textContent = "Merci d'entrer une adresse IP"; return; }
+    // 1) on vérifie que le serveur répond ; 2) on enregistre. Si le serveur est temporairement éteint, un 2e clic sur « Se connecter » force l'enregistrement.
+    tester(function (ok) {
+      if (ok || forcer) { forcer = false; enregistrer(); return; }
+      forcer = true;
+      err.textContent += '  — Cliquez à nouveau sur « Se connecter » pour enregistrer cette adresse quand même.';
     });
   }
 

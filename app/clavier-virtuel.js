@@ -268,6 +268,12 @@
   }
   function auto(){
     // Écran tactile sans clavier physique : le clavier s'ouvre tout seul dès qu'on touche un champ de saisie.
+    // Toucher un champ DÉJÀ actif (autofocus) ne déclenche pas focusin : on écoute aussi le simple toucher/clic.
+    document.addEventListener('pointerup',function(e){
+      var t=e.target;if(!t||!t.tagName)return;
+      var ok=(t.tagName==='TEXTAREA')||(t.tagName==='INPUT'&&/^(text|password|number|tel|search|email|url|)$/i.test(t.type||''));
+      if(ok&&!(t.readOnly||t.disabled)&&window.fssClavierOuvrir)setTimeout(function(){try{window.fssClavierOuvrir();}catch(x){}},60);
+    },true);
     document.addEventListener('focusin',function(e){
       var t=e.target;if(!t||!t.tagName)return;
       var ok=(t.tagName==='TEXTAREA')||(t.tagName==='INPUT'&&/^(text|password|number|tel|search|email|url|)$/i.test(t.type||''));

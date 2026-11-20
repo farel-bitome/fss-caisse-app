@@ -590,6 +590,12 @@ ipcMain.handle('save-server', (event, ip, port, code) => {
   return true;
 });
 
+// Test d'une adresse précise du serveur (peut être dans un autre réseau) avec diagnostic.
+ipcMain.handle('tester-serveur', async (event, ip, port) => {
+  if (!/^[A-Za-z0-9.\-]{1,100}$/.test(String(ip || ''))) return { ok: false, erreur: 'autre' };
+  return await require('./decouverte').diagnostiquer(String(ip), Number(port) || PORT, 4000);
+});
+
 // Détection automatique du PC serveur (poste client) : balayage du réseau local sur le port du serveur.
 ipcMain.handle('chercher-serveur', async (event) => {
   try {
