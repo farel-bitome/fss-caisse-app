@@ -904,6 +904,7 @@ td{padding:8px 11px;vertical-align:middle}
           </div>
           <div id="prtWindows" style="margin-bottom:8px"></div>
           <div id="prtTrouvees" style="margin-bottom:10px"></div>
+          <label style="font-size:12px;display:flex;gap:8px;align-items:center;margin:6px 0 8px">✒️ <strong>Épaisseur de l'écriture des tickets :</strong> <select id="prtEpaisseur" onchange="prtChangerEpaisseur()" style="padding:5px 8px;border-radius:6px;background:#0e0e0e;color:#fff;border:1px solid #444"><option value="fin">Fine</option><option value="normal">Normale (recommandé)</option><option value="gras">Grasse</option></select></label>
           <label style="font-size:12px;display:flex;gap:6px;align-items:center;margin:6px 0 4px"><input type="checkbox" id="prtAutoAddNet" onchange="prtChangerAutoNet()"> <strong>Détecter et ajouter automatiquement les imprimantes réseau (IP / Wi-Fi / switch)</strong> — analyse le réseau toutes les 45 s</label>
           <label style="font-size:12px;display:flex;gap:6px;align-items:center;margin:4px 0 14px"><input type="checkbox" id="prtAutoAdd" onchange="prtChangerAuto()"> Ajouter automatiquement les imprimantes USB / Windows dès qu'elles sont branchées</label>
           <div id="prtForm" style="display:none;border:1px solid #333;border-radius:6px;padding:12px;margin-bottom:14px">
@@ -1298,7 +1299,7 @@ ART-001,Regab,Bière,Bouteille,2500,1500,50,10,🍺"></textarea>
 </div></div>
 
 <script>
-window.FSS_VERSION='1.10.14';
+window.FSS_VERSION='1.10.15';
 var arts=[];
 var clis=[];
 var fours=[];
@@ -2232,6 +2233,7 @@ function prtRender(){
   g('prtBanner').style.display=cfg.configure?'none':'';
   g('prtAutoAdd').checked=cfg.autoAjoutWindows!==false;
   g('prtAutoAddNet').checked=cfg.autoAjoutReseau!==false;
+  if(g('prtEpaisseur'))g('prtEpaisseur').value=cfg.epaisseur||'normal';
   // --- liste
   var l=g('prtListe');
   if(!cfg.printers.length){
@@ -2311,6 +2313,7 @@ function prtRender(){
   });
 }
 function prtActif(id,v){var p=prt.cfg.printers.find(function(x){return x.id===id;});if(p){p.actif=v;prtPersist();}}
+function prtChangerEpaisseur(){prt.cfg.epaisseur=g('prtEpaisseur').value;prtPersist();toast('Épaisseur enregistrée — faites un test d\'impression','s');}
 function prtChangerAutoNet(){prt.cfg.autoAjoutReseau=g('prtAutoAddNet').checked;prtPersist();}
 function prtChangerAuto(){prt.cfg.autoAjoutWindows=g('prtAutoAdd').checked;prtPersist();}
 function prtChangerBonsCaisse(){prt.cfg.bonsSurCaisseServeur=g('prtBonsCaisse').checked;prtPersist();}

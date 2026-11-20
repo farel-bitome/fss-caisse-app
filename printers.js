@@ -436,11 +436,18 @@ async function scannerReseau(options) {
 // ---------------------------------------------------------------------
 // Rendu HTML -> image monochrome (fenêtre cachée Electron)
 // ---------------------------------------------------------------------
+// Épaisseur de l'écriture sur les tickets : 'fin' | 'normal' (défaut) | 'gras'. Avant, tout était forcé en gras maximum
+// avec un contour supplémentaire -> texte « baveux » et illisible sur papier thermique.
+function epaisseurTickets() {
+  try { const e = chargerConfig().epaisseur; return e === 'fin' || e === 'gras' ? e : 'normal'; } catch (e) { return 'normal'; }
+}
 function adapterHtml(html, papier, utile) {
+  const ep = epaisseurTickets();
+  if (ep !== 'gras') html = String(html).replace(/font-weight\s*:\s*(900|800|bolder)/gi, 'font-weight:' + (ep === 'fin' ? 400 : 700));
   // utile = largeur réellement imprimable (mm) : 72 pour un rouleau 80 mm, 48 pour 58 mm. Par défaut = papier.
   utile = utile || papier;
   const style = '<style>@page{size:' + papier + 'mm auto;margin:0}' +
-    'body{font-family:Arial,Helvetica,sans-serif !important;font-weight:900 !important;-webkit-text-stroke:0.35px currentColor;padding-left:1mm !important;padding-right:1mm !important}' +
+    'body{font-family:Arial,Helvetica,sans-serif !important;' + (ep === 'gras' ? 'font-weight:900 !important;-webkit-text-stroke:0.35px currentColor;' : 'font-weight:' + (ep === 'fin' ? 400 : 500) + ';-webkit-text-stroke:0;') + 'padding-left:1mm !important;padding-right:1mm !important}' +
     'html,body{box-sizing:border-box !important;width:' + utile + 'mm !important;max-width:' + utile + 'mm !important;background:#fff !important;overflow-x:hidden}' +
     'body{margin:0 auto !important}</style>';
   if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, style + '</head>');
@@ -826,7 +833,7 @@ async function etatReseau(cfg) {
 
 // Impression test (ticket simple)
 function htmlTest(imp) {
-  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-weight:900;font-size:13px;padding:1mm;text-align:center}</style></head><body>' +
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:13px;padding:1mm;text-align:center}</style></head><body>' +
     '<div style="font-size:16px">FSS-CAISSE</div><div>TEST IMPRESSION</div><div>------------------------</div>' +
     '<div>' + (imp.nom || '') + '</div><div>' + (imp.marque || '') + ' ' + (imp.modele || '') + '</div>' +
     '<div>Papier réglé : ' + (imp.papier || 80) + ' mm</div>' +
@@ -837,6 +844,6 @@ function htmlTest(imp) {
 
 module.exports = {
   MODELES, POINTS, ajoutAutomatiqueReseau, etatReseau, envoyerRawWindows, SCRIPT_RAW, init, chargerConfig, sauverConfig, nouvelId, rasterVersEscpos, envoyerTcp,
-  scannerReseau, voisinsArp, tableArp, identifierImprimante, trouverModele, sousReseauxLocaux, testerPort, listerWindows, ajoutAutomatique, imprimerSur,
+  epaisseurTickets, scannerReseau, voisinsArp, tableArp, identifierImprimante, trouverModele, sousReseauxLocaux, testerPort, listerWindows, ajoutAutomatique, imprimerSur,
   router, choisirCibles, htmlTest, adapterHtml, htmlVersImage
 };
