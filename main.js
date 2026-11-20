@@ -175,8 +175,8 @@ function createWindow() {
         const c = loadConfig();
         if (c.role === 'client' && c.serverUrl) {
           event.preventDefault();
-          techAutorise = false;
-          win.loadFile(path.join(__dirname, 'acces-technicien.html'));
+          techAutorise = true; // plus de mot de passe : le réglage du serveur s'ouvre directement
+          win.loadFile(path.join(__dirname, 'client.html'), { query: { modif: '1' } });
         }
       }
     } catch (e) {}
@@ -549,8 +549,8 @@ ipcMain.handle('annuler-reglage-serveur', () => {
 ipcMain.handle('ouvrir-acces-technicien', () => {
   const cfg = loadConfig();
   if (cfg.role !== 'client' || !cfg.serverUrl) return false;
-  techAutorise = false;
-  win.loadFile(path.join(__dirname, 'acces-technicien.html'));
+  techAutorise = true; // plus de mot de passe : le réglage du serveur s'ouvre directement
+  win.loadFile(path.join(__dirname, 'client.html'), { query: { modif: '1' } });
   return true;
 });
 // Changer de mode (Serveur / Client) depuis un poste client : réservé à la session technicien.
