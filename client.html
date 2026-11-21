@@ -104,7 +104,7 @@
       if (r && r.ok) { err.style.color = '#44CC66'; err.textContent = '✓ Serveur FSS-CAISSE détecté' + (r.nom ? ' : « ' + r.nom + ' »' : '') + ' à ' + ip + ':' + port; }
       else { err.style.color = ''; err.textContent = '✗ ' + MSG[(r && r.erreur) || 'delai']; }
       if (cb) cb(!!(r && r.ok), r);
-    }).catch(function () { if (n === seqTest) { err.style.color = ''; err.textContent = 'Test impossible.'; } if (cb) cb(false); });
+    }).catch(function (e) { if (n === seqTest) { err.style.color = ''; err.textContent = 'Test impossible' + (e && e.message ? ' : ' + String(e.message).replace(/^Error invoking remote method [^:]*: /, '').slice(0, 140) : '.') + ' Vous pouvez quand même toucher « Se connecter ».'; } if (cb) cb(false); });
   }
   // Détection automatique dès qu'une adresse complète est saisie (sans cliquer)
   var tDebounce = null;
